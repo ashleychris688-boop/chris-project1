@@ -72,8 +72,8 @@ import { TaskManagementModule } from './components/TaskManagementModule';
 
 export default function App() {
   // Navigation & Authentication state
-  const [viewState, setViewState] = useState<'landing' | 'login' | 'app'>('app');
-  const [isAuthenticated, setAuth] = useState<boolean>(true);
+  const [viewState, setViewState] = useState<'landing' | 'login' | 'app'>('login');
+  const [isAuthenticated, setAuth] = useState<boolean>(false);
   const [currentUser, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
@@ -262,9 +262,15 @@ export default function App() {
   useEffect(() => {
     const storedUser = getCurrentUser();
     const storedAuth = getIsAuthenticated();
-    setUser(storedUser);
-    setAuth(storedAuth);
-    setViewState(storedAuth ? 'app' : 'login');
+    if (storedAuth && storedUser) {
+      setUser(storedUser);
+      setAuth(true);
+      setViewState('app');
+    } else {
+      setUser(null);
+      setAuth(false);
+      setViewState('login');
+    }
 
     const loadedFiles = getStoredFiles();
     if (loadedFiles.length > 0) {

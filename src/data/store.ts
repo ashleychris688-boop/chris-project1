@@ -281,8 +281,7 @@ export function saveUnprocessedRecords(records: UnprocessedClientRecord[]): void
 }
 
 export function getCurrentUser(): User | null {
-
-  return loadItem(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[0]);
+  return loadItem(STORAGE_KEYS.CURRENT_USER, null);
 }
 
 export function setCurrentUser(user: User | null): void {
@@ -290,7 +289,7 @@ export function setCurrentUser(user: User | null): void {
 }
 
 export function getIsAuthenticated(): boolean {
-  return loadItem(STORAGE_KEYS.IS_AUTHENTICATED, true);
+  return loadItem(STORAGE_KEYS.IS_AUTHENTICATED, false);
 }
 
 export function setIsAuthenticated(auth: boolean): void {
