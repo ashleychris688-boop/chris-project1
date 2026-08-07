@@ -1,0 +1,6 @@
+{
+  "name": "LAW FIRM REGISTRY",
+  "description": "Multi-Tenant SaaS Law Firm Physical File & Litigation Registry System for law firms with firm registration, auto-role workspace routing, physical file tracking, court diary, and platform administration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
