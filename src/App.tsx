@@ -72,7 +72,7 @@ import { TaskManagementModule } from './components/TaskManagementModule';
 
 export default function App() {
   // Navigation & Authentication state
-  const [viewState, setViewState] = useState<'landing' | 'login' | 'app'>('login');
+  const [viewState, setViewState] = useState<'landing' | 'login' | 'app'>('landing');
   const [isAuthenticated, setAuth] = useState<boolean>(false);
   const [currentUser, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -260,17 +260,10 @@ export default function App() {
 
   // Load user on startup and sync Firebase collections
   useEffect(() => {
-    const storedUser = getCurrentUser();
-    const storedAuth = getIsAuthenticated();
-    if (storedAuth && storedUser) {
-      setUser(storedUser);
-      setAuth(true);
-      setViewState('app');
-    } else {
-      setUser(null);
-      setAuth(false);
-      setViewState('login');
-    }
+    // Always start on the public Landing Page when opening the application link
+    setUser(null);
+    setAuth(false);
+    setViewState('landing');
 
     const loadedFiles = getStoredFiles();
     if (loadedFiles.length > 0) {
@@ -326,10 +319,11 @@ export default function App() {
     setAuth(false);
     if (targetRoleTab) {
       setPendingLoginRoleTab(targetRoleTab);
+      setViewState('login');
     } else {
       setPendingLoginRoleTab(undefined);
+      setViewState('landing');
     }
-    setViewState('login');
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'User Logout', 'Auth', 'User logged out of session');
       setAuditLogsState(getStoredAuditLogs());
