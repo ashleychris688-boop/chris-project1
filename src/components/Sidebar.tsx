@@ -57,7 +57,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isSuperAdmin = currentUser?.role === 'Super Admin';
 
   const menuItems = [
-    { id: 'super-admin', label: 'Platform Control Center', icon: Shield, roles: ['Super Admin'] },
     { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['Proprietor', 'Secretary', 'Clerk', 'Advocate', 'Case Chaser', 'Super Admin'] },
     { id: 'tasks', label: 'Task Management', icon: CheckSquare, badge: counts?.pendingTasks, badgeColor: 'bg-[#C9A227] text-slate-950 font-bold', roles: ['Proprietor', 'Secretary', 'Clerk', 'Advocate', 'Case Chaser', 'Super Admin'] },
     { id: 'registry', label: 'Registry', icon: FolderArchive, roles: ['Proprietor', 'Secretary', 'Advocate', 'Clerk', 'Super Admin'] },
@@ -93,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!collapsed && (
           <div className="flex items-center gap-1 px-2">
             <span className="text-[11px] font-bold text-[#C9A227] uppercase tracking-wider">
-              {isAdmin ? 'ADMIN NAVIGATION' : `${role.toUpperCase()} MENU`}
+              {isAdmin ? 'ADMIN NAVIGATION' : isSuperAdmin ? 'WORKSPACE NAVIGATION' : `${role.toUpperCase()} MENU`}
             </span>
           </div>
         )}

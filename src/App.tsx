@@ -715,25 +715,27 @@ export default function App() {
       {/* Body Area with Fixed Left Sidebar */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* Navigation Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          onSelectTab={tab => setActiveTab(tab)}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          currentUser={currentUser}
-          counts={{
-            sessionsToday: courtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length,
-            filesOut: files.filter(f => f.currentStatus.startsWith('Out')).length,
-            pendingCheques: cheques.filter(c => c.status !== 'Cleared').length,
-            commissions: commissions.filter(c => c.outstandingBalance > 0).length,
-            pendingReviewIntakes: unprocessedRecords.filter(r => r.status === 'Pending Review').length,
-            pendingTasks: tasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length
-          }}
-        />
+        {/* Navigation Sidebar (For Firm Workspaces) */}
+        {activeTab !== 'super-admin' && (
+          <Sidebar
+            activeTab={activeTab}
+            onSelectTab={tab => setActiveTab(tab)}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            currentUser={currentUser}
+            counts={{
+              sessionsToday: courtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length,
+              filesOut: files.filter(f => f.currentStatus.startsWith('Out')).length,
+              pendingCheques: cheques.filter(c => c.status !== 'Cleared').length,
+              commissions: commissions.filter(c => c.outstandingBalance > 0).length,
+              pendingReviewIntakes: unprocessedRecords.filter(r => r.status === 'Pending Review').length,
+              pendingTasks: tasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length
+            }}
+          />
+        )}
 
         {/* Main Content Workspace */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className={`flex-1 overflow-y-auto ${activeTab === 'super-admin' ? 'p-0 max-w-full' : 'p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto'} w-full`}>
           
           {activeTab === 'super-admin' && (
             <SuperAdminModule
@@ -744,6 +746,10 @@ export default function App() {
               currentUser={currentUser}
               onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
               onAccessWorkspace={handleAccessWorkspace}
+              onLogout={() => {
+                setCurrentUser(null);
+                setViewState('login');
+              }}
             />
           )}
 
