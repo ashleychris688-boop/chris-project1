@@ -57,10 +57,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isSuperAdmin = currentUser?.role === 'Super Admin';
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['Proprietor', 'Secretary', 'Clerk', 'Advocate', 'Case Chaser', 'Super Admin'] },
-    { id: 'tasks', label: 'Task Management', icon: CheckSquare, badge: counts?.pendingTasks, badgeColor: 'bg-[#C9A227] text-slate-950 font-bold', roles: ['Proprietor', 'Secretary', 'Clerk', 'Advocate', 'Case Chaser', 'Super Admin'] },
-    { id: 'registry', label: 'Registry', icon: FolderArchive, roles: ['Proprietor', 'Secretary', 'Advocate', 'Clerk', 'Super Admin'] },
-    { id: 'court-diary', label: 'Court Diary', icon: Scale, badge: counts?.sessionsToday, roles: ['Proprietor', 'Secretary', 'Advocate', 'Super Admin'] },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['Proprietor', 'Secretary', 'Clerk', 'Advocate', 'Case Chaser', 'Super Admin', 'Client'] },
+    { id: 'tasks', label: 'Task Management', icon: CheckSquare, badge: counts?.pendingTasks, badgeColor: 'bg-[#C9A227] text-slate-950 font-bold', roles: ['Proprietor', 'Secretary', 'Clerk', 'Advocate', 'Case Chaser', 'Super Admin', 'Client'] },
+    { id: 'registry', label: 'Registry', icon: FolderArchive, roles: ['Proprietor', 'Secretary', 'Advocate', 'Clerk', 'Super Admin', 'Client'] },
+    { id: 'court-diary', label: 'Court Diary', icon: Scale, badge: counts?.sessionsToday, roles: ['Proprietor', 'Secretary', 'Advocate', 'Super Admin', 'Client'] },
     { id: 'court-outcomes', label: 'Court Outcomes', icon: FileCheck2, roles: ['Proprietor', 'Secretary', 'Advocate', 'Super Admin'] },
     { id: 'file-tracker', label: 'Physical File Tracker', icon: PackageSearch, badge: counts?.filesOut, badgeColor: 'bg-orange-600', roles: ['Proprietor', 'Clerk', 'Super Admin'] },
     { id: 'bring-up', label: 'Bring-Up Lists', icon: ListOrdered, roles: ['Proprietor', 'Secretary', 'Clerk', 'Super Admin'] },

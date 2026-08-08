@@ -15,7 +15,8 @@ import {
   ChaserFollowUpLog,
   ChaserFileResponsibility,
   ChaserTask,
-  UnprocessedClientRecord
+  UnprocessedClientRecord,
+  UrgentAlert
 } from '../types';
 
 import {
@@ -65,7 +66,8 @@ const STORAGE_KEYS = {
   FOLLOW_UP_LOGS: 'lfr_chaser_logs_v1',
   RESPONSIBILITIES: 'lfr_chaser_responsibilities_v1',
   TASKS: 'lfr_chaser_tasks_v1',
-  UNPROCESSED: 'lfr_unprocessed_records_v1'
+  UNPROCESSED: 'lfr_unprocessed_records_v1',
+  URGENT_ALERTS: 'lfr_urgent_alerts_v1'
 };
 
 
@@ -278,6 +280,24 @@ export function getStoredUnprocessedRecords(): UnprocessedClientRecord[] {
 
 export function saveUnprocessedRecords(records: UnprocessedClientRecord[]): void {
   saveItem(STORAGE_KEYS.UNPROCESSED, records);
+}
+
+export function getStoredUrgentAlerts(): UrgentAlert[] {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const initialAlerts: UrgentAlert[] = [
+    {
+      id: 'alert-init-1',
+      fileNumber: 'NGA/002/2026',
+      time: '10:00 AM',
+      purpose: 'Urgent Application Mention - Interim Injunction',
+      date: todayStr
+    }
+  ];
+  return loadItem(STORAGE_KEYS.URGENT_ALERTS, initialAlerts);
+}
+
+export function saveUrgentAlerts(alerts: UrgentAlert[]): void {
+  saveItem(STORAGE_KEYS.URGENT_ALERTS, alerts);
 }
 
 export function getCurrentUser(): User | null {

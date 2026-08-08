@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PendingCheque, RegistryFile } from '../types';
+import { isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { 
   Receipt, 
   Search, 
@@ -296,9 +297,20 @@ export const ChequesModule: React.FC<ChequesModuleProps> = ({
                     type="date"
                     required
                     value={formData.expectedReleaseDate}
-                    onChange={e => setFormData({ ...formData, expectedReleaseDate: e.target.value })}
+                    onChange={e => {
+                      const selected = e.target.value;
+                      if (selected && isWeekend(selected)) {
+                        const valid = ensureWeekday(selected);
+                        setFormData({ ...formData, expectedReleaseDate: valid });
+                      } else {
+                        setFormData({ ...formData, expectedReleaseDate: selected });
+                      }
+                    }}
                     className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded focus:border-[#C9A227]"
                   />
+                  {formData.expectedReleaseDate && isWeekend(formData.expectedReleaseDate) && (
+                    <span className="text-[10px] text-amber-400 font-semibold block mt-0.5">⚠️ Banks are closed on weekends. Auto-adjusted to Monday.</span>
+                  )}
                 </div>
               </div>
 

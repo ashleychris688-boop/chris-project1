@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   Bell
 } from 'lucide-react';
-import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend } from '../utils/dateUtils';
+import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 
 interface CourtDiaryModuleProps {
   sessions: CourtSession[];
@@ -124,10 +124,14 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
 
     let alertPayload = undefined;
     if (formData.hearingDate === todayStr) {
+      if (!formData.hearingTime || !formData.hearingTime.trim()) {
+        setValidationError('Hearing Time is strictly required when fixing a court session for Today (e.g., 09:30 AM).');
+        return;
+      }
       alertPayload = {
         fileNumber: formData.fileNumber,
-        time: formData.hearingTime || '09:00 AM',
-        purpose: formData.purpose || 'Mention'
+        time: formData.hearingTime.trim(),
+        purpose: `${formData.purpose || 'Mention'} — Station: ${formData.courtStation || 'Milimani Law Courts'}`
       };
     }
 
@@ -352,8 +356,15 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
                     min={todayStr}
                     value={formData.hearingDate}
                     onChange={e => {
-                      setFormData({ ...formData, hearingDate: e.target.value });
-                      setValidationError(null);
+                      const selected = e.target.value;
+                      if (selected && isWeekend(selected)) {
+                        const valid = ensureWeekday(selected);
+                        setFormData({ ...formData, hearingDate: valid });
+                        setValidationError(`Weekend court dates are forbidden. Auto-adjusted from ${selected} to next business day (${valid}).`);
+                      } else {
+                        setFormData({ ...formData, hearingDate: selected });
+                        setValidationError(null);
+                      }
                     }}
                     className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded focus:border-[#C9A227]"
                   />

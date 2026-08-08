@@ -1,4 +1,4 @@
-export type UserRole = 'Proprietor' | 'Advocate' | 'Secretary' | 'Clerk' | 'Case Chaser' | 'Admin' | 'Super Admin';
+export type UserRole = 'Proprietor' | 'Advocate' | 'Secretary' | 'Clerk' | 'Case Chaser' | 'Admin' | 'Super Admin' | 'Client';
 
 export interface User {
   id: string;
@@ -411,4 +411,16 @@ export interface UnprocessedClientRecord {
   rejectionReason?: string;
   createdFileNumber?: string;
 }
+
+export interface UrgentAlert {
+  id: string;
+  fileNumber: string;
+  time: string;
+  purpose: string;
+  date: string;
+  createdAt?: string;
+  acknowledgedBy?: string[];
+  dismissed?: boolean;
+}
+
 

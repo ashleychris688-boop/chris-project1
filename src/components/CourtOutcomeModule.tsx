@@ -15,7 +15,7 @@ import {
   Bell,
   X
 } from 'lucide-react';
-import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend } from '../utils/dateUtils';
+import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 
 interface CourtOutcomeModuleProps {
   outcomes: CourtOutcome[];
@@ -63,8 +63,14 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
   }, [preselectedSession]);
 
   const handleNextDateChange = (dateVal: string) => {
-    setNextHearingDate(dateVal);
-    setValidationError(null);
+    if (dateVal && isWeekend(dateVal)) {
+      const valid = ensureWeekday(dateVal);
+      setNextHearingDate(valid);
+      setValidationError(`Weekend court dates are forbidden. Auto-adjusted from ${dateVal} to next business day (${valid}).`);
+    } else {
+      setNextHearingDate(dateVal);
+      setValidationError(null);
+    }
   };
 
   const handleSaveOutcome = (e: React.FormEvent) => {
@@ -96,13 +102,17 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
       caseStatusAfter
     };
 
-    // If next hearing date is TODAY, prepare same day alert for Clerk, Admin, Secretary
+    // If next hearing date is TODAY, prepare same day alert for Clerk, Proprietor, Secretary
     let alertPayload = undefined;
     if (nextHearingDate === todayStr) {
+      if (!nextHearingTime || !nextHearingTime.trim()) {
+        setValidationError('Hearing Time is strictly required when fixing a court appearance for Today (e.g., 09:30 AM).');
+        return;
+      }
       alertPayload = {
         fileNumber: file.internalFileNumber,
-        time: nextHearingTime || '09:00 AM',
-        purpose: outcomeDetails.substring(0, 50)
+        time: nextHearingTime.trim(),
+        purpose: outcomeDetails.substring(0, 80)
       };
     }
 
@@ -243,7 +253,17 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
                     type="date"
                     required
                     value={appearanceDate}
-                    onChange={e => setAppearanceDate(e.target.value)}
+                    onChange={e => {
+                      const selected = e.target.value;
+                      if (selected && isWeekend(selected)) {
+                        const valid = ensureWeekday(selected);
+                        setAppearanceDate(valid);
+                        setValidationError(`Appearance date cannot fall on a weekend. Auto-adjusted from ${selected} to next business day (${valid}).`);
+                      } else {
+                        setAppearanceDate(selected);
+                        setValidationError(null);
+                      }
+                    }}
                     className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded focus:border-[#C9A227]"
                   />
                 </div>

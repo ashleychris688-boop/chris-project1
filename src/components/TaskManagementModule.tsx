@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { 
   TaskItem, 
   TaskPriority, 
@@ -1340,10 +1341,21 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                   <input
                     type="date"
                     value={newTask.dueDate}
-                    onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })}
+                    onChange={e => {
+                      const selected = e.target.value;
+                      if (selected && isWeekend(selected)) {
+                        const valid = ensureWeekday(selected);
+                        setNewTask({ ...newTask, dueDate: valid });
+                      } else {
+                        setNewTask({ ...newTask, dueDate: selected });
+                      }
+                    }}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
                     required
                   />
+                  {newTask.dueDate && isWeekend(newTask.dueDate) && (
+                    <span className="text-[10px] text-amber-400 font-semibold block mt-0.5">⚠️ Task due dates cannot fall on weekends. Auto-adjusted to Monday.</span>
+                  )}
                 </div>
 
                 {/* Due Time */}

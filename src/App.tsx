@@ -16,7 +16,8 @@ import {
   ChaserFollowUpLog,
   ChaserFileResponsibility,
   ChaserTask,
-  UnprocessedClientRecord
+  UnprocessedClientRecord,
+  UrgentAlert
 } from './types';
 
 import {
@@ -37,12 +38,14 @@ import {
   getStoredResponsibilities, saveResponsibilities,
   getStoredTasks, saveTasks,
   getStoredUnprocessedRecords, saveUnprocessedRecords,
+  getStoredUrgentAlerts, saveUrgentAlerts,
   getCurrentUser, setCurrentUser,
   getIsAuthenticated, setIsAuthenticated,
   resetToDefaults
 } from './data/store';
 
-import { saveDocumentToFirebase } from './lib/firebase';
+import { saveDocumentToFirebase, triggerLocalStorageFirebaseSnapshot } from './lib/firebase';
+import { ShieldAlert } from 'lucide-react';
 
 
 import { Header } from './components/Header';
@@ -247,16 +250,60 @@ export default function App() {
   const [openNewFileModalOnRegistry, setOpenNewFileModalOnRegistry] = useState(false);
   const [pendingLoginRoleTab, setPendingLoginRoleTab] = useState<SelectedRoleTab | undefined>(undefined);
 
-  // Urgent Same-Day Alerts for Clerk, Admin & Secretary
-  const [urgentAlerts, setUrgentAlerts] = useState<Array<{ id: string; fileNumber: string; time: string; purpose: string; date: string }>>([
-    {
-      id: 'alert-init-1',
-      fileNumber: 'NGA/002/2026',
-      time: '10:00 AM',
-      purpose: 'Urgent Application Mention - Interim Injunction',
-      date: new Date().toISOString().split('T')[0]
+  // Urgent Same-Day Alerts for Clerk, Admin & Secretary (Persisted in localStorage)
+  const [urgentAlerts, setUrgentAlertsState] = useState<UrgentAlert[]>(() => getStoredUrgentAlerts());
+
+  const saveAlerts = (updatedAlerts: UrgentAlert[]) => {
+    setUrgentAlertsState(updatedAlerts);
+    saveUrgentAlerts(updatedAlerts);
+  };
+
+  const handleAcknowledgeAlert = (alertId?: string) => {
+    const ackedAlert = alertId ? urgentAlerts.find(a => a.id === alertId) : urgentAlerts[0];
+    const updated = urgentAlerts.filter(a => a.id !== (alertId || ackedAlert?.id));
+    saveAlerts(updated);
+
+    if (currentUser && ackedAlert) {
+      addAuditLog(
+        currentUser.fullName,
+        currentUser.role,
+        'Acknowledged Same-Day Court Alert',
+        'Court',
+        `Acknowledged same-day court alert for File ${ackedAlert.fileNumber} scheduled at ${ackedAlert.time}`
+      );
+      setAuditLogsState(getStoredAuditLogs());
     }
-  ]);
+  };
+
+  // Last Firebase Local Storage Snapshot Redundancy Sync Time
+  const [lastSnapshotSyncTime, setLastSnapshotSyncTime] = useState<string>('');
+
+  const performFirebaseSnapshotSync = async () => {
+    const firmCode = currentUser?.firmCode || 'OM-ADV-001';
+    const res = await triggerLocalStorageFirebaseSnapshot(firmCode);
+    if (res && res.timestamp) {
+      const formatted = new Date(res.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setLastSnapshotSyncTime(formatted);
+    }
+  };
+
+  // Periodic Local Storage -> Firebase Redundancy Sync (every 60 seconds)
+  useEffect(() => {
+    // Initial snapshot after 2 seconds
+    const initialTimer = setTimeout(() => {
+      performFirebaseSnapshotSync();
+    }, 2000);
+
+    // Periodic interval every 60 seconds
+    const interval = setInterval(() => {
+      performFirebaseSnapshotSync();
+    }, 60000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [currentUser?.firmCode]);
 
   // Load user on startup and sync Firebase collections
   useEffect(() => {
@@ -411,14 +458,15 @@ export default function App() {
     saveCourtSessions(updated);
 
     if (sameDayAlert) {
-      const newAlert = {
-        id: `alert-${Date.now()}`,
+      const newAlert: UrgentAlert = {
+        id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         fileNumber: sameDayAlert.fileNumber,
         time: sameDayAlert.time,
         purpose: sameDayAlert.purpose,
-        date: newSession.hearingDate
+        date: newSession.hearingDate || new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString()
       };
-      setUrgentAlerts(prev => [newAlert, ...prev]);
+      saveAlerts([newAlert, ...urgentAlerts]);
     }
 
     if (currentUser) {
@@ -444,14 +492,15 @@ export default function App() {
     saveCourtOutcomes(updatedOutcomes);
 
     if (sameDayAlert) {
-      const newAlert = {
-        id: `alert-${Date.now()}`,
+      const newAlert: UrgentAlert = {
+        id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         fileNumber: sameDayAlert.fileNumber,
         time: sameDayAlert.time,
         purpose: sameDayAlert.purpose,
-        date: nextCourtDate || new Date().toISOString().split('T')[0]
+        date: nextCourtDate || new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString()
       };
-      setUrgentAlerts(prev => [newAlert, ...prev]);
+      saveAlerts([newAlert, ...urgentAlerts]);
     }
 
     // Update file's next court date and status
@@ -643,6 +692,7 @@ export default function App() {
           users={users}
           initialRoleTab={pendingLoginRoleTab}
           onLoginSuccess={handleLoginSuccess}
+          onUpdateUser={handleUpdateUser}
           onBackToLanding={() => setViewState('landing')}
         />
 
@@ -668,46 +718,57 @@ export default function App() {
         onSwitchUser={handleSwitchUser}
         onLogout={() => handleLogout()}
         onNavigateTab={tab => setActiveTab(tab)}
-        onGoToSuperAdmin={() => setActiveTab('super-admin')}
+        onGoToSuperAdmin={currentUser?.role === 'Super Admin' ? () => setActiveTab('super-admin') : undefined}
+        onManualCloudSync={performFirebaseSnapshotSync}
+        lastSyncTime={lastSnapshotSyncTime}
         sessionsTodayCount={courtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length}
         filesOutCount={files.filter(f => f.currentStatus.startsWith('Out')).length}
         pendingChequesCount={cheques.filter(c => c.status !== 'Cleared').length}
       />
 
-      {/* URGENT SAME-DAY COURT HEARING BROADCAST BANNER FOR CLERK, ADMIN & SECRETARY */}
-      {urgentAlerts.length > 0 && ['Clerk', 'Proprietor', 'Secretary'].includes(currentUser?.role || '') && (
-        <div className="bg-gradient-to-r from-red-950 via-amber-950 to-red-950 border-b-2 border-[#C9A227] px-4 py-2 text-xs flex items-center justify-between shadow-2xl z-20">
+      {/* URGENT SAME-DAY COURT HEARING BROADCAST BANNER FOR CLERK, PROPRIETOR & SECRETARY */}
+      {urgentAlerts.length > 0 && ['Clerk', 'Proprietor', 'Secretary', 'Admin', 'Super Admin'].includes(currentUser?.role || '') && (
+        <div className="bg-gradient-to-r from-red-950 via-amber-950 to-red-950 border-b-2 border-[#C9A227] px-4 py-2.5 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-2xl z-20">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center font-bold shrink-0 animate-bounce">
+            <div className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center font-bold shrink-0 animate-pulse shadow-lg">
               🚨
             </div>
             <div className="truncate">
-              <div className="font-extrabold text-amber-200 uppercase tracking-wider flex items-center gap-2">
+              <div className="font-extrabold text-amber-200 uppercase tracking-wider flex items-center gap-2 flex-wrap">
                 <span>SAME-DAY COURT HEARING ALERT ({urgentAlerts.length})</span>
-                <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-mono">
-                  ACTION REQUIRED FOR CLERK / ADMIN / SECRETARY
+                <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-mono font-bold">
+                  ACTION REQUIRED FOR CLERK / PROPRIETOR / SECRETARY
                 </span>
               </div>
-              <div className="text-slate-200 truncate mt-0.5 font-mono">
-                File: <strong>{urgentAlerts[0].fileNumber}</strong> @ <strong>{urgentAlerts[0].time} TODAY ({urgentAlerts[0].date})</strong> — {urgentAlerts[0].purpose}
+              <div className="text-slate-100 truncate mt-0.5 font-mono">
+                File: <strong className="text-amber-300 font-extrabold">{urgentAlerts[0].fileNumber}</strong> @ <strong className="text-emerald-400 font-extrabold">{urgentAlerts[0].time} TODAY ({urgentAlerts[0].date})</strong> — <span className="text-slate-200">{urgentAlerts[0].purpose}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 ml-4">
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             <button
               onClick={() => setActiveTab('court-diary')}
-              className="px-3 py-1 bg-[#C9A227] hover:bg-amber-400 text-slate-950 font-bold rounded text-[11px] shadow transition"
+              className="px-3 py-1.5 bg-[#C9A227] hover:bg-amber-400 text-slate-950 font-extrabold rounded-lg text-[11px] shadow transition flex items-center gap-1"
             >
               View Court Diary
             </button>
             <button
-              onClick={() => setUrgentAlerts(urgentAlerts.slice(1))}
-              className="px-2 py-1 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded text-[10px] border border-slate-700"
-              title="Acknowledge & Dismiss Alert"
+              onClick={() => handleAcknowledgeAlert(urgentAlerts[0].id)}
+              className="px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 font-extrabold rounded-lg text-[11px] border border-emerald-700 shadow transition flex items-center gap-1"
+              title="Acknowledge and clear this same-day court alert"
             >
               Acknowledge ✓
             </button>
+            {urgentAlerts.length > 1 && (
+              <button
+                onClick={() => saveAlerts([])}
+                className="px-2.5 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 font-semibold rounded-lg text-[10px] border border-slate-700"
+                title="Dismiss all current alerts"
+              >
+                Clear All ({urgentAlerts.length})
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -738,19 +799,35 @@ export default function App() {
         <main className={`flex-1 overflow-y-auto ${activeTab === 'super-admin' ? 'p-0 max-w-full' : 'p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto'} w-full`}>
           
           {activeTab === 'super-admin' && (
-            <SuperAdminModule
-              firms={firms}
-              files={files}
-              users={users}
-              auditLogs={auditLogs}
-              currentUser={currentUser}
-              onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
-              onAccessWorkspace={handleAccessWorkspace}
-              onLogout={() => {
-                setCurrentUser(null);
-                setViewState('login');
-              }}
-            />
+            currentUser?.role === 'Super Admin' ? (
+              <SuperAdminModule
+                firms={firms}
+                files={files}
+                users={users}
+                auditLogs={auditLogs}
+                currentUser={currentUser}
+                onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
+                onAccessWorkspace={handleAccessWorkspace}
+                onLogout={() => {
+                  setCurrentUser(null);
+                  setViewState('login');
+                }}
+              />
+            ) : (
+              <div className="p-8 text-center bg-red-950/40 border border-red-700/60 rounded-2xl max-w-lg mx-auto my-12 text-slate-100 shadow-2xl">
+                <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-red-300">Platform Admin Access Restricted</h3>
+                <p className="text-xs text-slate-300 mt-1 mb-4 leading-relaxed">
+                  The Platform Admin control center cannot be accessed through client or firm staff user accounts.
+                </p>
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className="px-4 py-2 bg-[#C9A227] text-slate-950 font-bold text-xs rounded-lg hover:bg-amber-400 transition cursor-pointer"
+                >
+                  Return to Workspace Dashboard
+                </button>
+              </div>
+            )
           )}
 
           {activeTab === 'tasks' && (

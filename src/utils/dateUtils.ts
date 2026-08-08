@@ -41,6 +41,37 @@ export function getNextBusinessDay(fromDateStr?: string): string {
   return current.toISOString().split('T')[0];
 }
 
+export function ensureWeekday(dateStr: string): string {
+  if (!dateStr) return dateStr;
+  if (!isWeekend(dateStr)) return dateStr;
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(year, month - 1, day);
+  
+  // If Saturday (6), add 2 days to get Monday. If Sunday (0), add 1 day to get Monday.
+  if (d.getDay() === 6) {
+    d.setDate(d.getDate() + 2);
+  } else if (d.getDay() === 0) {
+    d.setDate(d.getDate() + 1);
+  }
+  
+  return d.toISOString().split('T')[0];
+}
+
+export function validateNonWeekendDate(dateStr: string, fieldLabel = 'Selected date'): { isValid: boolean; errorMessage?: string; suggestedDate?: string } {
+  if (!dateStr) return { isValid: true };
+  if (isWeekend(dateStr)) {
+    const dayName = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+    const suggested = ensureWeekday(dateStr);
+    return {
+      isValid: false,
+      errorMessage: `${fieldLabel} (${dateStr}) falls on a weekend (${dayName}). Courts, law registries, and firm operations are strictly closed on weekends.`,
+      suggestedDate: suggested
+    };
+  }
+  return { isValid: true };
+}
+
 export function validateCourtDate(dateStr: string, timeStr?: string): DateValidationResult {
   if (!dateStr) {
     return {
@@ -67,9 +98,10 @@ export function validateCourtDate(dateStr: string, timeStr?: string): DateValida
   }
 
   if (isWeekend(dateStr)) {
+    const dayName = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
     return {
       isValid: false,
-      errorMessage: `Selected date (${dateStr}) falls on a weekend. Courts are closed on weekends.`,
+      errorMessage: `Selected date (${dateStr}) falls on a weekend (${dayName}). Courts and registry offices are strictly closed on weekends.`,
       isToday: false,
       isWeekend: true,
       isPast: false,

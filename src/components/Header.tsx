@@ -24,6 +24,8 @@ interface HeaderProps {
   onSearchQuery?: (query: string) => void;
   onNavigateTab: (tab: string) => void;
   onGoToSuperAdmin?: () => void;
+  onManualCloudSync?: () => void;
+  lastSyncTime?: string;
   sessionsTodayCount?: number;
   filesOutCount?: number;
   pendingChequesCount?: number;
@@ -39,6 +41,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchQuery,
   onNavigateTab,
   onGoToSuperAdmin,
+  onManualCloudSync,
+  lastSyncTime,
   sessionsTodayCount = 2,
   filesOutCount = 3,
   pendingChequesCount = 1
@@ -46,6 +50,15 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleTriggerSync = () => {
+    if (onManualCloudSync) {
+      setIsSyncing(true);
+      onManualCloudSync();
+      setTimeout(() => setIsSyncing(false), 1200);
+    }
+  };
 
   const notifications = [
     { id: 1, title: `${sessionsTodayCount} Court Session${sessionsTodayCount === 1 ? '' : 's'} Today`, desc: 'Milimani Commercial & Civil Law Courts scheduled hearings.', type: 'urgent', tab: 'court-diary' },
@@ -108,7 +121,26 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right: Quick Role Switcher, Notifications & User Menu */}
         <div className="flex items-center gap-3">
 
-          {(currentUser?.role === 'Super Admin' || onGoToSuperAdmin) && (
+          {/* Cloud Redundancy Snapshot Sync Indicator */}
+          {onManualCloudSync && (
+            <button
+              onClick={handleTriggerSync}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md ${
+                isSyncing 
+                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 animate-pulse' 
+                  : 'bg-slate-900/90 border-emerald-700/60 hover:bg-slate-800 text-emerald-400'
+              }`}
+              title={`Periodic Local Storage -> Firebase Redundancy Sync. ${lastSyncTime ? 'Last synced: ' + lastSyncTime : 'Click to sync now.'}`}
+            >
+              <Sparkles className={`w-3.5 h-3.5 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span className="hidden lg:inline text-[11px]">Firebase Backup</span>
+              <span className="text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700/60">
+                {isSyncing ? 'Syncing...' : 'Active'}
+              </span>
+            </button>
+          )}
+
+          {currentUser?.role === 'Super Admin' && onGoToSuperAdmin && (
             <button
               onClick={onGoToSuperAdmin}
               className="px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500/30 text-amber-300 font-mono text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
@@ -206,7 +238,7 @@ export const Header: React.FC<HeaderProps> = ({
                       Switch Role (Logs Out & Prompts Password):
                     </div>
                     <div className="space-y-1">
-                      {allUsers.map(user => (
+                      {allUsers.filter(u => u.role !== 'Super Admin').map(user => (
                         <button
                           key={user.id}
                           onClick={() => {

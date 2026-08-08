@@ -13,9 +13,32 @@ import {
   X, 
   ArrowRight, 
   Globe, 
-  ShieldCheck 
+  ShieldCheck,
+  FileCheck,
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { saveDocumentToFirebase } from '../lib/firebase';
+
+const LEGAL_REGISTRY_FORMAT_REGEX = /^(LSK|LR|LFR|REG|P\.?\d+)\/(19\d{2}|20\d{2}|\d{2})\/(\d{2,6})$/i;
+
+export const validateRegistrationNumber = (value: string): { isValid: boolean; message: string } => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { isValid: true, message: 'Optional. Leave blank to auto-generate a provisional registration number.' };
+  }
+  if (LEGAL_REGISTRY_FORMAT_REGEX.test(trimmed)) {
+    return { isValid: true, message: 'Verified official legal registry format.' };
+  }
+  
+  if (!/^(LSK|LR|LFR|REG|P\.?\d+)/i.test(trimmed)) {
+    return { isValid: false, message: 'Must start with official prefix (e.g. LSK, LR, LFR, REG, or P.105)' };
+  }
+  if (!trimmed.includes('/')) {
+    return { isValid: false, message: 'Format requires slashes (e.g. LSK/2026/088)' };
+  }
+  return { isValid: false, message: 'Format must follow [PREFIX]/[YEAR]/[NUMBER] (e.g., LSK/2026/088 or LR/2026/101)' };
+};
 
 interface RegisterFirmModalProps {
   isOpen: boolean;
@@ -65,6 +88,8 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
   const [createdFirm, setCreatedFirm] = useState<LawFirmProfile | null>(null);
   const [createdProprietor, setCreatedProprietor] = useState<User | null>(null);
 
+  const regValidation = validateRegistrationNumber(registrationNumber);
+
   if (!isOpen) return null;
 
   const handleStep1Submit = (e: React.FormEvent) => {
@@ -78,6 +103,12 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
     if (password !== confirmPassword) {
       setErrorMessage('Passwords do not match. Please check and try again.');
+      return;
+    }
+
+    const regValidation = validateRegistrationNumber(registrationNumber);
+    if (registrationNumber.trim() && !regValidation.isValid) {
+      setErrorMessage(`Invalid Registration Number format: ${regValidation.message}`);
       return;
     }
 
@@ -201,18 +232,80 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                 </div>
               </div>
 
-              {/* Registration Number (Optional) */}
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">
-                  LSK Registration Number (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. LSK/2026/088"
-                  value={registrationNumber}
-                  onChange={e => setRegistrationNumber(e.target.value)}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                />
+              {/* Registration Number with Real-time Client-Side Validation */}
+              <div className="sm:col-span-2 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-bold text-slate-200 text-xs">
+                    Law Firm / LSK Registration Number
+                  </label>
+                  {registrationNumber.trim() && (
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
+                      regValidation.isValid 
+                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-700/60' 
+                        : 'bg-rose-950 text-rose-400 border border-rose-700/60'
+                    }`}>
+                      {regValidation.isValid ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                      {regValidation.isValid ? 'Official Format Verified' : 'Invalid Registry Format'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <FileCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. LSK/2026/088 or LR/2026/101"
+                    value={registrationNumber}
+                    onChange={e => setRegistrationNumber(e.target.value.toUpperCase())}
+                    className={`w-full pl-9 pr-3 py-2.5 bg-slate-950 text-white rounded-xl focus:outline-none transition border text-xs font-mono tracking-wide ${
+                      !registrationNumber.trim() 
+                        ? 'border-slate-700 focus:border-[#C9A227]' 
+                        : regValidation.isValid 
+                          ? 'border-emerald-500 focus:border-emerald-400 text-emerald-200' 
+                          : 'border-rose-500 focus:border-rose-400 text-rose-200'
+                    }`}
+                  />
+                </div>
+
+                {/* Real-time Guidance Message & Quick Format Shortcuts */}
+                <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
+                  <div className={`flex items-center gap-1.5 ${
+                    !registrationNumber.trim() 
+                      ? 'text-slate-400' 
+                      : regValidation.isValid 
+                        ? 'text-emerald-400 font-medium' 
+                        : 'text-rose-400 font-medium'
+                  }`}>
+                    {regValidation.isValid && registrationNumber.trim() ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    ) : !regValidation.isValid ? (
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    ) : (
+                      <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    )}
+                    <span>{regValidation.message}</span>
+                  </div>
+
+                  {!registrationNumber.trim() && (
+                    <div className="flex items-center gap-2 text-[10px] shrink-0">
+                      <span className="text-slate-500 font-medium">Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => setRegistrationNumber('LSK/2026/088')}
+                        className="text-[#C9A227] hover:text-amber-300 hover:underline font-mono"
+                      >
+                        LSK/2026/088
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRegistrationNumber('LR/2026/101')}
+                        className="text-[#C9A227] hover:text-amber-300 hover:underline font-mono"
+                      >
+                        LR/2026/101
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Proprietor Name */}

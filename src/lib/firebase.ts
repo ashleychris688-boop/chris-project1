@@ -69,3 +69,89 @@ export async function saveDocumentToFirebase<T extends { id: string }>(collectio
   }
 }
 
+// Data Redundancy: Periodically triggers a full snapshot of Local Storage and syncs to Firebase
+export async function triggerLocalStorageFirebaseSnapshot(firmCode = 'GLOBAL') {
+  try {
+    const parse = (key: string) => {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : [];
+    };
+
+    const physicalFiles = parse('lfr_physical_files_v1');
+    const fileMovements = parse('lfr_file_movements_v1');
+    const auditLogs = parse('lfr_audit_logs_v1');
+    const courtSessions = parse('lfr_court_sessions_v1');
+    const courtOutcomes = parse('lfr_court_outcomes_v1');
+    const bringUps = parse('lfr_bring_ups_v1');
+    const insuranceClaims = parse('lfr_insurance_claims_v1');
+    const cheques = parse('lfr_cheques_v1');
+    const registeredFirms = parse('lfr_registered_firms_v1');
+    const chaserLogs = parse('lfr_chaser_logs_v1');
+    const chaserResponsibilities = parse('lfr_chaser_responsibilities_v1');
+    const chaserTasks = parse('lfr_chaser_tasks_v1');
+    const unprocessedRecords = parse('lfr_unprocessed_records_v1');
+    const urgentAlerts = parse('lfr_urgent_alerts_v1');
+
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const docId = `latest_snapshot_${firmCode.toLowerCase()}`;
+
+    const snapshotData = {
+      id: docId,
+      timestamp,
+      firmCode,
+      recordCounts: {
+        physicalFiles: physicalFiles.length,
+        fileMovements: fileMovements.length,
+        auditLogs: auditLogs.length,
+        courtSessions: courtSessions.length,
+        courtOutcomes: courtOutcomes.length,
+        bringUps: bringUps.length,
+        insuranceClaims: insuranceClaims.length,
+        cheques: cheques.length,
+        registeredFirms: registeredFirms.length,
+        chaserTasks: chaserTasks.length,
+        unprocessedRecords: unprocessedRecords.length,
+        urgentAlerts: urgentAlerts.length
+      },
+      payload: {
+        physicalFiles,
+        fileMovements,
+        auditLogs,
+        courtSessions,
+        courtOutcomes,
+        bringUps,
+        insuranceClaims,
+        cheques,
+        registeredFirms,
+        chaserLogs,
+        chaserResponsibilities,
+        chaserTasks,
+        unprocessedRecords,
+        urgentAlerts
+      }
+    };
+
+    // Save current active snapshot document
+    await saveDocumentToFirebase('local_storage_snapshots', snapshotData);
+
+    // Save historical entry in snapshot_history
+    const historyId = `snapshot_${firmCode.toLowerCase()}_${now.getTime()}`;
+    saveDocumentToFirebase('snapshot_history', {
+      ...snapshotData,
+      id: historyId
+    });
+
+    console.info(`[Firebase Data Redundancy] Snapshot synced to Firebase at ${timestamp}`);
+    return {
+      success: true,
+      timestamp,
+      snapshotId: docId,
+      counts: snapshotData.recordCounts
+    };
+  } catch (err) {
+    console.warn('[Firebase Data Redundancy] Failed to snapshot local storage to Firebase:', err);
+    return null;
+  }
+}
+
