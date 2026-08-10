@@ -208,7 +208,7 @@ export interface AuditLogEntry {
   user: string;
   role: string;
   action: string;
-  category: 'Registry' | 'Movement' | 'Court' | 'Insurance' | 'Commission' | 'User' | 'Settings' | 'Auth';
+  category: 'Registry' | 'Movement' | 'Court' | 'Insurance' | 'Commission' | 'User' | 'Settings' | 'Auth' | 'SuperAdmin';
   details: string;
   ipAddress?: string;
 }

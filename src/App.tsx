@@ -338,6 +338,8 @@ export default function App() {
 
   const handleRestoreDefaultData = () => {
     resetToDefaults();
+    setFirmsState(getStoredFirms());
+    setUsersState(getStoredUsers());
     const freshFiles = getStoredFiles();
     setFilesState(freshFiles);
     setCourtSessionsState(getStoredCourtSessions());
@@ -352,6 +354,19 @@ export default function App() {
 
   const handleClearDataForProduction = () => {
     clearAllDataForProduction();
+    setFirmsState([]);
+    saveFirms([]);
+    
+    // Retain Platform Owner user account for platform administration
+    const platformUsers = users.filter(u => u.role === 'Platform Owner' || u.role === 'Super Admin' || u.firmId === 'PLATFORM');
+    if (platformUsers.length > 0) {
+      setUsersState(platformUsers);
+      saveUsers(platformUsers);
+    } else {
+      setUsersState([]);
+      saveUsers([]);
+    }
+
     setFilesState([]);
     setCourtSessionsState([]);
     setCourtOutcomesState([]);
@@ -361,6 +376,43 @@ export default function App() {
     setChequesState([]);
     setCommissionsState([]);
     setAuditLogsState([]);
+  };
+
+  const handleDeleteFirm = (firmId: string) => {
+    const updatedFirms = firms.filter(f => f.id !== firmId);
+    setFirmsState(updatedFirms);
+    saveFirms(updatedFirms);
+
+    const updatedUsers = users.filter(u => u.firmId !== firmId);
+    setUsersState(updatedUsers);
+    saveUsers(updatedUsers);
+
+    addAuditLog(
+      currentUser?.fullName || 'Platform Owner',
+      'Platform Owner',
+      'Delete Law Firm Workspace',
+      'SuperAdmin',
+      `Erased law firm workspace ID ${firmId} from platform registry`
+    );
+    setAuditLogsState(getStoredAuditLogs());
+  };
+
+  const handleWipeAllFirms = () => {
+    setFirmsState([]);
+    saveFirms([]);
+
+    const platformUsers = users.filter(u => u.role === 'Platform Owner' || u.role === 'Super Admin' || u.firmId === 'PLATFORM');
+    setUsersState(platformUsers);
+    saveUsers(platformUsers);
+
+    addAuditLog(
+      currentUser?.fullName || 'Platform Owner',
+      'Platform Owner',
+      'Wipe Platform Law Firms',
+      'SuperAdmin',
+      'Erased all law firm workspaces from platform owner registry'
+    );
+    setAuditLogsState(getStoredAuditLogs());
   };
 
   const mapRoleToRoleTab = (role?: string): SelectedRoleTab => {
@@ -821,6 +873,8 @@ export default function App() {
                 currentUser={currentUser}
                 onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
                 onAccessWorkspace={handleAccessWorkspace}
+                onDeleteFirm={handleDeleteFirm}
+                onWipeAllFirms={handleWipeAllFirms}
                 onLogout={() => {
                   setCurrentUser(null);
                   setViewState('login');

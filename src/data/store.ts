@@ -317,6 +317,7 @@ export function setIsAuthenticated(auth: boolean): void {
 }
 
 export function resetToDefaults(): void {
+  saveItem(STORAGE_KEYS.FIRMS, INITIAL_FIRMS);
   saveItem(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
   saveItem(STORAGE_KEYS.USERS, INITIAL_USERS);
   saveItem(STORAGE_KEYS.FILES, INITIAL_FILES);
@@ -336,6 +337,7 @@ export function resetToDefaults(): void {
 }
 
 export function clearAllDataForProduction(): void {
+  saveItem(STORAGE_KEYS.FIRMS, []);
   saveItem(STORAGE_KEYS.FILES, []);
   saveItem(STORAGE_KEYS.MOVEMENTS, []);
   saveItem(STORAGE_KEYS.COURT_SESSIONS, []);

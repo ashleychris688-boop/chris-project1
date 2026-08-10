@@ -43,7 +43,8 @@ export const validateRegistrationNumber = (value: string): { isValid: boolean; m
 interface RegisterFirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onFirmRegistered: (newFirm: LawFirmProfile, proprietorUser: User) => void;
+  onFirmRegistered?: (newFirm: LawFirmProfile, proprietorUser: User) => void;
+  onSuccess?: (newFirm: LawFirmProfile, proprietorUser: User) => void;
 }
 
 const KENYA_COUNTIES = [
@@ -68,7 +69,8 @@ const KENYA_COUNTIES = [
 export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
   isOpen,
   onClose,
-  onFirmRegistered
+  onFirmRegistered,
+  onSuccess
 }) => {
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -166,7 +168,13 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
   const handleLaunchWorkspace = () => {
     if (createdFirm && createdProprietor) {
-      onFirmRegistered(createdFirm, createdProprietor);
+      if (onFirmRegistered) {
+        onFirmRegistered(createdFirm, createdProprietor);
+      }
+      if (onSuccess) {
+        onSuccess(createdFirm, createdProprietor);
+      }
+      setStep(1);
       onClose();
     }
   };

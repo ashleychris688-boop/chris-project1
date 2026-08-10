@@ -36,7 +36,8 @@ import {
   HelpCircle,
   Filter,
   Server,
-  KeyRound
+  KeyRound,
+  Trash2
 } from 'lucide-react';
 import { saveDocumentToFirebase } from '../lib/firebase';
 
@@ -49,6 +50,8 @@ interface SuperAdminModuleProps {
   onOpenRegisterModal: () => void;
   onAccessWorkspace: (firm: LawFirmProfile) => void;
   onLogout?: () => void;
+  onDeleteFirm?: (firmId: string) => void;
+  onWipeAllFirms?: () => void;
 }
 
 interface RegistrationRequest {
@@ -74,7 +77,9 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
   currentUser,
   onOpenRegisterModal,
   onAccessWorkspace,
-  onLogout
+  onLogout,
+  onDeleteFirm,
+  onWipeAllFirms
 }) => {
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'firms' | 'registrations' | 'users' | 'activity' | 'subscriptions' | 'settings' | 'audit-logs'
@@ -530,12 +535,27 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                             </span>
                           </td>
                           <td className="p-2.5 text-right">
-                            <button
-                              onClick={() => setSelectedFirm(firm)}
-                              className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-[#C9A227] border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
-                            >
-                              Inspect Account
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => setSelectedFirm(firm)}
+                                className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-[#C9A227] border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+                              >
+                                Inspect Account
+                              </button>
+                              {onDeleteFirm && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`Erase law firm "${firm.firmName}" (${firm.firmCode}) from platform?`)) {
+                                      onDeleteFirm(firm.id);
+                                    }
+                                  }}
+                                  className="p-1 bg-red-950/60 hover:bg-red-900 text-red-400 border border-red-800 rounded-lg transition cursor-pointer"
+                                  title="Erase Firm Workspace"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -605,13 +625,29 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 </p>
               </div>
 
-              <button
-                onClick={onOpenRegisterModal}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-lg flex items-center gap-2 cursor-pointer"
-              >
-                <Plus className="w-4 h-4 text-slate-950" />
-                <span>Onboard New Law Firm</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {onWipeAllFirms && firms.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to erase ALL law firms from the owner platform? This will clear all sample workspaces.')) {
+                        onWipeAllFirms();
+                      }
+                    }}
+                    className="px-3.5 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-700 text-red-200 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-lg"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                    <span>Erase All Sample Firms</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={onOpenRegisterModal}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-lg flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-slate-950" />
+                  <span>Onboard New Law Firm</span>
+                </button>
+              </div>
             </div>
 
             {/* Search and Filters */}
@@ -691,13 +727,28 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                           </td>
 
                           <td className="p-3 text-right">
-                            <button
-                              onClick={() => setSelectedFirm(firm)}
-                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-[#C9A227] border border-slate-700 hover:border-[#C9A227] rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Inspect Account Overview</span>
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => setSelectedFirm(firm)}
+                                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-[#C9A227] border border-slate-700 hover:border-[#C9A227] rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Inspect Account Overview</span>
+                              </button>
+                              {onDeleteFirm && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`Delete law firm workspace "${firm.firmName}" (${firm.firmCode})?`)) {
+                                      onDeleteFirm(firm.id);
+                                    }
+                                  }}
+                                  className="p-1.5 bg-red-950/60 hover:bg-red-900 text-red-400 border border-red-800 rounded-xl transition cursor-pointer"
+                                  title="Erase Law Firm Workspace"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1104,13 +1155,30 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowSupportAccessModal(true)}
-                className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <LogIn className="w-4 h-4 text-slate-950" />
-                <span>Enter Firm Workspace</span>
-              </button>
+              <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                {onDeleteFirm && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete law firm workspace "${selectedFirm.firmName}" (${selectedFirm.firmCode}) from the platform?`)) {
+                        onDeleteFirm(selectedFirm.id);
+                        setSelectedFirm(null);
+                      }
+                    }}
+                    className="w-full sm:w-auto px-4 py-3 bg-red-950/80 hover:bg-red-900 text-red-200 font-bold rounded-xl text-xs uppercase tracking-wider border border-red-700 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                    <span>Erase Workspace</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowSupportAccessModal(true)}
+                  className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4 text-slate-950" />
+                  <span>Enter Firm Workspace</span>
+                </button>
+              </div>
             </div>
 
           </div>
