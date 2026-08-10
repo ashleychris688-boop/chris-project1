@@ -1137,6 +1137,7 @@ export default function App() {
           {activeTab === 'user-management' && (
             <UserManagementModule
               users={users}
+              currentUser={currentUser}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
             />

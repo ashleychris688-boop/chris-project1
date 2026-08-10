@@ -190,13 +190,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       // Create or update user entry
       const newUser: User = {
         id: `usr-${Date.now()}`,
-        firmId: firmIdInput || 'OM-ADV-001',
+        firmId: firmIdInput || 'LFR-001',
         firmName: 'Law Firm Workspace',
         username: searchKey.includes('@') ? searchKey.split('@')[0] : searchKey,
         fullName: searchKey,
         role: 'Advocate',
-        email: searchKey.includes('@') ? searchKey : `${searchKey}@omolloadvocates.co.ke`,
-        phone: '+254 700 000000',
+        email: searchKey.includes('@') ? searchKey : `${searchKey}@lawfirm.com`,
+        phone: '',
         password: cleanNewPass,
         status: 'Active',
         lastLogin: 'Never logged in',

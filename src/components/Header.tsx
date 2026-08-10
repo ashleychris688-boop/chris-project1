@@ -238,7 +238,15 @@ export const Header: React.FC<HeaderProps> = ({
                       Switch Role (Logs Out & Prompts Password):
                     </div>
                     <div className="space-y-1">
-                      {allUsers.filter(u => u.role !== 'Super Admin').map(user => (
+                      {allUsers
+                        .filter(u => 
+                          u.role !== 'Super Admin' && 
+                          u.role !== 'Platform Owner' && 
+                          u.username !== 'superadmin' && 
+                          u.id !== '3TVRWijWagVJBVfuTcFXCDqDzR02' &&
+                          (!currentUser?.firmId || !u.firmId || u.firmId === currentUser.firmId)
+                        )
+                        .map(user => (
                         <button
                           key={user.id}
                           onClick={() => {

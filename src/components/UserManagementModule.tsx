@@ -16,12 +16,14 @@ import {
 
 interface UserManagementModuleProps {
   users: User[];
+  currentUser?: User | null;
   onAddUser: (user: User) => void;
   onUpdateUser: (user: User) => void;
 }
 
 export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   users,
+  currentUser,
   onAddUser,
   onUpdateUser
 }) => {
@@ -42,6 +44,10 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   });
 
   const handleToggleSuspend = (user: User) => {
+    if (user.id === currentUser?.id || (currentUser?.role === 'Proprietor' && user.id === currentUser?.id)) {
+      alert('Proprietor cannot suspend their own account.');
+      return;
+    }
     const updatedStatus: User['status'] = user.status === 'Active' ? 'Suspended' : 'Active';
     onUpdateUser({
       ...user,
@@ -70,11 +76,14 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
 
     const newUser: User = {
       id: `usr-${Date.now()}`,
-      username: formData.username ? formData.username.toLowerCase().trim() : formData.email.split('@')[0],
-      fullName: formData.fullName,
+      firmId: currentUser?.firmId,
+      firmCode: currentUser?.firmCode,
+      firmName: currentUser?.firmName,
+      username: formData.username ? formData.username.toLowerCase().trim() : (formData.email ? formData.email.trim().split('@')[0] : 'user'),
+      fullName: formData.fullName.trim(),
       role: (formData.role as UserRole) || 'Advocate',
-      email: formData.email || `${formData.username}@lawfirm.co.ke`,
-      phone: formData.phone || '+254 700 000000',
+      email: formData.email ? formData.email.trim() : '',
+      phone: formData.phone ? formData.phone.trim() : '',
       password: formData.password || 'password123',
       status: 'Active',
       lastLogin: 'Never logged in',
@@ -85,12 +94,31 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     setShowAddModal(false);
   };
 
-  const filteredUsers = users.filter(u => 
-    u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    // Exclude Platform Owner / Super Admin accounts from client firm user management
+    if (
+      u.role === 'Super Admin' ||
+      u.role === 'Platform Owner' ||
+      u.username === 'superadmin' ||
+      u.id === '3TVRWijWagVJBVfuTcFXCDqDzR02' ||
+      u.firmCode === 'PLATFORM' ||
+      u.firmId === 'platform-owner'
+    ) {
+      return false;
+    }
+
+    // Filter to current law firm if firmId is available
+    if (currentUser?.firmId && u.firmId && u.firmId !== currentUser.firmId && currentUser.firmId !== 'platform-owner') {
+      return false;
+    }
+
+    return (
+      u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
     <div className="space-y-6 font-sans text-slate-100">
@@ -191,17 +219,27 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                         Reset Pass
                       </button>
 
-                      <button
-                        onClick={() => handleToggleSuspend(u)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded transition cursor-pointer flex items-center gap-1 ${
-                          u.status === 'Active'
-                            ? 'bg-red-950/80 text-red-300 hover:bg-red-900 border border-red-800'
-                            : 'bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 border border-emerald-800'
-                        }`}
-                      >
-                        {u.status === 'Active' ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                        {u.status === 'Active' ? 'Suspend' : 'Activate'}
-                      </button>
+                      {u.id === currentUser?.id ? (
+                        <span
+                          className="px-2.5 py-1 text-[10px] font-bold rounded bg-slate-900/90 border border-slate-800 text-slate-500 cursor-not-allowed flex items-center gap-1 opacity-70"
+                          title="Proprietor cannot suspend own account"
+                        >
+                          <Lock className="w-3 h-3 text-slate-600" />
+                          Self Account
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleSuspend(u)}
+                          className={`px-2.5 py-1 text-[10px] font-bold rounded transition cursor-pointer flex items-center gap-1 ${
+                            u.status === 'Active'
+                              ? 'bg-red-950/80 text-red-300 hover:bg-red-900 border border-red-800'
+                              : 'bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 border border-emerald-800'
+                          }`}
+                        >
+                          {u.status === 'Active' ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                          {u.status === 'Active' ? 'Suspend' : 'Activate'}
+                        </button>
+                      )}
                     </div>
                   </td>
 
