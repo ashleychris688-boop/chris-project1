@@ -53,6 +53,7 @@ interface SuperAdminModuleProps {
   onDeleteFirm?: (firmId: string) => void;
   onWipeAllFirms?: () => void;
   onUpdatePassword?: (userId: string, newPassword: string) => void;
+  onAddLawFirm?: (newFirm: LawFirmProfile, proprietorUser: User) => void;
 }
 
 interface RegistrationRequest {
@@ -81,7 +82,8 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
   onLogout,
   onDeleteFirm,
   onWipeAllFirms,
-  onUpdatePassword
+  onUpdatePassword,
+  onAddLawFirm
 }) => {
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'firms' | 'registrations' | 'users' | 'activity' | 'subscriptions' | 'settings' | 'audit-logs'
@@ -204,8 +206,59 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
 
   // Handle Approve Registration Request
   const handleApproveRequest = (reqId: string) => {
+    const targetReq = requests.find(r => r.id === reqId);
     setRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: 'Approved' } : r));
     
+    if (targetReq) {
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      const firmId = `LFR${randomDigits}`;
+      const initials = targetReq.firmName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 4);
+      const firmCode = `${initials}-ADV-${Math.floor(100 + Math.random() * 900)}`;
+
+      const newFirm: LawFirmProfile = {
+        id: firmId,
+        firmName: targetReq.firmName,
+        firmCode: firmCode,
+        registrationNumber: targetReq.lskNumber || `LSK/2026/${Math.floor(100 + Math.random() * 900)}`,
+        proprietorName: targetReq.contactPerson,
+        cityOrBranch: targetReq.cityOrBranch || `${targetReq.county} HQ`,
+        physicalAddress: `${targetReq.cityOrBranch || targetReq.county}, Legal Chambers`,
+        country: 'Kenya',
+        county: targetReq.county,
+        adminUsername: targetReq.email.split('@')[0],
+        email: targetReq.email,
+        phone: targetReq.phone,
+        createdAt: new Date().toISOString().split('T')[0],
+        status: 'Active',
+        subscriptionTier: targetReq.requestedPlan || 'Professional',
+        subscriptionStatus: 'Active',
+        activeUsersCount: 1,
+        activeCasesCount: 0,
+        totalFilesCount: 0,
+        monthlyFeeKsh: 25000
+      };
+
+      const proprietorUser: User = {
+        id: `usr-prop-${Date.now()}`,
+        firmId: firmId,
+        firmCode: firmCode,
+        firmName: targetReq.firmName,
+        username: targetReq.email.split('@')[0],
+        fullName: targetReq.contactPerson,
+        role: 'Proprietor',
+        email: targetReq.email,
+        phone: targetReq.phone,
+        password: 'password123',
+        status: 'Active',
+        lastLogin: 'Never logged in',
+        permissions: ['all']
+      };
+
+      if (onAddLawFirm) {
+        onAddLawFirm(newFirm, proprietorUser);
+      }
+    }
+
     // Log platform action
     const accessLog: AuditLogEntry = {
       id: `log-appr-${Date.now()}`,

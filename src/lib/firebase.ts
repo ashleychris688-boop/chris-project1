@@ -51,9 +51,19 @@ if (typeof window !== 'undefined') {
 
 function isQuotaError(err: unknown): boolean {
   if (!err) return false;
-  const str = String(err) + ' ' + (typeof err === 'object' && err !== null && 'code' in err ? String((err as any).code) : '') + ' ' + (typeof err === 'object' && err !== null && 'message' in err ? String((err as any).message) : '');
+  const errObj = err as any;
+  const code = String(errObj?.code || '');
+  const message = String(errObj?.message || '');
+  const str = String(err) + ' ' + code + ' ' + message;
   const lower = str.toLowerCase();
-  return lower.includes('resource-exhausted') || lower.includes('quota limit exceeded') || lower.includes('quota exceeded');
+  return (
+    code === 'resource-exhausted' ||
+    lower.includes('resource-exhausted') ||
+    lower.includes('quota limit exceeded') ||
+    lower.includes('quota exceeded') ||
+    lower.includes('limit exceeded') ||
+    lower.includes('429')
+  );
 }
 
 // Helper function to seed or sync initial collection to Firebase if empty with fast timeout fallback
@@ -67,12 +77,19 @@ export async function syncCollectionToFirebase<T extends { id: string }>(
 
   try {
     const colRef = collection(db, collectionName);
+    const docsPromise = getDocs(colRef).catch((err) => {
+      if (isQuotaError(err)) {
+        handleQuotaExceeded(err);
+      }
+      throw err;
+    });
+
     const timeoutPromise = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('Firestore connection timeout')), 2500)
     );
 
     const snapshot = await Promise.race([
-      getDocs(colRef),
+      docsPromise,
       timeoutPromise
     ]);
 
@@ -104,12 +121,19 @@ export async function saveDocumentToFirebase<T extends { id: string }>(collectio
   if (isQuotaExceeded) return;
 
   try {
+    const docPromise = setDoc(doc(db, collectionName, item.id), item).catch((err) => {
+      if (isQuotaError(err)) {
+        handleQuotaExceeded(err);
+      }
+      throw err;
+    });
+
     const timeoutPromise = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('Firestore save timeout')), 2500)
     );
 
     await Promise.race([
-      setDoc(doc(db, collectionName, item.id), item),
+      docPromise,
       timeoutPromise
     ]);
   } catch (err) {

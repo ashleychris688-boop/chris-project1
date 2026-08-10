@@ -19,8 +19,10 @@ import {
   Building,
   Receipt,
   CircleDollarSign,
-  PackageSearch
+  PackageSearch,
+  FileType
 } from 'lucide-react';
+import { exportTableToPdf } from '../utils/pdfExport';
 
 interface ReportsModuleProps {
   files: RegistryFile[];
@@ -88,6 +90,103 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     a.click();
   };
 
+  const handleExportPDF = () => {
+    const reportLabel = reportTypes.find(r => r.id === selectedReport)?.label || 'Law Firm Report';
+    let cols: string[] = [];
+    let tableRows: (string | number)[][] = [];
+    let summary: { label: string; value: string | number }[] = [];
+
+    if (selectedReport === 'daily-court') {
+      cols = ['File #', 'Client vs Opposing Party', 'Court Station', 'Court #', 'Magistrate', 'Time', 'Advocate'];
+      tableRows = courtSessions.map(cs => [
+        cs.fileNumber,
+        `${cs.clientName} vs ${cs.opposingParty}`,
+        cs.courtStation,
+        cs.courtNumber,
+        cs.magistrate,
+        cs.hearingTime,
+        cs.advocateName
+      ]);
+      summary = [
+        { label: 'Total Sessions Listed', value: courtSessions.length },
+        { label: 'Active Advocates', value: new Set(courtSessions.map(c => c.advocateName)).size },
+        { label: 'Court Stations', value: new Set(courtSessions.map(c => c.courtStation)).size }
+      ];
+    } else if (selectedReport === 'active-files') {
+      const active = files.filter(f => f.currentStatus !== 'Closed');
+      cols = ['Internal File #', 'Court Case #', 'Client Name', 'Advocate', 'Status', 'Physical Location'];
+      tableRows = active.map(f => [
+        f.internalFileNumber,
+        f.courtCaseNumber,
+        f.clientName,
+        f.advocateName,
+        f.currentStatus,
+        `${f.physicalLocation.cabinet} (${f.physicalLocation.shelf})`
+      ]);
+      summary = [
+        { label: 'Total Active Files', value: active.length },
+        { label: 'In Court', value: active.filter(a => a.currentStatus === 'In Court').length },
+        { label: 'Pending Docs', value: active.filter(a => a.currentStatus === 'Incomplete').length }
+      ];
+    } else if (selectedReport === 'outstanding-commissions') {
+      cols = ['File #', 'Case Chaser', 'Settlement Amount', 'Rate', 'Commission Due', 'Amount Paid', 'Outstanding Balance'];
+      tableRows = commissions.map(c => [
+        c.fileNumber,
+        c.caseChaserName,
+        `KSh ${c.settlementAmount.toLocaleString()}`,
+        `${c.commissionRate}%`,
+        `KSh ${c.commissionDue.toLocaleString()}`,
+        `KSh ${c.amountPaid.toLocaleString()}`,
+        `KSh ${c.outstandingBalance.toLocaleString()}`
+      ]);
+      const totalOutstanding = commissions.reduce((sum, c) => sum + c.outstandingBalance, 0);
+      summary = [
+        { label: 'Total Records', value: commissions.length },
+        { label: 'Total Outstanding', value: `KSh ${totalOutstanding.toLocaleString()}` }
+      ];
+    } else if (selectedReport === 'missing-requirements') {
+      const missing = files.filter(f => f.currentStatus === 'Incomplete' || f.missingRequirements?.length);
+      cols = ['File #', 'Client Name', 'Advocate', 'Missing Requirements Details', 'Location'];
+      tableRows = missing.map(f => [
+        f.internalFileNumber,
+        f.clientName,
+        f.advocateName,
+        f.missingRequirements?.join(', ') || 'Requirements Pending',
+        f.physicalLocation.cabinet
+      ]);
+      summary = [
+        { label: 'Incomplete Files', value: missing.length }
+      ];
+    } else {
+      cols = ['Record ID', 'File Number', 'Description', 'Status', 'Date'];
+      tableRows = files.slice(0, 15).map((f, i) => [
+        `REC-${i + 1}`,
+        f.internalFileNumber,
+        `${f.clientName} matter record`,
+        f.currentStatus,
+        new Date().toISOString().split('T')[0]
+      ]);
+      summary = [
+        { label: 'Report Mode', value: reportLabel },
+        { label: 'Records Exported', value: tableRows.length }
+      ];
+    }
+
+    exportTableToPdf(
+      {
+        title: `${reportLabel.toUpperCase()} REPORT`,
+        subtitle: 'Official Law Firm Practice Executive & Operational Audit Report',
+        firmName: 'LAW FIRM REGISTRY',
+        firmCode: 'LFR-001',
+        generatedBy: 'System Administrator'
+      },
+      cols,
+      tableRows,
+      `lfr_report_${selectedReport}_${Date.now()}.pdf`,
+      summary
+    );
+  };
+
   return (
     <div className="space-y-6 font-sans text-slate-100">
       
@@ -99,14 +198,21 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <h2 className="font-serif font-bold text-xl text-white">Executive & Operational Reports Engine</h2>
           </div>
           <p className="text-slate-300 text-xs mt-1">
-            Generate printable reports for Court Lists, Upcoming Lists, Outstanding Commissions, Insurance Payments & Performance Audits.
+            Generate printable & PDF reports for Court Lists, Upcoming Lists, Outstanding Commissions, Insurance Payments & Performance Audits.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleExportPDF}
+            className="px-4 py-2 bg-gradient-to-r from-[#C9A227] to-amber-500 text-slate-950 hover:from-amber-400 hover:to-amber-500 text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+          >
+            <FileType className="w-4 h-4" />
+            Export PDF Report
+          </button>
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2 bg-[#C9A227] text-slate-950 hover:bg-[#B08D1E] text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-[#C9A227] text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer border border-[#C9A227]/40"
           >
             <Download className="w-4 h-4" />
             Export CSV

@@ -13,9 +13,12 @@ import {
   X,
   FileCheck2,
   AlertTriangle,
-  Bell
+  Bell,
+  FileType,
+  Download
 } from 'lucide-react';
 import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
+import { exportTableToPdf } from '../utils/pdfExport';
 
 interface CourtDiaryModuleProps {
   sessions: CourtSession[];
@@ -139,6 +142,41 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
     setShowAddModal(false);
   };
 
+  const handleExportPDF = () => {
+    const titleMode = viewMode === 'today' ? "TODAY'S COURT CAUSE LIST" : viewMode === 'weekly' ? 'UPCOMING COURT CAUSE LIST' : 'MONTHLY COURT DIARY SCHEDULE';
+    const cols = ['File #', 'Client Name vs Opposing Party', 'Court Station', 'Court #', 'Magistrate', 'Hearing Date & Time', 'Advocate', 'Purpose'];
+    const rows = filteredSessions.map(cs => [
+      cs.fileNumber,
+      `${cs.clientName} vs ${cs.opposingParty}`,
+      cs.courtStation,
+      cs.courtNumber,
+      cs.magistrate,
+      `${cs.hearingDate} (${cs.hearingTime})`,
+      cs.advocateName,
+      cs.purpose
+    ]);
+
+    const summary = [
+      { label: 'Total Cause List Items', value: filteredSessions.length },
+      { label: 'Today Sessions', value: todaySessionsCount },
+      { label: 'Upcoming Sessions', value: upcomingSessionsCount }
+    ];
+
+    exportTableToPdf(
+      {
+        title: titleMode,
+        subtitle: `Official Advocate Cause List & Hearing Schedule — Filter: ${stationFilter}`,
+        firmName: 'LAW FIRM REGISTRY',
+        firmCode: 'LFR-001',
+        generatedBy: 'Court Clerk Office'
+      },
+      cols,
+      rows,
+      `court_diary_${viewMode}_${Date.now()}.pdf`,
+      summary
+    );
+  };
+
   return (
     <div className="space-y-6 font-sans text-slate-100">
       
@@ -154,13 +192,22 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-5 py-2.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-bold text-xs rounded-xl shadow transition flex items-center gap-2 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add Court Hearing / Session
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleExportPDF}
+            className="px-4 py-2.5 bg-gradient-to-r from-[#C9A227] to-amber-500 text-slate-950 hover:from-amber-400 hover:to-amber-500 text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+          >
+            <FileType className="w-4 h-4" />
+            Export Court Cause List PDF
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-2 cursor-pointer border border-slate-700"
+          >
+            <Plus className="w-4 h-4 text-[#C9A227]" />
+            Add Hearing / Session
+          </button>
+        </div>
       </div>
 
       {/* View Switcher & Search Bar */}

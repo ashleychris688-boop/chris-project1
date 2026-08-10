@@ -117,7 +117,10 @@ export default function App() {
       firmName: newFirm.firmName,
       firmCode: newFirm.firmCode,
       firmRegistrationNumber: newFirm.registrationNumber,
-      cityOrBranch: newFirm.cityOrBranch || newFirm.county || 'Nairobi'
+      cityOrBranch: newFirm.cityOrBranch || newFirm.county || 'Nairobi',
+      address: newFirm.physicalAddress || `${newFirm.county} Legal Chambers`,
+      phone: newFirm.phone,
+      email: newFirm.email
     }));
 
     setCurrentUser(proprietorUser);
@@ -279,6 +282,9 @@ export default function App() {
   const [lastSnapshotSyncTime, setLastSnapshotSyncTime] = useState<string>('');
 
   const performFirebaseSnapshotSync = async () => {
+    if (typeof window !== 'undefined' && localStorage.getItem('lfr_firestore_quota_exceeded') === 'true') {
+      return;
+    }
     const firmCode = currentUser?.firmCode || 'LFR-001';
     const res = await triggerLocalStorageFirebaseSnapshot(firmCode);
     if (res && res.timestamp) {
@@ -287,17 +293,24 @@ export default function App() {
     }
   };
 
-  // Periodic Local Storage -> Firebase Redundancy Sync (every 60 seconds)
+  // Periodic Local Storage -> Firebase Redundancy Sync
   useEffect(() => {
-    // Initial snapshot after 2 seconds
+    if (typeof window !== 'undefined' && localStorage.getItem('lfr_firestore_quota_exceeded') === 'true') {
+      return;
+    }
+    // Initial snapshot after 10 seconds
     const initialTimer = setTimeout(() => {
       performFirebaseSnapshotSync();
-    }, 2000);
+    }, 10000);
 
-    // Periodic interval every 60 seconds
+    // Periodic interval every 15 minutes (900,000 ms)
     const interval = setInterval(() => {
+      if (typeof window !== 'undefined' && localStorage.getItem('lfr_firestore_quota_exceeded') === 'true') {
+        clearInterval(interval);
+        return;
+      }
       performFirebaseSnapshotSync();
-    }, 60000);
+    }, 900000);
 
     return () => {
       clearTimeout(initialTimer);
@@ -897,6 +910,7 @@ export default function App() {
                 onDeleteFirm={handleDeleteFirm}
                 onWipeAllFirms={handleWipeAllFirms}
                 onUpdatePassword={handleUpdatePassword}
+                onAddLawFirm={handleRegisterFirmSuccess}
                 onLogout={() => {
                   setCurrentUser(null);
                   setViewState('login');
