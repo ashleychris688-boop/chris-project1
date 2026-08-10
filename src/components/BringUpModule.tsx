@@ -53,7 +53,7 @@ export const BringUpModule: React.FC<BringUpModuleProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <ListOrdered className="w-6 h-6 text-[#C9A227]" />
-            <h2 className="font-serif font-bold text-xl text-white">Automated Friday Bring-Up List</h2>
+            <h2 className="font-serif font-bold text-xl text-white">Automated Upcoming List</h2>
           </div>
           <p className="text-slate-300 text-xs mt-1">
             Generated every Friday for registry clerks. Grouped by Court Station, Court Number, Hearing Date, Case Type & File Number.
@@ -99,7 +99,7 @@ export const BringUpModule: React.FC<BringUpModuleProps> = ({
         <div className="text-center border-b border-slate-800 print:border-slate-300 pb-6 space-y-1">
           <h1 className="font-serif font-extrabold text-2xl text-white print:text-[#0B1F3A]">LAW FIRM REGISTRY</h1>
           <p className="text-xs font-bold uppercase tracking-widest text-[#C9A227]">
-            REGISTRY FRIDAY BRING-UP PHYSICAL FILE RETRIEVAL LIST
+            REGISTRY UPCOMING PHYSICAL FILE RETRIEVAL LIST
           </p>
           <p className="text-xs text-slate-400 print:text-slate-500 font-mono">
             For Week Commencing: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -214,7 +214,7 @@ export const BringUpModule: React.FC<BringUpModuleProps> = ({
           ))
         ) : (
           <div className="p-8 text-center text-slate-400 text-xs">
-            No bring-up items found for this filter.
+            No upcoming items found for this filter.
           </div>
         )}
 

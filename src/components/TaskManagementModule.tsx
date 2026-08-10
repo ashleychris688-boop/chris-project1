@@ -78,7 +78,7 @@ const PRESET_TASK_SUGGESTIONS: Record<string, Array<{ title: string; category: T
     { title: 'Retrieve Physical File from Cabinet', category: 'Registry' },
     { title: 'Return Physical File to Shelf', category: 'Registry' },
     { title: 'Archive Inactive File', category: 'Registry' },
-    { title: 'Generate Weekly Bring-Up List', category: 'Registry' },
+    { title: 'Generate Weekly Upcoming List', category: 'Registry' },
     { title: 'Update Registry Log', category: 'Registry' }
   ],
   Advocate_Clerk: [
@@ -1377,7 +1377,7 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                   <Repeat className="w-4 h-4 text-[#C9A227]" />
                   <div>
                     <span className="font-bold text-slate-200">Recurring Task</span>
-                    <p className="text-[10px] text-slate-500">Auto-repeat routine checks like bring-up lists or diary checks.</p>
+                    <p className="text-[10px] text-slate-500">Auto-repeat routine checks like upcoming lists or diary checks.</p>
                   </div>
                 </div>
                 

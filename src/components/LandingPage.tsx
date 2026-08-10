@@ -84,7 +84,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </p>
 
           <p className="text-base sm:text-lg text-slate-200 max-w-2xl mx-auto leading-relaxed font-normal">
-            Secure multi-tenant workspace for legal practices. Track physical file movements, court hearing diaries, Friday bring-ups, insurance claims, and chaser commissions with 100% data isolation.
+            Secure multi-tenant workspace for legal practices. Track physical file movements, court hearing diaries, upcoming lists, insurance claims, and chaser commissions with 100% data isolation.
           </p>
 
           {/* User Requested Call-to-Actions Box */}
@@ -159,7 +159,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="w-12 h-12 rounded-lg bg-[#0B1F3A] border border-[#C9A227]/40 text-[#C9A227] flex items-center justify-center mb-4">
               <FileSearch className="w-6 h-6" />
             </div>
-            <h4 className="font-serif font-bold text-lg text-white mb-2">Friday Bring-Up Lists</h4>
+            <h4 className="font-serif font-bold text-lg text-white mb-2">Upcoming Lists</h4>
             <p className="text-slate-300 text-xs leading-relaxed">
               Automated weekly retrieval lists grouped by Court Station and Court Number so registry staff retrieve every required physical file before court.
             </p>

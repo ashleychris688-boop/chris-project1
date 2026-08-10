@@ -45,7 +45,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 
   const reportTypes = [
     { id: 'daily-court', label: 'Daily Court List' },
-    { id: 'weekly-bringup', label: 'Weekly Bring-Up List' },
+    { id: 'weekly-bringup', label: 'Weekly Upcoming List' },
     { id: 'active-files', label: 'Active Files' },
     { id: 'closed-files', label: 'Closed Files' },
     { id: 'pending-hearings', label: 'Pending Hearings' },
@@ -99,7 +99,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <h2 className="font-serif font-bold text-xl text-white">Executive & Operational Reports Engine</h2>
           </div>
           <p className="text-slate-300 text-xs mt-1">
-            Generate printable reports for Court Lists, Bring-Up Lists, Outstanding Commissions, Insurance Payments & Performance Audits.
+            Generate printable reports for Court Lists, Upcoming Lists, Outstanding Commissions, Insurance Payments & Performance Audits.
           </p>
         </div>
 

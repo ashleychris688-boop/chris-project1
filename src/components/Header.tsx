@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
   const notifications = [
     { id: 1, title: `${sessionsTodayCount} Court Session${sessionsTodayCount === 1 ? '' : 's'} Today`, desc: 'Milimani Commercial & Civil Law Courts scheduled hearings.', type: 'urgent', tab: 'court-diary' },
     { id: 2, title: `${filesOutCount} Physical File${filesOutCount === 1 ? '' : 's'} Out of Registry`, desc: 'Files currently checked out in Court or with Advocates.', type: 'warning', tab: 'file-tracker' },
-    { id: 3, title: 'Bring-Up List Ready for Friday', desc: 'Retrieval list generated for upcoming week hearings.', type: 'info', tab: 'bring-up' },
+    { id: 3, title: 'Upcoming List Ready for Friday', desc: 'Retrieval list generated for upcoming week hearings.', type: 'info', tab: 'bring-up' },
     { id: 4, title: `${pendingChequesCount} Pending Cheque${pendingChequesCount === 1 ? '' : 's'} Active`, desc: 'Cheques in transit or awaiting bank clearance.', type: 'success', tab: 'pending-cheques' }
   ];
 

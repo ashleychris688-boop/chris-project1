@@ -529,7 +529,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="p-4 rounded-xl bg-slate-900 border border-purple-900/60 hover:border-purple-400 cursor-pointer transition space-y-2"
               >
                 <ListOrdered className="w-6 h-6 text-purple-400" />
-                <h4 className="font-bold text-sm text-white">Bring-Up Scheduling</h4>
+                <h4 className="font-bold text-sm text-white">Upcoming Scheduling</h4>
                 <p className="text-xs text-slate-300">Generate weekly file retrieval lists for upcoming court dates.</p>
               </div>
             </div>
@@ -589,7 +589,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="p-4 rounded-xl bg-slate-900 border border-emerald-900/60 hover:border-emerald-400 cursor-pointer transition space-y-2"
               >
                 <ListOrdered className="w-6 h-6 text-emerald-400" />
-                <h4 className="font-bold text-sm text-white">Retrieval & Bring-Up</h4>
+                <h4 className="font-bold text-sm text-white">Retrieval & Upcoming</h4>
                 <p className="text-xs text-slate-300">Collect physical files from central shelves for tomorrow's court list.</p>
               </div>
 

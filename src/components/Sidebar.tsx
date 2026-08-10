@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'court-diary', label: 'Court Diary', icon: Scale, badge: counts?.sessionsToday, roles: ['Proprietor', 'Secretary', 'Advocate', 'Super Admin', 'Client'] },
     { id: 'court-outcomes', label: 'Court Outcomes', icon: FileCheck2, roles: ['Proprietor', 'Secretary', 'Advocate', 'Super Admin'] },
     { id: 'file-tracker', label: 'Physical File Tracker', icon: PackageSearch, badge: counts?.filesOut, badgeColor: 'bg-orange-600', roles: ['Proprietor', 'Clerk', 'Super Admin'] },
-    { id: 'bring-up', label: 'Bring-Up Lists', icon: ListOrdered, roles: ['Proprietor', 'Secretary', 'Clerk', 'Super Admin'] },
+    { id: 'bring-up', label: 'Upcoming Lists', icon: ListOrdered, roles: ['Proprietor', 'Secretary', 'Clerk', 'Super Admin'] },
     { id: 'advocates', label: 'Advocates Workspace', icon: Gavel, roles: ['Proprietor', 'Advocate', 'Super Admin'] },
     { id: 'secretaries', label: 'Secretaries Workspace', icon: UserSquare2, roles: ['Proprietor', 'Secretary', 'Super Admin'] },
     { id: 'clerks', label: 'Clerks Workspace', icon: FileSpreadsheet, roles: ['Proprietor', 'Clerk', 'Super Admin'] },
