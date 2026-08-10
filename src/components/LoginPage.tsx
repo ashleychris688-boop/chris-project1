@@ -495,6 +495,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <td className="p-2 text-indigo-400 font-bold">Registry Clerk</td>
                   <td className="p-2 text-slate-200">ABC Advocates</td>
                 </tr>
+                <tr 
+                  onClick={() => {
+                    setFirmIdInput('OM-ADV-001');
+                    setUsernameInput('kinuthia@chasers.co.ke');
+                    setPasswordInput('password123');
+                    setErrorMsg('');
+                  }}
+                  className="bg-purple-950/20 hover:bg-purple-900/40 transition cursor-pointer"
+                  title="Click to select Case Chaser"
+                >
+                  <td className="p-2 text-[#C9A227] font-bold">OM-ADV-001</td>
+                  <td className="p-2 font-bold text-purple-300">kinuthia@chasers.co.ke (chaser.kinuthia)</td>
+                  <td className="p-2 text-slate-400">password123</td>
+                  <td className="p-2 text-purple-400 font-bold">Case Chaser</td>
+                  <td className="p-2 text-slate-200">Omollo Advocates</td>
+                </tr>
               </tbody>
             </table>
           </div>
