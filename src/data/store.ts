@@ -335,3 +335,20 @@ export function resetToDefaults(): void {
   saveItem(STORAGE_KEYS.UNPROCESSED, INITIAL_UNPROCESSED_RECORDS);
 }
 
+export function clearAllDataForProduction(): void {
+  saveItem(STORAGE_KEYS.FILES, []);
+  saveItem(STORAGE_KEYS.MOVEMENTS, []);
+  saveItem(STORAGE_KEYS.COURT_SESSIONS, []);
+  saveItem(STORAGE_KEYS.COURT_OUTCOMES, []);
+  saveItem(STORAGE_KEYS.BRING_UP_ITEMS, []);
+  saveItem(STORAGE_KEYS.INSURANCE_CLAIMS, []);
+  saveItem(STORAGE_KEYS.CHEQUES, []);
+  saveItem(STORAGE_KEYS.COMMISSIONS, []);
+  saveItem(STORAGE_KEYS.AUDIT_LOGS, []);
+  saveItem(STORAGE_KEYS.CHASERS, []);
+  saveItem(STORAGE_KEYS.FOLLOW_UP_LOGS, []);
+  saveItem(STORAGE_KEYS.RESPONSIBILITIES, []);
+  saveItem(STORAGE_KEYS.TASKS, []);
+  saveItem(STORAGE_KEYS.UNPROCESSED, []);
+}
+

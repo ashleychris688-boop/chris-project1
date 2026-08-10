@@ -41,7 +41,7 @@ import {
   getStoredUrgentAlerts, saveUrgentAlerts,
   getCurrentUser, setCurrentUser,
   getIsAuthenticated, setIsAuthenticated,
-  resetToDefaults
+  resetToDefaults, clearAllDataForProduction
 } from './data/store';
 
 import { saveDocumentToFirebase, triggerLocalStorageFirebaseSnapshot } from './lib/firebase';
@@ -348,6 +348,19 @@ export default function App() {
     setChequesState(getStoredPendingCheques());
     setCommissionsState(getStoredCommissions());
     setAuditLogsState(getStoredAuditLogs());
+  };
+
+  const handleClearDataForProduction = () => {
+    clearAllDataForProduction();
+    setFilesState([]);
+    setCourtSessionsState([]);
+    setCourtOutcomesState([]);
+    setMovementsState([]);
+    setBringUpItemsState([]);
+    setClaimsState([]);
+    setChequesState([]);
+    setCommissionsState([]);
+    setAuditLogsState([]);
   };
 
   const mapRoleToRoleTab = (role?: string): SelectedRoleTab => {
@@ -1058,6 +1071,7 @@ export default function App() {
               settings={settings}
               onSaveSettings={handleSaveSettings}
               onResetData={handleResetData}
+              onClearDataForProduction={handleClearDataForProduction}
             />
           )}
 

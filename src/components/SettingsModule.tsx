@@ -16,12 +16,14 @@ interface SettingsModuleProps {
   settings: SystemSettings;
   onSaveSettings: (settings: SystemSettings) => void;
   onResetData: () => void;
+  onClearDataForProduction?: () => void;
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({
   settings,
   onSaveSettings,
-  onResetData
+  onResetData,
+  onClearDataForProduction
 }) => {
   const [formData, setFormData] = useState<SystemSettings>({ ...settings });
   const [newStation, setNewStation] = useState('');
@@ -304,23 +306,40 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             />
           </div>
 
-          <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Reset all file records, movements & settings back to initial pre-seeded data?')) {
-                  onResetData();
-                }
-              }}
-              className="px-4 py-2 bg-red-950/80 hover:bg-red-900 text-red-300 font-bold rounded border border-red-800 transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset All Demo Data
-            </button>
+          <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Reset all file records, movements & settings back to initial pre-seeded data?')) {
+                    onResetData();
+                  }
+                }}
+                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl border border-slate-700 transition flex items-center gap-1.5 cursor-pointer text-xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                Reset Sample Data
+              </button>
+
+              {onClearDataForProduction && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Wipe all sample files, movements, court dates & test records to start with a fresh blank workspace for your actual firm data?')) {
+                      onClearDataForProduction();
+                    }
+                  }}
+                  className="px-3.5 py-2 bg-red-950/90 hover:bg-red-900 text-red-200 font-extrabold rounded-xl border border-red-700 transition flex items-center gap-1.5 cursor-pointer text-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  Wipe Sample Data (Clean Production Slate)
+                </button>
+              )}
+            </div>
 
             <button
               type="submit"
-              className="px-6 py-2.5 bg-[#C9A227] text-slate-950 font-extrabold text-sm rounded-xl shadow hover:bg-[#B08D1E] transition flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 bg-[#C9A227] text-slate-950 font-extrabold text-xs rounded-xl shadow hover:bg-[#B08D1E] transition flex items-center gap-2 cursor-pointer"
             >
               <Save className="w-4 h-4" />
               Save System Settings
