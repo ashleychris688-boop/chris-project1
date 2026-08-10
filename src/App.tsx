@@ -279,7 +279,7 @@ export default function App() {
   const [lastSnapshotSyncTime, setLastSnapshotSyncTime] = useState<string>('');
 
   const performFirebaseSnapshotSync = async () => {
-    const firmCode = currentUser?.firmCode || 'OM-ADV-001';
+    const firmCode = currentUser?.firmCode || 'LFR-001';
     const res = await triggerLocalStorageFirebaseSnapshot(firmCode);
     if (res && res.timestamp) {
       const formatted = new Date(res.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -411,6 +411,27 @@ export default function App() {
       'Wipe Platform Law Firms',
       'SuperAdmin',
       'Erased all law firm workspaces from platform owner registry'
+    );
+    setAuditLogsState(getStoredAuditLogs());
+  };
+
+  const handleUpdatePassword = (userId: string, newPassword: string) => {
+    const updatedUsers = users.map(u => u.id === userId ? { ...u, password: newPassword } : u);
+    setUsersState(updatedUsers);
+    saveUsers(updatedUsers);
+
+    if (currentUser && currentUser.id === userId) {
+      const updatedCurrent = { ...currentUser, password: newPassword };
+      setUser(updatedCurrent);
+      setCurrentUser(updatedCurrent);
+    }
+
+    addAuditLog(
+      currentUser?.fullName || 'User',
+      currentUser?.role || 'User',
+      'Changed Password',
+      'Auth',
+      `User updated account password successfully.`
     );
     setAuditLogsState(getStoredAuditLogs());
   };
@@ -875,6 +896,7 @@ export default function App() {
                 onAccessWorkspace={handleAccessWorkspace}
                 onDeleteFirm={handleDeleteFirm}
                 onWipeAllFirms={handleWipeAllFirms}
+                onUpdatePassword={handleUpdatePassword}
                 onLogout={() => {
                   setCurrentUser(null);
                   setViewState('login');
@@ -1123,9 +1145,11 @@ export default function App() {
           {activeTab === 'settings' && (
             <SettingsModule
               settings={settings}
+              currentUser={currentUser}
               onSaveSettings={handleSaveSettings}
               onResetData={handleResetData}
               onClearDataForProduction={handleClearDataForProduction}
+              onUpdatePassword={handleUpdatePassword}
             />
           )}
 

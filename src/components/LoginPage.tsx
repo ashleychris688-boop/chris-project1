@@ -41,9 +41,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   initialRoleTab
 }) => {
   // Input states (Firm ID + Username + Password as requested in User Prompt)
-  const [firmIdInput, setFirmIdInput] = useState<string>('OM-ADV-001');
-  const [usernameInput, setUsernameInput] = useState<string>('admin@omolloadvocates.co.ke');
-  const [passwordInput, setPasswordInput] = useState<string>('password123');
+  const [firmIdInput, setFirmIdInput] = useState<string>('');
+  const [usernameInput, setUsernameInput] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState<string>('');
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -191,7 +191,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const newUser: User = {
         id: `usr-${Date.now()}`,
         firmId: firmIdInput || 'OM-ADV-001',
-        firmName: 'Omollo Advocates & Co.',
+        firmName: 'Law Firm Workspace',
         username: searchKey.includes('@') ? searchKey.split('@')[0] : searchKey,
         fullName: searchKey,
         role: 'Advocate',

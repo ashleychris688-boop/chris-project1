@@ -48,26 +48,26 @@ import {
 } from '../lib/firebase';
 
 const STORAGE_KEYS = {
-  FIRMS: 'lfr_firms_v1',
-  SETTINGS: 'lfr_settings_v1',
-  USERS: 'lfr_users_v1',
-  FILES: 'lfr_files_v1',
-  MOVEMENTS: 'lfr_movements_v1',
-  COURT_SESSIONS: 'lfr_court_sessions_v1',
-  COURT_OUTCOMES: 'lfr_court_outcomes_v1',
-  BRING_UP_ITEMS: 'lfr_bring_up_items_v1',
-  INSURANCE_CLAIMS: 'lfr_insurance_claims_v1',
-  CHEQUES: 'lfr_pending_cheques_v1',
-  COMMISSIONS: 'lfr_commissions_v1',
-  AUDIT_LOGS: 'lfr_audit_logs_v1',
-  CURRENT_USER: 'lfr_current_user_v1',
-  IS_AUTHENTICATED: 'lfr_is_auth_v1',
-  CHASERS: 'lfr_case_chasers_v1',
-  FOLLOW_UP_LOGS: 'lfr_chaser_logs_v1',
-  RESPONSIBILITIES: 'lfr_chaser_responsibilities_v1',
-  TASKS: 'lfr_chaser_tasks_v1',
-  UNPROCESSED: 'lfr_unprocessed_records_v1',
-  URGENT_ALERTS: 'lfr_urgent_alerts_v1'
+  FIRMS: 'lfr_firms_v2',
+  SETTINGS: 'lfr_settings_v2',
+  USERS: 'lfr_users_v2',
+  FILES: 'lfr_files_v2',
+  MOVEMENTS: 'lfr_movements_v2',
+  COURT_SESSIONS: 'lfr_court_sessions_v2',
+  COURT_OUTCOMES: 'lfr_court_outcomes_v2',
+  BRING_UP_ITEMS: 'lfr_bring_up_items_v2',
+  INSURANCE_CLAIMS: 'lfr_insurance_claims_v2',
+  CHEQUES: 'lfr_pending_cheques_v2',
+  COMMISSIONS: 'lfr_commissions_v2',
+  AUDIT_LOGS: 'lfr_audit_logs_v2',
+  CURRENT_USER: 'lfr_current_user_v2',
+  IS_AUTHENTICATED: 'lfr_is_auth_v2',
+  CHASERS: 'lfr_case_chasers_v2',
+  FOLLOW_UP_LOGS: 'lfr_chaser_logs_v2',
+  RESPONSIBILITIES: 'lfr_chaser_responsibilities_v2',
+  TASKS: 'lfr_chaser_tasks_v2',
+  UNPROCESSED: 'lfr_unprocessed_records_v2',
+  URGENT_ALERTS: 'lfr_urgent_alerts_v2'
 };
 
 
@@ -112,7 +112,7 @@ export function getStoredUsers(): User[] {
     saveUsers(INITIAL_USERS);
     return INITIAL_USERS;
   }
-  // Ensure default initial users exist with their proper fields
+  // Ensure Super Admin exists
   const storedIds = new Set(stored.map(u => u.id));
   const missingFromInitial = INITIAL_USERS.filter(u => !storedIds.has(u.id));
   if (missingFromInitial.length > 0) {
@@ -120,15 +120,7 @@ export function getStoredUsers(): User[] {
     saveUsers(merged);
     return merged;
   }
-  // Also sync firmCode for existing users if missing
-  const updated = stored.map(u => {
-    const initMatch = INITIAL_USERS.find(i => i.id === u.id || i.email === u.email);
-    if (initMatch && !u.firmCode) {
-      return { ...u, firmCode: initMatch.firmCode };
-    }
-    return u;
-  });
-  return updated;
+  return stored;
 }
 
 export function saveUsers(users: User[]): void {
@@ -136,19 +128,7 @@ export function saveUsers(users: User[]): void {
 }
 
 export function getStoredFiles(): RegistryFile[] {
-  const stored = loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, INITIAL_FILES);
-  if (!Array.isArray(stored) || stored.length === 0) {
-    saveFiles(INITIAL_FILES);
-    return INITIAL_FILES;
-  }
-  const storedIds = new Set(stored.map(f => f.id));
-  const missingFromInitial = INITIAL_FILES.filter(f => !storedIds.has(f.id));
-  if (missingFromInitial.length > 0) {
-    const merged = [...stored, ...missingFromInitial];
-    saveFiles(merged);
-    return merged;
-  }
-  return stored;
+  return loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, []);
 }
 
 export function saveFiles(files: RegistryFile[]): void {
@@ -283,17 +263,7 @@ export function saveUnprocessedRecords(records: UnprocessedClientRecord[]): void
 }
 
 export function getStoredUrgentAlerts(): UrgentAlert[] {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const initialAlerts: UrgentAlert[] = [
-    {
-      id: 'alert-init-1',
-      fileNumber: 'NGA/002/2026',
-      time: '10:00 AM',
-      purpose: 'Urgent Application Mention - Interim Injunction',
-      date: todayStr
-    }
-  ];
-  return loadItem(STORAGE_KEYS.URGENT_ALERTS, initialAlerts);
+  return loadItem(STORAGE_KEYS.URGENT_ALERTS, []);
 }
 
 export function saveUrgentAlerts(alerts: UrgentAlert[]): void {

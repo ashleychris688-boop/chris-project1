@@ -34,8 +34,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
   allUsers,
-  firmName = 'Omollo & Associates Advocates',
-  firmCode = 'OM-ADV-001',
+  firmName = 'Law Firm Registry',
+  firmCode = 'LFR-001',
   onSwitchUser,
   onLogout,
   onSearchQuery,
@@ -43,9 +43,9 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToSuperAdmin,
   onManualCloudSync,
   lastSyncTime,
-  sessionsTodayCount = 2,
-  filesOutCount = 3,
-  pendingChequesCount = 1
+  sessionsTodayCount = 0,
+  filesOutCount = 0,
+  pendingChequesCount = 0
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
