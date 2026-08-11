@@ -6,7 +6,6 @@ import {
   ShieldCheck, 
   Plus, 
   Trash2, 
-  RotateCcw, 
   CheckCircle2,
   Save,
   Lock,
@@ -14,6 +13,8 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { validatePassword } from '../utils/passwordValidator';
+import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
 
 interface SettingsModuleProps {
   settings: SystemSettings;
@@ -51,8 +52,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     setPasswordError('');
     setPasswordSuccess('');
 
-    if (!newPassword || newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters long.');
+    const passCheck = validatePassword(newPassword);
+    if (!passCheck.isValid) {
+      setPasswordError(passCheck.message);
       return;
     }
 
@@ -300,6 +302,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           </div>
 
+          <PasswordRequirementsChecklist password={newPassword} />
+
           <div className="flex justify-end pt-1">
             <button
               type="button"
@@ -451,37 +455,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             />
           </div>
 
-          <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('Reset all file records, movements & settings back to initial pre-seeded data?')) {
-                    onResetData();
-                  }
-                }}
-                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl border border-slate-700 transition flex items-center gap-1.5 cursor-pointer text-xs"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-                Reset Sample Data
-              </button>
-
-              {onClearDataForProduction && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Wipe all sample files, movements, court dates & test records to start with a fresh blank workspace for your actual firm data?')) {
-                      onClearDataForProduction();
-                    }
-                  }}
-                  className="px-3.5 py-2 bg-red-950/90 hover:bg-red-900 text-red-200 font-extrabold rounded-xl border border-red-700 transition flex items-center gap-1.5 cursor-pointer text-xs"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  Wipe Sample Data (Clean Production Slate)
-                </button>
-              )}
-            </div>
-
+          <div className="pt-2 border-t border-slate-800 flex items-center justify-end">
             <button
               type="submit"
               className="px-6 py-2.5 bg-[#C9A227] text-slate-950 font-extrabold text-xs rounded-xl shadow hover:bg-[#B08D1E] transition flex items-center gap-2 cursor-pointer"

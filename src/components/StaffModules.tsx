@@ -15,6 +15,8 @@ import {
   UserPlus,
   X
 } from 'lucide-react';
+import { validatePassword } from '../utils/passwordValidator';
+import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
 
 interface StaffModuleProps {
   files: RegistryFile[];
@@ -48,6 +50,13 @@ export const StaffModules: React.FC<StaffModuleProps> = ({
     e.preventDefault();
     if (!formData.fullName || !formData.username) return;
 
+    const userPass = formData.password?.trim() || 'Pass123!';
+    const passCheck = validatePassword(userPass);
+    if (!passCheck.isValid) {
+      alert(`Password requirement error: ${passCheck.message}`);
+      return;
+    }
+
     const newUser: User = {
       id: `usr-${Date.now()}`,
       firmId: currentUser?.firmId,
@@ -58,7 +67,7 @@ export const StaffModules: React.FC<StaffModuleProps> = ({
       role: (formData.role as any) || roleFilter,
       email: formData.email ? formData.email.trim() : '',
       phone: formData.phone ? formData.phone.trim() : '',
-      password: formData.password || 'password123',
+      password: userPass,
       status: 'Active',
       lastLogin: 'Never logged in',
       permissions: ['registry_read']
@@ -267,12 +276,14 @@ export const StaffModules: React.FC<StaffModuleProps> = ({
                 <label className="block font-bold text-slate-300 mb-1">Account Password</label>
                 <input
                   type="password"
-                  placeholder="Set password (default: password123)"
+                  placeholder="Set password (default: Pass123!)"
                   value={formData.password || ''}
                   onChange={e => setFormData({ ...formData, password: e.target.value })}
                   className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded font-mono focus:border-[#C9A227]"
                 />
               </div>
+
+              <PasswordRequirementsChecklist password={formData.password || 'Pass123!'} />
 
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Phone Number</label>

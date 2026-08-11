@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { LawFirmProfile, User, RegistryFile, AuditLogEntry } from '../types';
+import { validatePassword } from '../utils/passwordValidator';
+import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
 import { 
   Building2, 
   Users, 
@@ -1229,16 +1231,22 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 </div>
               </div>
 
+              {/* Password Requirements Indicator */}
+              <PasswordRequirementsChecklist password={adminNewPass} />
+
               <div className="flex justify-end pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setAdminPassError('');
                     setAdminPassSuccess('');
-                    if (!adminNewPass || adminNewPass.length < 6) {
-                      setAdminPassError('New password must be at least 6 characters long.');
+
+                    const passCheck = validatePassword(adminNewPass);
+                    if (!passCheck.isValid) {
+                      setAdminPassError(passCheck.message);
                       return;
                     }
+
                     if (adminNewPass !== adminConfirmPass) {
                       setAdminPassError('Passwords do not match.');
                       return;

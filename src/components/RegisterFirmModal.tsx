@@ -19,6 +19,8 @@ import {
   Info
 } from 'lucide-react';
 import { saveDocumentToFirebase } from '../lib/firebase';
+import { validatePassword } from '../utils/passwordValidator';
+import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
 
 const LEGAL_REGISTRY_FORMAT_REGEX = /^(LSK|LR|LFR|REG|P\.?\d+)\/(19\d{2}|20\d{2}|\d{2})\/(\d{2,6})$/i;
 
@@ -103,6 +105,12 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
       return;
     }
 
+    const passCheck = validatePassword(password);
+    if (!passCheck.isValid) {
+      setErrorMessage(`Password requirement not met: ${passCheck.message}`);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setErrorMessage('Passwords do not match. Please check and try again.');
       return;
@@ -153,6 +161,9 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
       role: 'Proprietor',
       email: email.trim(),
       phone: phone.trim(),
+      physicalAddress: physicalAddress.trim() || `${county} Legal Chambers`,
+      county: county,
+      country: country,
       password: password,
       status: 'Active',
       lastLogin: `Today at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
@@ -419,39 +430,44 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
               </div>
 
               {/* Password */}
-              <div>
-                <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
-                  Admin Password *
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Minimum 6 characters"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                  />
-                </div>
-              </div>
+              <div className="sm:col-span-2 space-y-2">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
+                      Admin Password *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Caps, small, digit, special, ≥6 chars"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
+                      />
+                    </div>
+                  </div>
 
-              {/* Confirm Password */}
-              <div>
-                <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
-                  Confirm Password *
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Repeat password"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                  />
+                  <div>
+                    <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
+                      Confirm Password *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Repeat password"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                <PasswordRequirementsChecklist password={password} />
               </div>
 
             </div>

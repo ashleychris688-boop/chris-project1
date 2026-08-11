@@ -10,6 +10,9 @@ export interface User {
   role: UserRole;
   email: string;
   phone: string;
+  physicalAddress?: string;
+  county?: string;
+  country?: string;
   password?: string;
   status: 'Active' | 'Suspended';
   lastLogin: string;

@@ -22,6 +22,8 @@ import {
   UserCheck
 } from 'lucide-react';
 import { saveDocumentToFirebase } from '../lib/firebase';
+import { validatePassword } from '../utils/passwordValidator';
+import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
 
 interface LoginPageProps {
   users: User[];
@@ -117,6 +119,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     if (!newPasswordResetInput.trim()) {
       setResetStatusMessage('Please enter a new password.');
+      return;
+    }
+
+    const passCheck = validatePassword(newPasswordResetInput.trim());
+    if (!passCheck.isValid) {
+      setResetStatusMessage(`Password rule error: ${passCheck.message}`);
       return;
     }
 
@@ -685,6 +693,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
                   />
                 </div>
+
+                <PasswordRequirementsChecklist password={newPasswordResetInput} />
 
                 <div className="pt-2">
                   <button
