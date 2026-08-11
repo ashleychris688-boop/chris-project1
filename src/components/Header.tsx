@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { 
   ShieldCheck, 
@@ -14,7 +14,9 @@ import {
   Sparkles,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Download,
+  Smartphone
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -54,6 +56,31 @@ export const Header: React.FC<HeaderProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        setDeferredPrompt(null);
+      });
+    } else {
+      setShowInstallModal(true);
+    }
+  };
 
   const handleTriggerSync = () => {
     if (onManualCloudSync) {
@@ -123,6 +150,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Quick Role Switcher, Notifications & User Menu */}
         <div className="flex items-center gap-3">
+
+          {/* PWA Install App Button */}
+          <button
+            onClick={handleInstallClick}
+            className="px-2.5 py-1.5 rounded-lg border border-[#C9A227]/70 bg-[#C9A227]/15 hover:bg-[#C9A227]/30 text-[#C9A227] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
+            title="Install Law Firm Registry as a standalone app on your Phone, Tablet, or PC"
+          >
+            <Download className="w-3.5 h-3.5 text-[#C9A227] animate-bounce" />
+            <span className="hidden sm:inline text-[11px]">Install App</span>
+          </button>
 
           {/* Cloud Redundancy Snapshot Sync Indicator */}
           {onManualCloudSync && (
@@ -320,6 +357,91 @@ export const Header: React.FC<HeaderProps> = ({
 
         </div>
       </div>
+
+      {/* PWA Installation Guidance Modal */}
+      {showInstallModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#081729] rounded-2xl max-w-lg w-full p-6 space-y-4 border border-[#C9A227]/50 shadow-2xl text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-[#C9A227]/20 border border-[#C9A227] rounded-xl text-[#C9A227]">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-white">Install Law Firm Registry App</h3>
+                  <p className="text-xs text-slate-400">Install as a standalone application on Mobile, Tablet & PC</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowInstallModal(false)}
+                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs leading-relaxed text-slate-300">
+              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2">
+                <div className="font-bold text-white text-sm flex items-center gap-2">
+                  <Download className="w-4 h-4 text-[#C9A227]" />
+                  Direct Installation Link:
+                </div>
+                <div className="font-mono bg-slate-900 p-2 rounded border border-slate-700 text-[#C9A227] select-all break-all text-[11px]">
+                  https://ais-pre-edwap6nj5njv6j3e27yoc3-464502387269.europe-west2.run.app
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText('https://ais-pre-edwap6nj5njv6j3e27yoc3-464502387269.europe-west2.run.app');
+                    alert('App Installation Link copied to clipboard!');
+                  }}
+                  className="w-full py-1.5 bg-[#C9A227]/20 hover:bg-[#C9A227]/30 text-[#C9A227] border border-[#C9A227]/50 rounded-lg font-bold text-xs cursor-pointer transition"
+                >
+                  Copy App Link
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="font-bold text-[#C9A227] uppercase tracking-wider text-[11px]">Installation Steps by Platform:</div>
+                
+                <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                  <div className="font-bold text-white mb-1">📱 Android (Chrome / Firefox / Edge):</div>
+                  <ol className="list-decimal list-inside space-y-0.5 text-slate-300 pl-1">
+                    <li>Open the link above in Chrome or Edge.</li>
+                    <li>Tap the <strong>three dots (⋮)</strong> menu at the top right.</li>
+                    <li>Select <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>.</li>
+                  </ol>
+                </div>
+
+                <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                  <div className="font-bold text-white mb-1">🍎 iPhone / iPad (Safari):</div>
+                  <ol className="list-decimal list-inside space-y-0.5 text-slate-300 pl-1">
+                    <li>Open the link above in <strong>Safari</strong>.</li>
+                    <li>Tap the <strong>Share</strong> button (square with arrow up).</li>
+                    <li>Scroll down and tap <strong>"Add to Home Screen"</strong>.</li>
+                  </ol>
+                </div>
+
+                <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                  <div className="font-bold text-white mb-1">💻 Computer / Laptop (Chrome / Edge):</div>
+                  <ol className="list-decimal list-inside space-y-0.5 text-slate-300 pl-1">
+                    <li>Look for the <strong>Install icon (🖥️ or ➕)</strong> on the right side of the URL bar.</li>
+                    <li>Click <strong>Install</strong> to add it directly to your Desktop & Taskbar.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setShowInstallModal(false)}
+                className="px-5 py-2 bg-[#C9A227] text-slate-950 font-bold rounded-xl hover:bg-[#B08D1E] cursor-pointer text-xs"
+              >
+                Close Guidance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

@@ -1,0 +1,25 @@
+{
+  "short_name": "Law Firm Registry",
+  "name": "LAW FIRM REGISTRY - Digital Legal Operations Platform",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#081729",
+  "theme_color": "#081729",
+  "display": "standalone",
+  "orientation": "any",
+  "scope": "/",
+  "description": "Comprehensive Legal Registry, Court Diary, Physical File Tracker, and Multi-Tenant Law Firm Management System."
+}
