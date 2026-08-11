@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, 
   RegistryFile, 
@@ -101,6 +101,60 @@ export default function App() {
   const [tasks, setTasksState] = useState<ChaserTask[]>(getStoredTasks());
   const [unprocessedRecords, setUnprocessedRecordsState] = useState<UnprocessedClientRecord[]>(getStoredUnprocessedRecords());
 
+  // Firm Multi-Tenancy Scoping
+  const currentFirmCode = currentUser?.firmCode || settings.firmCode || 'LFR-001';
+  const isSuperAdminView = currentUser?.role === 'Super Admin' && activeTab === 'super-admin';
+
+  const activeFirmFiles = useMemo(() => {
+    if (isSuperAdminView) return files;
+    return files.filter(f => (f.firmCode || 'LFR-001') === currentFirmCode);
+  }, [files, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmCourtSessions = useMemo(() => {
+    if (isSuperAdminView) return courtSessions;
+    return courtSessions.filter(s => (s.firmCode || 'LFR-001') === currentFirmCode);
+  }, [courtSessions, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmMovements = useMemo(() => {
+    if (isSuperAdminView) return movements;
+    return movements.filter(m => (m.firmCode || 'LFR-001') === currentFirmCode);
+  }, [movements, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmClaims = useMemo(() => {
+    if (isSuperAdminView) return claims;
+    return claims.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
+  }, [claims, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmCheques = useMemo(() => {
+    if (isSuperAdminView) return cheques;
+    return cheques.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
+  }, [cheques, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmCommissions = useMemo(() => {
+    if (isSuperAdminView) return commissions;
+    return commissions.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
+  }, [commissions, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmBringUpItems = useMemo(() => {
+    if (isSuperAdminView) return bringUpItems;
+    return bringUpItems.filter(b => (b.firmCode || 'LFR-001') === currentFirmCode);
+  }, [bringUpItems, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmTasks = useMemo(() => {
+    if (isSuperAdminView) return tasks;
+    return tasks.filter(t => (t.firmCode || 'LFR-001') === currentFirmCode);
+  }, [tasks, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmUnprocessedRecords = useMemo(() => {
+    if (isSuperAdminView) return unprocessedRecords;
+    return unprocessedRecords.filter(r => (r.firmCode || 'LFR-001') === currentFirmCode);
+  }, [unprocessedRecords, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmUsers = useMemo(() => {
+    if (isSuperAdminView) return users;
+    return users.filter(u => u.role === 'Super Admin' || u.role === 'Platform Owner' || (u.firmCode || 'LFR-001') === currentFirmCode);
+  }, [users, currentFirmCode, isSuperAdminView]);
+
   // SaaS Firm Registration Handler
   const handleRegisterFirmSuccess = (newFirm: LawFirmProfile, proprietorUser: User) => {
     const updatedFirms = [newFirm, ...firms];
@@ -166,7 +220,8 @@ export default function App() {
 
   // Handlers for Case Chasers Module & Unprocessed Bucket
   const handleAddUnprocessedRecord = (newRecord: UnprocessedClientRecord) => {
-    const updated = [newRecord, ...unprocessedRecords];
+    const recordWithFirm = { ...newRecord, firmCode: newRecord.firmCode || currentFirmCode };
+    const updated = [recordWithFirm, ...unprocessedRecords];
     setUnprocessedRecordsState(updated);
     saveUnprocessedRecords(updated);
 
@@ -184,7 +239,8 @@ export default function App() {
 
   const handleAddFollowUpLog = (newLog: ChaserFollowUpLog) => {
 
-    const updated = [newLog, ...followUpLogs];
+    const logWithFirm = { ...newLog, firmCode: newLog.firmCode || currentFirmCode };
+    const updated = [logWithFirm, ...followUpLogs];
     setFollowUpLogsState(updated);
     saveFollowUpLogs(updated);
 
@@ -201,14 +257,15 @@ export default function App() {
       updated = [...responsibilities];
       updated[index] = resp;
     } else {
-      updated = [resp, ...responsibilities];
+      updated = [{ ...resp, firmCode: resp.firmCode || currentFirmCode }, ...responsibilities];
     }
     setResponsibilitiesState(updated);
     saveResponsibilities(updated);
   };
 
   const handleAddTask = (newTask: ChaserTask) => {
-    const updated = [newTask, ...tasks];
+    const taskWithFirm = { ...newTask, firmCode: newTask.firmCode || currentFirmCode };
+    const updated = [taskWithFirm, ...tasks];
     setTasksState(updated);
     saveTasks(updated);
 
@@ -501,7 +558,8 @@ export default function App() {
 
   // State update handlers
   const handleAddFile = (newFile: RegistryFile) => {
-    const updated = [newFile, ...files];
+    const fileWithFirm = { ...newFile, firmCode: newFile.firmCode || currentFirmCode };
+    const updated = [fileWithFirm, ...files];
     setFilesState(updated);
     saveFiles(updated);
 
@@ -517,7 +575,8 @@ export default function App() {
     newStatus?: RegistryFile['currentStatus']
   ) => {
     // Add movement
-    const updatedMovements = [newMovement, ...movements];
+    const movementWithFirm = { ...newMovement, firmCode: newMovement.firmCode || currentFirmCode };
+    const updatedMovements = [movementWithFirm, ...movements];
     setMovementsState(updatedMovements);
     saveMovements(updatedMovements);
 
@@ -552,13 +611,15 @@ export default function App() {
     newSession: CourtSession, 
     sameDayAlert?: { fileNumber: string; time: string; purpose: string }
   ) => {
-    const updated = [newSession, ...courtSessions];
+    const sessionWithFirm = { ...newSession, firmCode: newSession.firmCode || currentFirmCode };
+    const updated = [sessionWithFirm, ...courtSessions];
     setCourtSessionsState(updated);
     saveCourtSessions(updated);
 
     if (sameDayAlert) {
       const newAlert: UrgentAlert = {
         id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        firmCode: currentFirmCode,
         fileNumber: sameDayAlert.fileNumber,
         time: sameDayAlert.time,
         purpose: sameDayAlert.purpose,
@@ -586,13 +647,15 @@ export default function App() {
     updatedCaseStatus?: RegistryFile['currentStatus'],
     sameDayAlert?: { fileNumber: string; time: string; purpose: string }
   ) => {
-    const updatedOutcomes = [newOutcome, ...courtOutcomes];
+    const outcomeWithFirm = { ...newOutcome, firmCode: newOutcome.firmCode || currentFirmCode };
+    const updatedOutcomes = [outcomeWithFirm, ...courtOutcomes];
     setCourtOutcomesState(updatedOutcomes);
     saveCourtOutcomes(updatedOutcomes);
 
     if (sameDayAlert) {
       const newAlert: UrgentAlert = {
         id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        firmCode: currentFirmCode,
         fileNumber: sameDayAlert.fileNumber,
         time: sameDayAlert.time,
         purpose: sameDayAlert.purpose,
@@ -654,7 +717,8 @@ export default function App() {
   };
 
   const handleAddInsuranceClaim = (claim: InsuranceClaim) => {
-    const updated = [claim, ...claims];
+    const claimWithFirm = { ...claim, firmCode: claim.firmCode || currentFirmCode };
+    const updated = [claimWithFirm, ...claims];
     setClaimsState(updated);
     saveInsuranceClaims(updated);
   };
@@ -666,7 +730,8 @@ export default function App() {
   };
 
   const handleAddPendingCheque = (cheque: PendingCheque) => {
-    const updated = [cheque, ...cheques];
+    const chequeWithFirm = { ...cheque, firmCode: cheque.firmCode || currentFirmCode };
+    const updated = [chequeWithFirm, ...cheques];
     setChequesState(updated);
     savePendingCheques(updated);
   };
@@ -696,13 +761,15 @@ export default function App() {
   };
 
   const handleAddCommission = (record: CommissionRecord) => {
-    const updated = [record, ...commissions];
+    const recordWithFirm = { ...record, firmCode: record.firmCode || currentFirmCode };
+    const updated = [recordWithFirm, ...commissions];
     setCommissionsState(updated);
     saveCommissions(updated);
   };
 
   const handleAddUser = (user: User) => {
-    const updated = [...users, user];
+    const userWithFirm = { ...user, firmCode: user.firmCode || currentFirmCode, firmId: user.firmId || currentUser?.firmId };
+    const updated = [...users, userWithFirm];
     setUsersState(updated);
     saveUsers(updated);
 
@@ -884,12 +951,12 @@ export default function App() {
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
             currentUser={currentUser}
             counts={{
-              sessionsToday: courtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length,
-              filesOut: files.filter(f => f.currentStatus.startsWith('Out')).length,
-              pendingCheques: cheques.filter(c => c.status !== 'Cleared').length,
-              commissions: commissions.filter(c => c.outstandingBalance > 0).length,
-              pendingReviewIntakes: unprocessedRecords.filter(r => r.status === 'Pending Review').length,
-              pendingTasks: tasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length
+              sessionsToday: activeFirmCourtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length,
+              filesOut: activeFirmFiles.filter(f => f.currentStatus.startsWith('Out')).length,
+              pendingCheques: activeFirmCheques.filter(c => c.status !== 'Cleared').length,
+              commissions: activeFirmCommissions.filter(c => c.outstandingBalance > 0).length,
+              pendingReviewIntakes: activeFirmUnprocessedRecords.filter(r => r.status === 'Pending Review').length,
+              pendingTasks: activeFirmTasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length
             }}
           />
         )}
@@ -936,9 +1003,9 @@ export default function App() {
           {activeTab === 'tasks' && (
             <TaskManagementModule
               currentUser={currentUser}
-              users={users}
-              files={files}
-              tasks={tasks}
+              users={activeFirmUsers}
+              files={activeFirmFiles}
+              tasks={activeFirmTasks}
               onAddTask={handleAddTask}
               onUpdateTask={handleUpdateTask}
               onDeleteTask={handleDeleteTask}
@@ -951,14 +1018,14 @@ export default function App() {
           {activeTab === 'dashboard' && (
             currentUser?.role === 'Case Chaser' ? (
               <CaseChaserModule
-                files={files}
-                users={users}
+                files={activeFirmFiles}
+                users={activeFirmUsers}
                 currentUser={currentUser}
                 chasers={chasers}
                 followUpLogs={followUpLogs}
                 responsibilities={responsibilities}
-                tasks={tasks}
-                unprocessedRecords={unprocessedRecords}
+                tasks={activeFirmTasks}
+                unprocessedRecords={activeFirmUnprocessedRecords}
                 onAddUnprocessedRecord={handleAddUnprocessedRecord}
                 onUpdateUnprocessedRecord={handleUpdateUnprocessedRecord}
                 onAddFile={handleAddFile}
@@ -971,12 +1038,12 @@ export default function App() {
             ) : (
               <DashboardView
                 currentUser={currentUser}
-                files={files}
-                courtSessions={courtSessions}
-                fileMovements={movements}
-                claims={claims}
-                cheques={cheques}
-                commissions={commissions}
+                files={activeFirmFiles}
+                courtSessions={activeFirmCourtSessions}
+                fileMovements={activeFirmMovements}
+                claims={activeFirmClaims}
+                cheques={activeFirmCheques}
+                commissions={activeFirmCommissions}
                 onNavigateTab={tab => setActiveTab(tab)}
                 onLogoutWithRole={roleTab => handleLogout(roleTab)}
                 onOpenNewFileModal={() => {
@@ -992,8 +1059,8 @@ export default function App() {
 
           {activeTab === 'registry' && (
             <RegistryModule
-              files={files}
-              movements={movements}
+              files={activeFirmFiles}
+              movements={activeFirmMovements}
               onAddFile={handleAddFile}
               onUpdateFile={file => {
                 const updated = files.map(f => f.id === file.id ? file : f);
@@ -1007,17 +1074,17 @@ export default function App() {
               courtStations={settings.courtStations}
               cabinets={settings.cabinets}
               openNewModalInitially={openNewFileModalOnRegistry}
-              unprocessedRecords={unprocessedRecords}
+              unprocessedRecords={activeFirmUnprocessedRecords}
               onUpdateUnprocessedRecord={handleUpdateUnprocessedRecord}
               fileNumberPrefix={settings.fileNumberPrefix}
-              users={users}
+              users={activeFirmUsers}
             />
           )}
 
           {activeTab === 'file-tracker' && (
             <FileTrackerModule
-              files={files}
-              movements={movements}
+              files={activeFirmFiles}
+              movements={activeFirmMovements}
               currentUser={currentUser}
               onRecordMovement={handleRecordMovement}
               selectedFileToMove={selectedFileToMove}
@@ -1027,8 +1094,8 @@ export default function App() {
 
           {activeTab === 'court-diary' && (
             <CourtDiaryModule
-              sessions={courtSessions}
-              files={files}
+              sessions={activeFirmCourtSessions}
+              files={activeFirmFiles}
               onAddSession={handleAddCourtSession}
               onNavigateToOutcome={session => {
                 setPreselectedSessionForOutcome(session);
@@ -1041,7 +1108,7 @@ export default function App() {
           {activeTab === 'court-outcomes' && (
             <CourtOutcomeModule
               outcomes={courtOutcomes}
-              files={files}
+              files={activeFirmFiles}
               onAddOutcome={handleAddCourtOutcome}
               preselectedSession={preselectedSessionForOutcome}
             />
@@ -1049,33 +1116,33 @@ export default function App() {
 
           {activeTab === 'bring-up' && (
             <BringUpModule
-              bringUpItems={bringUpItems}
+              bringUpItems={activeFirmBringUpItems}
               onToggleRetrieved={handleToggleBringUpRetrieved}
             />
           )}
 
           {activeTab === 'advocates' && (
-            <StaffModules files={files} users={users} roleFilter="Advocate" />
+            <StaffModules files={activeFirmFiles} users={activeFirmUsers} roleFilter="Advocate" currentUser={currentUser} onAddUser={handleAddUser} />
           )}
 
           {activeTab === 'secretaries' && (
-            <StaffModules files={files} users={users} roleFilter="Secretary" />
+            <StaffModules files={activeFirmFiles} users={activeFirmUsers} roleFilter="Secretary" currentUser={currentUser} onAddUser={handleAddUser} />
           )}
 
           {activeTab === 'clerks' && (
-            <StaffModules files={files} users={users} roleFilter="Clerk" />
+            <StaffModules files={activeFirmFiles} users={activeFirmUsers} roleFilter="Clerk" currentUser={currentUser} onAddUser={handleAddUser} />
           )}
 
           {activeTab === 'case-chasers' && (
             <CaseChaserModule
-              files={files}
-              users={users}
+              files={activeFirmFiles}
+              users={activeFirmUsers}
               currentUser={currentUser}
               chasers={chasers}
               followUpLogs={followUpLogs}
               responsibilities={responsibilities}
-              tasks={tasks}
-              unprocessedRecords={unprocessedRecords}
+              tasks={activeFirmTasks}
+              unprocessedRecords={activeFirmUnprocessedRecords}
               onAddUnprocessedRecord={handleAddUnprocessedRecord}
               onUpdateUnprocessedRecord={handleUpdateUnprocessedRecord}
               onAddFile={handleAddFile}
@@ -1089,14 +1156,14 @@ export default function App() {
 
           {activeTab === 'unprocessed-bucket' && (
             <UnprocessedSourcingModule
-              unprocessedRecords={unprocessedRecords}
+              unprocessedRecords={activeFirmUnprocessedRecords}
               onUpdateUnprocessedRecord={handleUpdateUnprocessedRecord}
               onAddFile={handleAddFile}
-              files={files}
+              files={activeFirmFiles}
               courtStations={settings.courtStations}
               cabinets={settings.cabinets}
               fileNumberPrefix={settings.fileNumberPrefix}
-              users={users}
+              users={activeFirmUsers}
               currentUser={currentUser}
             />
           )}
@@ -1105,8 +1172,8 @@ export default function App() {
 
           {activeTab === 'insurance' && (
             <InsuranceModule
-              claims={claims}
-              files={files}
+              claims={activeFirmClaims}
+              files={activeFirmFiles}
               onUpdateClaim={handleUpdateInsuranceClaim}
               onAddClaim={handleAddInsuranceClaim}
             />
@@ -1114,8 +1181,8 @@ export default function App() {
 
           {activeTab === 'pending-cheques' && (
             <ChequesModule
-              cheques={cheques}
-              files={files}
+              cheques={activeFirmCheques}
+              files={activeFirmFiles}
               onUpdateCheque={handleUpdatePendingCheque}
               onAddCheque={handleAddPendingCheque}
             />
@@ -1123,8 +1190,8 @@ export default function App() {
 
           {activeTab === 'commission-tracker' && (
             <CommissionModule
-              commissions={commissions}
-              files={files}
+              commissions={activeFirmCommissions}
+              files={activeFirmFiles}
               onPayout={handleCommissionPayout}
               onAddCommission={(newRec) => {
                 const fullRecord: CommissionRecord = {
@@ -1138,19 +1205,19 @@ export default function App() {
 
           {activeTab === 'reports' && (
             <ReportsModule
-              files={files}
-              courtSessions={courtSessions}
-              bringUpItems={bringUpItems}
-              claims={claims}
-              cheques={cheques}
-              commissions={commissions}
-              movements={movements}
+              files={activeFirmFiles}
+              courtSessions={activeFirmCourtSessions}
+              bringUpItems={activeFirmBringUpItems}
+              claims={activeFirmClaims}
+              cheques={activeFirmCheques}
+              commissions={activeFirmCommissions}
+              movements={activeFirmMovements}
             />
           )}
 
           {activeTab === 'user-management' && (
             <UserManagementModule
-              users={users}
+              users={activeFirmUsers}
               currentUser={currentUser}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}

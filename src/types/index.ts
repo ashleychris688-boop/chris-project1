@@ -36,6 +36,7 @@ export interface PhysicalLocation {
 
 export interface FileMovement {
   id: string;
+  firmCode?: string;
   fileId: string;
   fileNumber: string;
   date: string;
@@ -85,6 +86,7 @@ export type PartyCapacity =
 
 export interface RegistryFile {
   id: string;
+  firmCode?: string;
   internalFileNumber: string; // e.g. LFR/2026/0142
   courtCaseNumber: string;    // e.g. Milimani HCCC No. 428 of 2025
   clientName: string;
@@ -114,6 +116,7 @@ export interface RegistryFile {
 
 export interface CourtSession {
   id: string;
+  firmCode?: string;
   fileId: string;
   fileNumber: string;
   clientName: string;
@@ -131,6 +134,7 @@ export interface CourtSession {
 
 export interface CourtOutcome {
   id: string;
+  firmCode?: string;
   fileId: string;
   fileNumber: string;
   sessionId?: string;
@@ -145,6 +149,7 @@ export interface CourtOutcome {
 
 export interface BringUpItem {
   id: string;
+  firmCode?: string;
   courtStation: string;
   courtNumber: string;
   hearingDate: string;
@@ -161,6 +166,7 @@ export interface BringUpItem {
 
 export interface InsuranceClaim {
   id: string;
+  firmCode?: string;
   fileId: string;
   fileNumber: string;
   clientName: string;
@@ -177,6 +183,7 @@ export interface InsuranceClaim {
 
 export interface PendingCheque {
   id: string;
+  firmCode?: string;
   fileId: string;
   fileNumber: string;
   clientName: string;
@@ -191,6 +198,7 @@ export interface PendingCheque {
 
 export interface CommissionRecord {
   id: string;
+  firmCode?: string;
   fileId: string;
   fileNumber: string;
   caseChaserName: string;
@@ -255,6 +263,7 @@ export interface SystemSettings {
 
 export interface CaseChaserProfile {
   id: string;
+  firmCode?: string;
   chaserId: string; // e.g. "CC-001"
   userId?: string;
   fullName: string;
@@ -291,6 +300,7 @@ export interface CaseChaserProfile {
 
 export interface ChaserFollowUpLog {
   id: string;
+  firmCode?: string;
   fileId: string;
   fileNumber: string;
   clientName?: string;
@@ -305,6 +315,7 @@ export interface ChaserFollowUpLog {
 
 export interface ChaserFileResponsibility {
   fileId: string;
+  firmCode?: string;
   fileNumber: string;
   clientContacted: boolean;
   lastContactDate?: string;
@@ -334,6 +345,7 @@ export type TaskCategory =
 
 export interface TaskItem {
   id: string; // e.g. TSK-2026-001
+  firmCode?: string;
   fileId?: string;
   fileNumber?: string; // Related File Number
   clientName?: string;
@@ -378,6 +390,7 @@ export type UnprocessedStatus = 'Pending Review' | 'Approved' | 'Rejected' | 'Co
 
 export interface UnprocessedClientRecord {
   id: string;
+  firmCode?: string;
   // Basic Client Information
   clientFullName: string;
   phoneNumber: string;
@@ -414,6 +427,7 @@ export interface UnprocessedClientRecord {
 
 export interface UrgentAlert {
   id: string;
+  firmCode?: string;
   fileNumber: string;
   time: string;
   purpose: string;
