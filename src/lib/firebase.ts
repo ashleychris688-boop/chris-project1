@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, disableNetwork } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
@@ -19,10 +19,18 @@ export const db = firebaseConfigData.firestoreDatabaseId
   ? getFirestore(app, firebaseConfigData.firestoreDatabaseId)
   : getFirestore(app);
 
-let isQuotaExceeded = typeof window !== 'undefined' && localStorage.getItem('lfr_firestore_quota_exceeded') === 'true';
+let isQuotaExceeded = false;
 
-if (isQuotaExceeded) {
-  disableNetwork(db).catch(() => {});
+// Clear any previous stale lockout on startup and re-enable network
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('lfr_firestore_quota_exceeded');
+  } catch (e) {}
+}
+
+export function resetFirebaseNetwork() {
+  isQuotaExceeded = false;
+  enableNetwork(db).catch(() => {});
 }
 
 function handleQuotaExceeded(err: unknown) {

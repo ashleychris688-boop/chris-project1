@@ -472,11 +472,15 @@ app.post("/api/auth/login", (req, res) => {
     success: true,
     user: {
       id: user.id,
+      firmId: user.firmId,
+      firmCode: user.firmCode,
+      firmName: user.firmName,
       username: user.username,
       fullName: user.fullName,
       role: user.role,
       email: user.email,
       phone: user.phone,
+      password: user.password || 'password123',
       status: user.status,
       lastLogin: user.lastLogin,
       permissions: user.permissions

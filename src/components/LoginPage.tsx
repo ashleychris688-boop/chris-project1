@@ -411,6 +411,94 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </div>
           )}
 
+          {/* Quick One-Click Demo Accounts Selector */}
+          <div className="pt-2 pb-1 border-t border-b border-slate-800 space-y-2">
+            <div className="text-[10px] font-bold text-[#C9A227] uppercase tracking-wider flex items-center justify-between">
+              <span>⚡ One-Click Quick Login Presets:</span>
+              <span className="text-slate-400 font-mono font-normal">Password: password123</span>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setFirmIdInput('PLATFORM');
+                  setUsernameInput('anthonyomollo07@gmail.com');
+                  setPasswordInput('password123');
+                }}
+                className="p-2 bg-slate-900 hover:bg-[#C9A227]/20 border border-slate-700 hover:border-[#C9A227] text-left rounded-lg transition cursor-pointer group"
+              >
+                <div className="font-bold text-amber-300 group-hover:text-amber-200">🛡️ Super Admin</div>
+                <div className="text-[9px] text-slate-400 truncate">anthonyomollo07@...</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFirmIdInput('OM-ADV-001');
+                  setUsernameInput('proprietor');
+                  setPasswordInput('password123');
+                }}
+                className="p-2 bg-slate-900 hover:bg-[#C9A227]/20 border border-slate-700 hover:border-[#C9A227] text-left rounded-lg transition cursor-pointer group"
+              >
+                <div className="font-bold text-slate-200 group-hover:text-amber-200">👔 Proprietor</div>
+                <div className="text-[9px] text-slate-400 truncate">proprietor</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFirmIdInput('OM-ADV-001');
+                  setUsernameInput('adv.kamau');
+                  setPasswordInput('password123');
+                }}
+                className="p-2 bg-slate-900 hover:bg-[#C9A227]/20 border border-slate-700 hover:border-[#C9A227] text-left rounded-lg transition cursor-pointer group"
+              >
+                <div className="font-bold text-slate-200 group-hover:text-amber-200">⚖️ Advocate</div>
+                <div className="text-[9px] text-slate-400 truncate">adv.kamau</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFirmIdInput('OM-ADV-001');
+                  setUsernameInput('clerk.mutua');
+                  setPasswordInput('password123');
+                }}
+                className="p-2 bg-slate-900 hover:bg-[#C9A227]/20 border border-slate-700 hover:border-[#C9A227] text-left rounded-lg transition cursor-pointer group"
+              >
+                <div className="font-bold text-slate-200 group-hover:text-amber-200">📁 Registry Clerk</div>
+                <div className="text-[9px] text-slate-400 truncate">clerk.mutua</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFirmIdInput('OM-ADV-001');
+                  setUsernameInput('sec.wafula');
+                  setPasswordInput('password123');
+                }}
+                className="p-2 bg-slate-900 hover:bg-[#C9A227]/20 border border-slate-700 hover:border-[#C9A227] text-left rounded-lg transition cursor-pointer group"
+              >
+                <div className="font-bold text-slate-200 group-hover:text-amber-200">📑 Secretary</div>
+                <div className="text-[9px] text-slate-400 truncate">sec.wafula</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFirmIdInput('OM-ADV-001');
+                  setUsernameInput('chaser.kinuthia');
+                  setPasswordInput('password123');
+                }}
+                className="p-2 bg-slate-900 hover:bg-[#C9A227]/20 border border-slate-700 hover:border-[#C9A227] text-left rounded-lg transition cursor-pointer group"
+              >
+                <div className="font-bold text-slate-200 group-hover:text-amber-200">🏃 Case Chaser</div>
+                <div className="text-[9px] text-slate-400 truncate">chaser.kinuthia</div>
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-4">
             
             {/* Firm ID Field */}
