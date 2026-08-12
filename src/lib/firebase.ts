@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, collection, getDocs, doc, setDoc, deleteDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
@@ -15,9 +15,14 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
+
+const firestoreSettings = {
+  experimentalAutoDetectLongPolling: true
+};
+
 export const db = firebaseConfigData.firestoreDatabaseId 
-  ? getFirestore(app, firebaseConfigData.firestoreDatabaseId)
-  : getFirestore(app);
+  ? initializeFirestore(app, firestoreSettings, firebaseConfigData.firestoreDatabaseId)
+  : initializeFirestore(app, firestoreSettings);
 
 let isQuotaExceeded = false;
 
