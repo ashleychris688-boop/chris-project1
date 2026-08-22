@@ -1,0 +1,194 @@
+{
+  "entities": {
+    "LawFirm": {
+      "title": "Law Firm Profile",
+      "description": "Registered Law Firm SaaS workspace tenant",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the law firm"
+        },
+        "firmName": {
+          "type": "string",
+          "description": "Official name of the law firm"
+        },
+        "firmCode": {
+          "type": "string",
+          "description": "Unique identifier code for the law firm (e.g. LFR-001)"
+        },
+        "registrationNumber": {
+          "type": "string",
+          "description": "Business or partnership registration number"
+        },
+        "lskNumber": {
+          "type": "string",
+          "description": "Law Society of Kenya (LSK) firm registration number"
+        },
+        "proprietorName": {
+          "type": "string",
+          "description": "Managing Partner or Proprietor Advocate name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Official contact email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Official contact telephone or mobile"
+        },
+        "county": {
+          "type": "string",
+          "description": "County of primary practice (e.g. Nairobi)"
+        },
+        "cityOrBranch": {
+          "type": "string",
+          "description": "Town or branch location"
+        },
+        "physicalAddress": {
+          "type": "string",
+          "description": "Physical building, street, or office suite"
+        },
+        "subscriptionTier": {
+          "type": "string",
+          "description": "SaaS subscription tier (Standard, Professional, Enterprise)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Account status (Active, Pending Verification, Trial, Suspended, Rejected)"
+        },
+        "activeUsersCount": {
+          "type": "number",
+          "description": "Current number of staff user accounts"
+        },
+        "activeCasesCount": {
+          "type": "number",
+          "description": "Current number of active court case files"
+        },
+        "totalFilesCount": {
+          "type": "number",
+          "description": "Total files recorded in the registry"
+        },
+        "monthlyFeeKsh": {
+          "type": "number",
+          "description": "Monthly subscription fee in Kenya Shillings"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Onboarding timestamp or date string"
+        }
+      },
+      "required": ["id", "firmName", "firmCode"]
+    },
+    "User": {
+      "title": "User Account",
+      "description": "Platform administrator or law firm staff member",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user account ID"
+        },
+        "firmId": {
+          "type": "string",
+          "description": "Associated law firm ID"
+        },
+        "firmCode": {
+          "type": "string",
+          "description": "Associated law firm unique code"
+        },
+        "firmName": {
+          "type": "string",
+          "description": "Associated law firm name"
+        },
+        "username": {
+          "type": "string",
+          "description": "Login username"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Full legal name"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role (Super Admin, Proprietor, Advocate, Clerk, Secretary, Case Chaser)"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "User phone number"
+        },
+        "status": {
+          "type": "string",
+          "description": "Account status (Active or Suspended)"
+        },
+        "lastLogin": {
+          "type": "string",
+          "description": "Last login timestamp"
+        }
+      },
+      "required": ["id", "username", "role"]
+    },
+    "RegistryFile": {
+      "title": "Registry Physical File",
+      "description": "Physical case registry file and metadata",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique file record ID"
+        },
+        "internalFileNumber": {
+          "type": "string",
+          "description": "Internal law firm registry file number"
+        },
+        "courtCaseNumber": {
+          "type": "string",
+          "description": "Court case number"
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Client name"
+        },
+        "opposingParty": {
+          "type": "string",
+          "description": "Opposing party or defendant"
+        },
+        "courtStation": {
+          "type": "string",
+          "description": "Court station"
+        },
+        "firmCode": {
+          "type": "string",
+          "description": "Law firm code owning this file"
+        },
+        "currentStatus": {
+          "type": "string",
+          "description": "File status (Active, Out in Court, Out with Advocate, Incomplete, Closed)"
+        }
+      },
+      "required": ["id", "internalFileNumber"]
+    }
+  },
+  "firestore": {
+    "/firms/{firmId}": {
+      "schema": "LawFirm",
+      "description": "Collection of registered law firm tenants in the SaaS platform."
+    },
+    "/law_firms/{firmId}": {
+      "schema": "LawFirm",
+      "description": "Secondary/redundant collection for law firm tenant profiles."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "System users and law firm staff accounts."
+    },
+    "/files/{fileId}": {
+      "schema": "RegistryFile",
+      "description": "Physical case registry files."
+    }
+  }
+}

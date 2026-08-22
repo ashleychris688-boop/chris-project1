@@ -47,7 +47,7 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
   const [ordersIssued, setOrdersIssued] = useState('Interim orders extended until next hearing date.');
   const [nextHearingDate, setNextHearingDate] = useState(getNextBusinessDay(todayStr));
   const [nextHearingTime, setNextHearingTime] = useState('09:00 AM');
-  const [advocatePresent, setAdvocatePresent] = useState(preselectedSession?.advocateName || 'Adv. James Kamau');
+  const [advocatePresent, setAdvocatePresent] = useState(preselectedSession?.advocateName || '');
   const [remarks, setRemarks] = useState('Mention to confirm compliance with court directions.');
   const [caseStatusAfter, setCaseStatusAfter] = useState<RegistryFile['currentStatus']>('Active');
 

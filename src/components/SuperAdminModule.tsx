@@ -25,7 +25,10 @@ import {
   Settings,
   History,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   UserCheck,
+  UserX,
   CreditCard,
   HardDrive,
   RefreshCw,
@@ -39,9 +42,16 @@ import {
   Filter,
   Server,
   KeyRound,
-  Trash2
+  Trash2,
+  Briefcase,
+  Crown,
+  Mail,
+  Phone,
+  UserPlus,
+  Edit3,
+  Save
 } from 'lucide-react';
-import { saveDocumentToFirebase } from '../lib/firebase';
+import { saveDocumentToFirebase, saveFirmToFirebase, saveUserToFirebase } from '../lib/firebase';
 
 interface SuperAdminModuleProps {
   firms: LawFirmProfile[];
@@ -55,7 +65,10 @@ interface SuperAdminModuleProps {
   onDeleteFirm?: (firmId: string) => void;
   onWipeAllFirms?: () => void;
   onUpdatePassword?: (userId: string, newPassword: string) => void;
+  onDeleteUser?: (userId: string) => void;
+  onUpdateUser?: (user: User) => void;
   onAddLawFirm?: (newFirm: LawFirmProfile, proprietorUser: User) => void;
+  onUpdateFirm?: (updatedFirm: LawFirmProfile) => void;
 }
 
 interface RegistrationRequest {
@@ -85,7 +98,10 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
   onDeleteFirm,
   onWipeAllFirms,
   onUpdatePassword,
-  onAddLawFirm
+  onDeleteUser,
+  onUpdateUser,
+  onAddLawFirm,
+  onUpdateFirm
 }) => {
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'firms' | 'registrations' | 'users' | 'activity' | 'subscriptions' | 'settings' | 'audit-logs'
@@ -93,6 +109,21 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending Verification' | 'Trial' | 'Suspended' | 'Rejected'>('All');
+
+  // Law Firm Edit Modal State
+  const [editingFirm, setEditingFirm] = useState<LawFirmProfile | null>(null);
+  const [firmEditForm, setFirmEditForm] = useState<Partial<LawFirmProfile>>({});
+  const [firmEditError, setFirmEditError] = useState('');
+  const [syncSuccessBanner, setSyncSuccessBanner] = useState<string | null>(null);
+
+  // User Accounts Tab State
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userFirmFilter, setUserFirmFilter] = useState('All');
+  const [userRoleFilter, setUserRoleFilter] = useState('All');
+  const [expandedFirms, setExpandedFirms] = useState<Record<string, boolean>>({});
+  const [selectedUserForPasswordReset, setSelectedUserForPasswordReset] = useState<User | null>(null);
+  const [userResetPassVal, setUserResetPassVal] = useState('Pass123!');
+  const [userResetFeedback, setUserResetFeedback] = useState('');
   
   // Admin password change state
   const [adminNewPass, setAdminNewPass] = useState('');
@@ -111,61 +142,112 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
   // Platform Account Settings Modal State
   const [showAccountSettingsModal, setShowAccountSettingsModal] = useState(false);
 
-  // Registration Requests State
-  const [requests, setRequests] = useState<RegistrationRequest[]>([
-    {
-      id: 'req-101',
-      firmName: 'Kiplagat & Cheruiyot Advocates',
-      registrationDate: '2026-08-05',
-      contactPerson: 'Adv. Felix Kiplagat',
-      email: 'felix@kcadvocates.co.ke',
-      phone: '+254 722 998877',
-      county: 'Uasin Gishu',
-      cityOrBranch: 'Eldoret Main',
-      lskNumber: 'P.105/18420/24',
-      status: 'Pending Verification',
-      requestedPlan: 'Professional',
-      documentsSubmitted: [
-        { name: 'LSK_Practicing_Certificate_2026.pdf', fileType: 'PDF Document', date: '2026-08-05' },
-        { name: 'Business_Registration_Certificate.pdf', fileType: 'PDF Document', date: '2026-08-05' },
-        { name: 'KRA_PIN_Certificate.pdf', fileType: 'PDF Document', date: '2026-08-05' }
-      ]
-    },
-    {
-      id: 'req-102',
-      firmName: 'Mutua & Partners Law Chambers',
-      registrationDate: '2026-08-04',
-      contactPerson: 'Adv. Beatrice Mutua',
-      email: 'info@mutualaw.co.ke',
-      phone: '+254 711 445566',
-      county: 'Machakos',
-      cityOrBranch: 'Machakos Town',
-      lskNumber: 'P.105/16110/22',
-      status: 'Pending Verification',
-      requestedPlan: 'Standard',
-      documentsSubmitted: [
-        { name: 'Practicing_License_2026.pdf', fileType: 'PDF Document', date: '2026-08-04' },
-        { name: 'Firm_Partnership_Deed.pdf', fileType: 'PDF Document', date: '2026-08-04' }
-      ]
-    },
-    {
-      id: 'req-103',
-      firmName: 'Coast Legal & Maritime LLP',
-      registrationDate: '2026-08-02',
-      contactPerson: 'Adv. Hassan Omar',
-      email: 'hassan@coastlegal.co.ke',
-      phone: '+254 733 112233',
-      county: 'Mombasa',
-      cityOrBranch: 'Mombasa CBD',
-      lskNumber: 'P.105/12800/19',
-      status: 'Pending Verification',
-      requestedPlan: 'Enterprise',
-      documentsSubmitted: [
-        { name: 'LSK_Certificate_2026.pdf', fileType: 'PDF Document', date: '2026-08-02' },
-        { name: 'Mombasa_Branch_Lease_Agreement.pdf', fileType: 'PDF Document', date: '2026-08-02' }
-      ]
+  // In-App Confirmation Modal State (Reliable across all iFrames & Sandboxes)
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: 'danger' | 'warning';
+    onConfirm: () => void;
+  } | null>(null);
+
+  const handleOpenEditFirm = (firm: LawFirmProfile) => {
+    setEditingFirm(firm);
+    setFirmEditForm({
+      ...firm,
+      status: firm.status || 'Active',
+      subscriptionTier: firm.subscriptionTier || 'Professional',
+      monthlyFeeKsh: firm.monthlyFeeKsh || 25000,
+      activeUsersCount: firm.activeUsersCount || 5
+    });
+    setFirmEditError('');
+  };
+
+  const handleSaveFirmEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFirm) return;
+
+    if (!firmEditForm.firmName?.trim()) {
+      setFirmEditError('Law firm name cannot be empty.');
+      return;
     }
-  ]);
+    if (!firmEditForm.firmCode?.trim()) {
+      setFirmEditError('Law firm code cannot be empty.');
+      return;
+    }
+
+    const updated: LawFirmProfile = {
+      ...editingFirm,
+      ...firmEditForm,
+      firmName: firmEditForm.firmName.trim(),
+      firmCode: firmEditForm.firmCode.trim(),
+      proprietorName: firmEditForm.proprietorName?.trim() || editingFirm.proprietorName,
+      registrationNumber: firmEditForm.registrationNumber?.trim() || editingFirm.registrationNumber,
+      county: firmEditForm.county?.trim() || editingFirm.county,
+      cityOrBranch: firmEditForm.cityOrBranch?.trim() || editingFirm.cityOrBranch,
+      physicalAddress: firmEditForm.physicalAddress?.trim() || editingFirm.physicalAddress,
+      email: firmEditForm.email?.trim() || editingFirm.email,
+      phone: firmEditForm.phone?.trim() || editingFirm.phone,
+      subscriptionTier: firmEditForm.subscriptionTier || editingFirm.subscriptionTier,
+      status: firmEditForm.status || editingFirm.status,
+      monthlyFeeKsh: Number(firmEditForm.monthlyFeeKsh) || editingFirm.monthlyFeeKsh || 25000,
+      activeUsersCount: Number(firmEditForm.activeUsersCount) || editingFirm.activeUsersCount || 5
+    };
+
+    // 1. Immediately store to Firebase Firestore
+    await saveFirmToFirebase(updated);
+
+    // 2. Propagate to parent React state and storage
+    if (onUpdateFirm) {
+      onUpdateFirm(updated);
+    }
+
+    // 3. Log audit event
+    const editLog: AuditLogEntry = {
+      id: `log-firm-edit-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      user: currentUser ? currentUser.fullName : 'Platform Owner',
+      role: 'Super Admin',
+      action: 'Updated Law Firm Profile',
+      category: 'Auth',
+      details: `Platform Owner updated details for "${updated.firmName}" (${updated.firmCode}). Immediate Firebase sync executed.`,
+      ipAddress: '102.222.140.12'
+    };
+    saveDocumentToFirebase('audit_logs', editLog);
+
+    if (selectedFirm?.id === updated.id || selectedFirm?.firmCode === updated.firmCode) {
+      setSelectedFirm(updated);
+    }
+
+    setEditingFirm(null);
+    setSyncSuccessBanner(`✓ "${updated.firmName}" updated and immediately synced to Firebase Firestore database.`);
+    setTimeout(() => {
+      setSyncSuccessBanner(null);
+    }, 5000);
+  };
+
+  // Registration Requests State (No preloaded demo accounts)
+  const [requests, setRequests] = useState<RegistrationRequest[]>(() => {
+    try {
+      const stored = localStorage.getItem('lfr_firm_registration_requests_v1');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const DEMO_REQ_IDS = new Set(['req-101', 'req-102', 'req-103']);
+          return parsed.filter((r: RegistrationRequest) => !DEMO_REQ_IDS.has(r.id));
+        }
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  // Sync real registration requests to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('lfr_firm_registration_requests_v1', JSON.stringify(requests));
+    } catch (e) {}
+  }, [requests]);
 
   // System Settings Form State
   const [platformSettings, setPlatformSettings] = useState({
@@ -256,6 +338,9 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
         permissions: ['all']
       };
 
+      saveFirmToFirebase(newFirm);
+      saveUserToFirebase(proprietorUser);
+
       if (onAddLawFirm) {
         onAddLawFirm(newFirm, proprietorUser);
       }
@@ -282,37 +367,55 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
 
   // Handle Delete Single Registration Request Record
   const handleDeleteRegistrationRequest = (reqId: string) => {
-    if (window.confirm('Delete this registration application record from platform?')) {
-      setRequests(prev => prev.filter(r => r.id !== reqId));
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Registration Application',
+      message: 'Are you sure you want to delete this law firm registration application record permanently from the platform?',
+      confirmLabel: 'Delete Application',
+      variant: 'danger',
+      onConfirm: () => {
+        setRequests(prev => prev.filter(r => r.id !== reqId));
+        setConfirmModal(null);
+      }
+    });
   };
 
   // Handle Purge All Rejected Registration Requests (>3 Months)
   const handlePurgeRejectedRequests = () => {
     const rejected = requests.filter(r => r.status === 'Rejected');
-    if (rejected.length === 0) {
-      alert('No rejected registration applications found.');
-      return;
-    }
-    if (window.confirm(`Delete all ${rejected.length} rejected registration applications (over 3 months old) permanently?`)) {
-      setRequests(prev => prev.filter(r => r.status !== 'Rejected'));
-    }
+    if (rejected.length === 0) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Purge Rejected Applications',
+      message: `Delete all ${rejected.length} rejected registration application records (over 3 months old) permanently?`,
+      confirmLabel: 'Purge All Rejected',
+      variant: 'danger',
+      onConfirm: () => {
+        setRequests(prev => prev.filter(r => r.status !== 'Rejected'));
+        setConfirmModal(null);
+      }
+    });
   };
 
   // Handle Bulk Delete/Purge Suspended or Rejected Law Firms (>3 Months)
   const handlePurgeSuspendedOrRejectedFirms = () => {
     const targetFirms = firms.filter(f => f.status === 'Suspended' || f.status === 'Rejected');
-    if (targetFirms.length === 0) {
-      alert('No suspended or rejected law firm workspaces found in directory.');
-      return;
-    }
-    if (window.confirm(`Are you sure you want to permanently delete all ${targetFirms.length} suspended or rejected law firm workspaces (older than 3 months)? This action will erase their workspaces and associated user accounts.`)) {
-      targetFirms.forEach(firm => {
-        if (onDeleteFirm) {
-          onDeleteFirm(firm.id);
-        }
-      });
-    }
+    if (targetFirms.length === 0) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Purge Inactive Law Firm Workspaces',
+      message: `Permanently delete all ${targetFirms.length} suspended or rejected law firm workspaces (older than 3 months)? This action will erase their workspaces and associated user accounts.`,
+      confirmLabel: 'Delete Workspaces',
+      variant: 'danger',
+      onConfirm: () => {
+        targetFirms.forEach(firm => {
+          if (onDeleteFirm) {
+            onDeleteFirm(firm.id);
+          }
+        });
+        setConfirmModal(null);
+      }
+    });
   };
 
   // Handle Confirm Workspace Access
@@ -621,7 +724,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                       {firms.map(firm => (
                         <tr key={firm.id} className="hover:bg-slate-900/50">
                           <td className="p-2.5 font-mono text-[#C9A227] font-bold">
-                            {firm.firmCode || 'OM-ADV-001'}
+                            {firm.firmCode || firm.id}
                           </td>
                           <td className="p-2.5">
                             <div className="font-bold text-white">{firm.firmName}</div>
@@ -646,9 +749,20 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                               {onDeleteFirm && (
                                 <button
                                   onClick={() => {
-                                    if (window.confirm(`Erase law firm "${firm.firmName}" (${firm.firmCode}) from platform?`)) {
-                                      onDeleteFirm(firm.id);
-                                    }
+                                    setConfirmModal({
+                                      isOpen: true,
+                                      title: 'Delete Law Firm Workspace',
+                                      message: `Are you sure you want to permanently erase "${firm.firmName}" (${firm.firmCode || firm.id}) from the platform? This will erase all cases, court diaries, documents, and staff user accounts.`,
+                                      confirmLabel: 'Permanently Erase Firm',
+                                      variant: 'danger',
+                                      onConfirm: () => {
+                                        onDeleteFirm(firm.id);
+                                        if (selectedFirm?.id === firm.id) {
+                                          setSelectedFirm(null);
+                                        }
+                                        setConfirmModal(null);
+                                      }
+                                    });
                                   }}
                                   className="p-1 bg-red-950/60 hover:bg-red-900 text-red-400 border border-red-800 rounded-lg transition cursor-pointer"
                                   title="Erase Firm Workspace"
@@ -715,6 +829,21 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
         {activeTab === 'firms' && (
           <div className="space-y-6">
             
+            {syncSuccessBanner && (
+              <div className="p-3.5 rounded-2xl bg-emerald-950/90 border border-emerald-500 text-emerald-200 text-xs font-bold flex items-center justify-between shadow-xl animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{syncSuccessBanner}</span>
+                </div>
+                <button
+                  onClick={() => setSyncSuccessBanner(null)}
+                  className="p-1 hover:bg-emerald-900 rounded-lg text-emerald-300 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div>
                 <h1 className="font-serif font-extrabold text-2xl text-white flex items-center gap-2">
@@ -722,7 +851,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                   <span>Registered Law Firms</span>
                 </h1>
                 <p className="text-xs text-slate-400">
-                  Platform-level directory of registered law firms. Click "Inspect / Account Overview" to manage firm details.
+                  Platform-level directory of registered law firms. Click "Edit" or "Inspect / Account Overview" to manage firm details.
                 </p>
               </div>
 
@@ -741,9 +870,18 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 {onWipeAllFirms && firms.length > 0 && (
                   <button
                     onClick={() => {
-                      if (window.confirm('Are you sure you want to erase ALL law firms from the owner platform? This will clear all sample workspaces.')) {
-                        onWipeAllFirms();
-                      }
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'Erase All Law Firm Workspaces',
+                        message: 'Are you sure you want to erase ALL law firm workspaces from the owner platform? This will clear all law firm workspaces and retain only platform administrators.',
+                        confirmLabel: 'Erase All Workspaces',
+                        variant: 'danger',
+                        onConfirm: () => {
+                          onWipeAllFirms();
+                          setSelectedFirm(null);
+                          setConfirmModal(null);
+                        }
+                      });
                     }}
                     className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-lg"
                   >
@@ -816,7 +954,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                           <td className="p-3">
                             <div className="font-bold text-white text-sm">{firm.firmName}</div>
                             <div className="text-[10px] text-slate-400 font-mono">
-                              Code: <strong className="text-[#C9A227]">{firm.firmCode || 'OM-ADV-001'}</strong> • Proprietor: {firm.proprietorName || 'Adv. Proprietor'}
+                              Code: <strong className="text-[#C9A227]">{firm.firmCode || firm.id}</strong> • Proprietor: {firm.proprietorName || 'Proprietor'}
                             </div>
                           </td>
 
@@ -842,6 +980,14 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <button
+                                onClick={() => handleOpenEditFirm(firm)}
+                                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-400 rounded-xl text-xs font-bold transition inline-flex items-center gap-1 cursor-pointer"
+                                title="Edit Law Firm Details & Sync to Firebase"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                              </button>
+                              <button
                                 onClick={() => setSelectedFirm(firm)}
                                 className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-[#C9A227] border border-slate-700 hover:border-[#C9A227] rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer"
                               >
@@ -851,9 +997,20 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                               {onDeleteFirm && (
                                 <button
                                   onClick={() => {
-                                    if (window.confirm(`Delete law firm workspace "${firm.firmName}" (${firm.firmCode})?`)) {
-                                      onDeleteFirm(firm.id);
-                                    }
+                                    setConfirmModal({
+                                      isOpen: true,
+                                      title: 'Delete Law Firm Workspace',
+                                      message: `Are you sure you want to permanently delete "${firm.firmName}" (${firm.firmCode || firm.id})? All cases, diaries, documents, and associated accounts will be erased.`,
+                                      confirmLabel: 'Delete Workspace',
+                                      variant: 'danger',
+                                      onConfirm: () => {
+                                        onDeleteFirm(firm.id);
+                                        if (selectedFirm?.id === firm.id) {
+                                          setSelectedFirm(null);
+                                        }
+                                        setConfirmModal(null);
+                                      }
+                                    });
                                   }}
                                   className="p-1.5 bg-red-950/60 hover:bg-red-900 text-red-400 border border-red-800 rounded-xl transition cursor-pointer"
                                   title="Erase Law Firm Workspace"
@@ -998,64 +1155,705 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
           </div>
         )}
 
-        {/* ==================== TAB 4: USER ACCOUNTS ==================== */}
-        {activeTab === 'users' && (
-          <div className="space-y-6">
-            
-            <div className="border-b border-slate-800 pb-4">
-              <h1 className="font-serif font-extrabold text-2xl text-white flex items-center gap-2">
-                <Users className="w-6 h-6 text-sky-400" />
-                <span>Platform System User Accounts</span>
-              </h1>
-              <p className="text-xs text-slate-400">
-                High-level administration of registered user accounts across law firm tenants.
-              </p>
-            </div>
+        {/* ==================== TAB 4: USER ACCOUNTS (GROUPED BY LAW FIRM) ==================== */}
+        {activeTab === 'users' && (() => {
+          // 1. Separate Platform Super Admins from Law Firm Staff
+          const superAdminUsers = users.filter(u => 
+            u.role === 'Super Admin' || 
+            u.role === 'Platform Owner' || 
+            u.firmId === 'platform-owner' || 
+            u.firmCode === 'PLATFORM' ||
+            u.id === '3TVRWijWagVJBVfuTcFXCDqDzR02' ||
+            u.username === 'superadmin' ||
+            u.email === 'anthonyomollo07@gmail.com'
+          );
 
-            <div className="bg-[#081729] rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-950/80 text-[#C9A227] border-b border-slate-800 font-mono uppercase text-[10px] tracking-wider">
-                      <th className="p-3">User Name & Role</th>
-                      <th className="p-3">Assigned Law Firm</th>
-                      <th className="p-3">Email & Phone</th>
-                      <th className="p-3">Last Login</th>
-                      <th className="p-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80">
-                    {users.map(u => (
-                      <tr key={u.id} className="hover:bg-slate-900/50">
-                        <td className="p-3">
-                          <div className="font-bold text-white">{u.fullName}</div>
-                          <div className="text-[10px] text-[#C9A227] font-mono">Role: {u.role}</div>
-                        </td>
-                        <td className="p-3 text-slate-300 font-semibold">
-                          {u.firmName || 'Law Firm Workspace'}
-                          <div className="text-[10px] text-slate-500 font-mono">{u.firmCode || 'LFR-001'}</div>
-                        </td>
-                        <td className="p-3 font-mono text-slate-300">
-                          <div>{u.email}</div>
-                          <div className="text-[10px] text-slate-500">{u.phone}</div>
-                        </td>
-                        <td className="p-3 font-mono text-slate-400 text-[11px]">
-                          {u.lastLogin || 'Today at 09:00 AM'}
-                        </td>
-                        <td className="p-3">
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-700">
-                            {u.status || 'Active'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          // 2. Identify registered firm IDs and Codes
+          const registeredFirmIds = new Set(firms.map(f => f.id));
+          const registeredFirmCodes = new Set(firms.map(f => f.firmCode));
+
+          // 3. Filter query helper
+          const matchesQuery = (u: User) => {
+            if (!userSearchQuery.trim()) return true;
+            const q = userSearchQuery.toLowerCase();
+            return (
+              (u.fullName || '').toLowerCase().includes(q) ||
+              (u.username || '').toLowerCase().includes(q) ||
+              (u.email || '').toLowerCase().includes(q) ||
+              (u.phone || '').toLowerCase().includes(q) ||
+              (u.role || '').toLowerCase().includes(q) ||
+              (u.firmName || '').toLowerCase().includes(q) ||
+              (u.firmCode || '').toLowerCase().includes(q)
+            );
+          };
+
+          const matchesRole = (u: User) => {
+            if (userRoleFilter === 'All') return true;
+            return u.role === userRoleFilter;
+          };
+
+          // 4. Identify orphaned users (staff whose firm no longer exists)
+          const orphanedUsers = users.filter(u => {
+            if (superAdminUsers.some(sa => sa.id === u.id)) return false;
+            const hasFirm = (u.firmId && registeredFirmIds.has(u.firmId)) || (u.firmCode && registeredFirmCodes.has(u.firmCode));
+            return !hasFirm;
+          }).filter(u => matchesQuery(u) && matchesRole(u));
+
+          // 5. Total counts
+          const totalStaffCount = users.filter(u => !superAdminUsers.some(sa => sa.id === u.id)).length;
+          const activeAccountsCount = users.filter(u => u.status !== 'Suspended').length;
+          const suspendedAccountsCount = users.filter(u => u.status === 'Suspended').length;
+
+          // Helper to get role badge style
+          const getRoleBadge = (role: string) => {
+            switch (role) {
+              case 'Proprietor':
+                return 'bg-amber-950/80 text-[#C9A227] border-amber-600/70';
+              case 'Advocate':
+                return 'bg-sky-950/80 text-sky-300 border-sky-600/70';
+              case 'Clerk':
+                return 'bg-indigo-950/80 text-indigo-300 border-indigo-600/70';
+              case 'Secretary':
+                return 'bg-emerald-950/80 text-emerald-300 border-emerald-600/70';
+              case 'Case Chaser':
+                return 'bg-orange-950/80 text-orange-300 border-orange-600/70';
+              default:
+                return 'bg-slate-900 text-slate-300 border-slate-700';
+            }
+          };
+
+          const toggleFirmExpand = (firmId: string) => {
+            setExpandedFirms(prev => ({
+              ...prev,
+              [firmId]: prev[firmId] === undefined ? false : !prev[firmId]
+            }));
+          };
+
+          const isFirmExpanded = (firmId: string) => {
+            return expandedFirms[firmId] !== false; // expanded by default
+          };
+
+          return (
+            <div className="space-y-6">
+              
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div>
+                  <h1 className="font-serif font-extrabold text-2xl text-white flex items-center gap-2">
+                    <Users className="w-6 h-6 text-sky-400" />
+                    <span>Platform User Accounts (Grouped by Law Firm)</span>
+                  </h1>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Multi-tenant staff directory. Each law firm workspace contains its own staff accounts (Proprietor, Advocates, Clerks, Secretaries). Deleting a law firm purges its users.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const allExpanded: Record<string, boolean> = {};
+                      firms.forEach(f => { allExpanded[f.id] = true; });
+                      setExpandedFirms(allExpanded);
+                    }}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition"
+                  >
+                    Expand All
+                  </button>
+                  <button
+                    onClick={() => {
+                      const allCollapsed: Record<string, boolean> = {};
+                      firms.forEach(f => { allCollapsed[f.id] = false; });
+                      setExpandedFirms(allCollapsed);
+                    }}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition"
+                  >
+                    Collapse All
+                  </button>
+                </div>
               </div>
-            </div>
 
-          </div>
-        )}
+              {/* Summary Metric Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-[#081729] p-3.5 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] text-slate-400 font-mono uppercase">Total System Users</div>
+                  <div className="text-xl font-bold text-white mt-1">{users.length}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">{superAdminUsers.length} Admin + {totalStaffCount} Firm Staff</div>
+                </div>
+
+                <div className="bg-[#081729] p-3.5 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] text-slate-400 font-mono uppercase">Registered Law Firms</div>
+                  <div className="text-xl font-bold text-[#C9A227] mt-1">{firms.length}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Active Workspace Tenants</div>
+                </div>
+
+                <div className="bg-[#081729] p-3.5 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] text-slate-400 font-mono uppercase">Active Accounts</div>
+                  <div className="text-xl font-bold text-emerald-400 mt-1">{activeAccountsCount}</div>
+                  <div className="text-[10px] text-emerald-500/80 mt-0.5">Ready for login</div>
+                </div>
+
+                <div className="bg-[#081729] p-3.5 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] text-slate-400 font-mono uppercase">Suspended Accounts</div>
+                  <div className="text-xl font-bold text-red-400 mt-1">{suspendedAccountsCount}</div>
+                  <div className="text-[10px] text-red-500/80 mt-0.5">Access disabled</div>
+                </div>
+              </div>
+
+              {/* Search & Filter Bar */}
+              <div className="bg-[#081729] p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search staff name, username, email, role, phone, or law firm..."
+                    value={userSearchQuery}
+                    onChange={e => setUserSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-9 py-2 bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-xl focus:outline-none focus:border-[#C9A227]"
+                  />
+                  {userSearchQuery && (
+                    <button
+                      onClick={() => setUserSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Law Firm Selector */}
+                  <select
+                    value={userFirmFilter}
+                    onChange={e => setUserFirmFilter(e.target.value)}
+                    className="p-2 bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl focus:border-[#C9A227]"
+                  >
+                    <option value="All">All Law Firms ({firms.length})</option>
+                    {firms.map(f => {
+                      const count = users.filter(u => u.firmId === f.id || u.firmCode === f.firmCode || (!u.firmId && u.firmName === f.firmName)).length;
+                      return (
+                        <option key={f.id} value={f.id}>
+                          {f.firmName} ({count} staff)
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {/* Role Selector */}
+                  <select
+                    value={userRoleFilter}
+                    onChange={e => setUserRoleFilter(e.target.value)}
+                    className="p-2 bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl focus:border-[#C9A227]"
+                  >
+                    <option value="All">All Roles</option>
+                    <option value="Proprietor">Proprietor</option>
+                    <option value="Advocate">Advocate</option>
+                    <option value="Clerk">Clerk</option>
+                    <option value="Secretary">Secretary</option>
+                    <option value="Case Chaser">Case Chaser</option>
+                    <option value="Super Admin">Super Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 1. Platform Super Admin Root Section */}
+              {userFirmFilter === 'All' && (
+                <div className="bg-gradient-to-br from-[#081729] to-slate-950 rounded-2xl border-2 border-[#C9A227]/40 shadow-xl overflow-hidden">
+                  <div className="p-4 bg-[#C9A227]/10 border-b border-[#C9A227]/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-[#C9A227] text-slate-950 rounded-xl shadow">
+                        <Crown className="w-5 h-5 font-bold" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-serif font-bold text-base text-white">Platform Owner & Super Administrators</h3>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#C9A227] text-slate-950">
+                            Root Security Level
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          Global SaaS platform ownership and tenant administration accounts.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono text-[#C9A227] font-bold">
+                      {superAdminUsers.length} Super Admin Account
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-950/80 text-[#C9A227] border-b border-slate-800 font-mono uppercase text-[10px] tracking-wider">
+                          <th className="p-3 pl-4">Administrator</th>
+                          <th className="p-3">Username & Scope</th>
+                          <th className="p-3">Email & Security</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-3 pr-4 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80">
+                        {superAdminUsers.filter(u => matchesQuery(u) && matchesRole(u)).map(sa => (
+                          <tr key={sa.id} className="hover:bg-slate-900/50">
+                            <td className="p-3 pl-4">
+                              <div className="font-bold text-white flex items-center gap-2">
+                                <span>{sa.fullName || 'Anthony Omollo'}</span>
+                                <ShieldCheck className="w-4 h-4 text-[#C9A227]" />
+                              </div>
+                              <div className="text-[10px] text-slate-400">Global SaaS Administrator</div>
+                            </td>
+                            <td className="p-3 font-mono">
+                              <div className="text-[#C9A227] font-bold">{sa.username}</div>
+                              <div className="text-[10px] text-slate-500">All Tenancy Workspaces</div>
+                            </td>
+                            <td className="p-3 font-mono text-slate-300">
+                              <div>{sa.email || 'anthonyomollo07@gmail.com'}</div>
+                              <div className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
+                                <CheckCircle2 className="w-3 h-3" /> Password Protected & Encrypted
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-700">
+                                Active (Root)
+                              </span>
+                            </td>
+                            <td className="p-3 pr-4 text-center">
+                              <button
+                                onClick={() => setActiveTab('settings')}
+                                className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-slate-200 text-[10px] font-bold rounded-lg border border-slate-700 transition"
+                              >
+                                Manage Super Admin Pass
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Law Firms Grouped Sections */}
+              <div className="space-y-4">
+                {firms.length === 0 ? (
+                  <div className="bg-[#081729] rounded-2xl border border-slate-800 p-12 text-center text-slate-400">
+                    <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <h3 className="font-serif font-bold text-lg text-white">No Law Firms Registered</h3>
+                    <p className="text-xs text-slate-400 mt-1 mb-4">
+                      When new law firms register or are added by the platform owner, their user accounts will be grouped here.
+                    </p>
+                    <button
+                      onClick={onOpenRegisterModal}
+                      className="px-4 py-2 bg-[#C9A227] text-slate-950 font-bold rounded-xl text-xs hover:bg-[#B08D1E] transition cursor-pointer"
+                    >
+                      + Register First Law Firm
+                    </button>
+                  </div>
+                ) : (
+                  firms
+                    .filter(firm => userFirmFilter === 'All' || userFirmFilter === firm.id || userFirmFilter === firm.firmCode)
+                    .map(firm => {
+                      // Find users belonging to this specific firm
+                      const firmStaff = users.filter(u => 
+                        !superAdminUsers.some(sa => sa.id === u.id) &&
+                        (u.firmId === firm.id || u.firmCode === firm.firmCode || (!u.firmId && u.firmName === firm.firmName))
+                      );
+
+                      const filteredStaff = firmStaff.filter(u => matchesQuery(u) && matchesRole(u));
+                      const isExpanded = isFirmExpanded(firm.id);
+
+                      // If search is active and neither firm nor any staff matches, hide
+                      const firmMatchesQuery = userSearchQuery.trim() === '' || 
+                        firm.firmName.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+                        firm.firmCode.toLowerCase().includes(userSearchQuery.toLowerCase());
+                      
+                      if (!firmMatchesQuery && filteredStaff.length === 0) {
+                        return null;
+                      }
+
+                      return (
+                        <div
+                          key={firm.id}
+                          className="bg-[#081729] rounded-2xl border border-slate-800 shadow-xl overflow-hidden transition"
+                        >
+                          {/* Firm Group Header */}
+                          <div className="p-4 bg-slate-950/90 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => toggleFirmExpand(firm.id)}
+                                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                                title={isExpanded ? 'Collapse law firm accounts' : 'Expand law firm accounts'}
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+
+                              <div className="p-2 bg-sky-950/70 border border-sky-800/80 rounded-xl text-sky-400">
+                                <Building2 className="w-5 h-5" />
+                              </div>
+
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="font-serif font-bold text-base text-white">
+                                    {firm.firmName}
+                                  </h3>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-extrabold bg-slate-900 border border-slate-700 text-[#C9A227]">
+                                    {firm.firmCode}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-950 text-sky-300 border border-sky-800">
+                                    {firm.subscriptionTier || 'Standard'} Plan
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    firm.accountStatus === 'Active' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-300 border border-amber-800'
+                                  }`}>
+                                    {firm.accountStatus || 'Active'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                  {firm.cityOrBranch || 'Main Branch'} • {firm.county || 'Nairobi'} County • LSK: {firm.lskNumber || 'LSK-REG'} • {firmStaff.length} Total Staff Accounts
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Firm Action Buttons */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => onAccessWorkspace(firm)}
+                                className="px-3 py-1.5 bg-[#C9A227] hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <LogIn className="w-3.5 h-3.5" />
+                                <span>Access Workspace</span>
+                              </button>
+
+                              {onDeleteFirm && (
+                                <button
+                                  onClick={() => {
+                                    setConfirmModal({
+                                      isOpen: true,
+                                      title: `Delete Law Firm & All ${firmStaff.length} User Accounts`,
+                                      message: `Are you sure you want to permanently delete "${firm.firmName}" (${firm.firmCode})? This will immediately ERASE the workspace, purge all ${firmStaff.length} staff user accounts, and delete all associated files and records from the system.`,
+                                      confirmLabel: `Delete Firm & ${firmStaff.length} Users`,
+                                      variant: 'danger',
+                                      onConfirm: () => {
+                                        onDeleteFirm(firm.id);
+                                        setConfirmModal(null);
+                                      }
+                                    });
+                                  }}
+                                  className="px-3 py-1.5 bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                                  title="Delete firm and purge all staff user accounts"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                  <span>Delete Firm & Staff</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Firm Staff Table (Collapsible) */}
+                          {isExpanded && (
+                            <div className="p-0">
+                              {firmStaff.length === 0 ? (
+                                <div className="p-8 text-center bg-slate-950/40 text-slate-400 space-y-2">
+                                  <Users className="w-8 h-8 text-slate-600 mx-auto" />
+                                  <p className="text-xs text-slate-300 font-medium">
+                                    No staff user accounts created for this law firm workspace yet.
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                                    When the proprietor logs in, they can onboard advocates, clerks, and secretaries from their User Management panel.
+                                  </p>
+                                </div>
+                              ) : filteredStaff.length === 0 ? (
+                                <div className="p-6 text-center text-slate-400 text-xs">
+                                  No staff user accounts match the current filter search.
+                                </div>
+                              ) : (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                      <tr className="bg-slate-950/60 text-[#C9A227] border-b border-slate-800/80 font-mono uppercase text-[10px] tracking-wider">
+                                        <th className="p-3 pl-4">Staff Member</th>
+                                        <th className="p-3">Username & Role</th>
+                                        <th className="p-3">Contact Email & Phone</th>
+                                        <th className="p-3">Last Login</th>
+                                        <th className="p-3">Account Status</th>
+                                        <th className="p-3 pr-4 text-center">Super Admin Controls</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/60">
+                                      {filteredStaff.map(staffUser => (
+                                        <tr key={staffUser.id} className="hover:bg-slate-900/50 transition">
+                                          <td className="p-3 pl-4">
+                                            <div className="flex items-center gap-2.5">
+                                              <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-[#C9A227] shrink-0">
+                                                {staffUser.fullName ? staffUser.fullName.charAt(0).toUpperCase() : 'U'}
+                                              </div>
+                                              <div>
+                                                <div className="font-bold text-white">{staffUser.fullName}</div>
+                                                <div className="text-[10px] text-slate-400">ID: {staffUser.id}</div>
+                                              </div>
+                                            </div>
+                                          </td>
+
+                                          <td className="p-3 font-mono">
+                                            <div className="text-[#C9A227] font-bold">{staffUser.username}</div>
+                                            <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold border ${getRoleBadge(staffUser.role)}`}>
+                                              {staffUser.role}
+                                            </span>
+                                          </td>
+
+                                          <td className="p-3 font-mono text-slate-300">
+                                            <div>{staffUser.email}</div>
+                                            <div className="text-[10px] text-slate-500">{staffUser.phone || 'No phone'}</div>
+                                          </td>
+
+                                          <td className="p-3 font-mono text-slate-400 text-[11px]">
+                                            {staffUser.lastLogin || 'Today at 09:00 AM'}
+                                          </td>
+
+                                          <td className="p-3">
+                                            {staffUser.status === 'Suspended' ? (
+                                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-300 border border-red-800">
+                                                Suspended
+                                              </span>
+                                            ) : (
+                                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-700">
+                                                Active
+                                              </span>
+                                            )}
+                                          </td>
+
+                                          <td className="p-3 pr-4 text-center">
+                                            <div className="flex items-center justify-center gap-1.5">
+                                              {/* Reset Password */}
+                                              <button
+                                                onClick={() => {
+                                                  setSelectedUserForPasswordReset(staffUser);
+                                                  setUserResetPassVal('Pass123!');
+                                                  setUserResetFeedback('');
+                                                }}
+                                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-200 text-[10px] font-bold rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1"
+                                                title="Reset password for this staff account"
+                                              >
+                                                <KeyRound className="w-3 h-3 text-[#C9A227]" />
+                                                <span>Reset Pass</span>
+                                              </button>
+
+                                              {/* Toggle Suspend */}
+                                              {onUpdateUser && (
+                                                <button
+                                                  onClick={() => {
+                                                    const newStatus = staffUser.status === 'Active' ? 'Suspended' : 'Active';
+                                                    onUpdateUser({ ...staffUser, status: newStatus });
+                                                  }}
+                                                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition cursor-pointer border ${
+                                                    staffUser.status === 'Active'
+                                                      ? 'bg-amber-950/70 text-amber-300 hover:bg-amber-900 border-amber-800'
+                                                      : 'bg-emerald-950/70 text-emerald-300 hover:bg-emerald-900 border-emerald-800'
+                                                  }`}
+                                                  title={staffUser.status === 'Active' ? 'Suspend user account' : 'Activate user account'}
+                                                >
+                                                  {staffUser.status === 'Active' ? 'Suspend' : 'Activate'}
+                                                </button>
+                                              )}
+
+                                              {/* Delete User */}
+                                              {onDeleteUser && (
+                                                <button
+                                                  onClick={() => {
+                                                    setConfirmModal({
+                                                      isOpen: true,
+                                                      title: 'Delete Staff User Account',
+                                                      message: `Are you sure you want to delete the user account for "${staffUser.fullName}" (${staffUser.username} - ${staffUser.role}) under "${firm.firmName}"?`,
+                                                      confirmLabel: 'Delete User',
+                                                      variant: 'danger',
+                                                      onConfirm: () => {
+                                                        onDeleteUser(staffUser.id);
+                                                        setConfirmModal(null);
+                                                      }
+                                                    });
+                                                  }}
+                                                  className="p-1 text-red-400 bg-red-950/70 hover:bg-red-900 border border-red-800 rounded-lg transition cursor-pointer"
+                                                  title="Delete user account"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+
+              {/* 3. Orphaned Accounts Section (if any unassigned users exist) */}
+              {orphanedUsers.length > 0 && (
+                <div className="bg-red-950/30 rounded-2xl border border-red-700/60 p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                      <div>
+                        <h3 className="font-serif font-bold text-sm text-red-200">
+                          Orphaned User Accounts ({orphanedUsers.length})
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          These user accounts were associated with law firms that were deleted or unassigned.
+                        </p>
+                      </div>
+                    </div>
+
+                    {onDeleteUser && (
+                      <button
+                        onClick={() => {
+                          setConfirmModal({
+                            isOpen: true,
+                            title: `Purge All ${orphanedUsers.length} Orphaned Accounts`,
+                            message: `Are you sure you want to permanently erase all ${orphanedUsers.length} orphaned accounts?`,
+                            confirmLabel: 'Purge All Orphaned',
+                            variant: 'danger',
+                            onConfirm: () => {
+                              orphanedUsers.forEach(u => onDeleteUser(u.id));
+                              setConfirmModal(null);
+                            }
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Purge All ({orphanedUsers.length})</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-950 text-red-400 font-mono text-[10px] uppercase border-b border-red-900/50">
+                          <th className="p-2.5">User</th>
+                          <th className="p-2.5">Username & Role</th>
+                          <th className="p-2.5">Previous Firm Info</th>
+                          <th className="p-2.5">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-red-900/30">
+                        {orphanedUsers.map(ou => (
+                          <tr key={ou.id}>
+                            <td className="p-2.5 font-bold text-white">{ou.fullName}</td>
+                            <td className="p-2.5 font-mono text-[#C9A227]">{ou.username} ({ou.role})</td>
+                            <td className="p-2.5 font-mono text-slate-400">{ou.firmName || ou.firmCode || ou.firmId || 'None'}</td>
+                            <td className="p-2.5">
+                              {onDeleteUser && (
+                                <button
+                                  onClick={() => onDeleteUser(ou.id)}
+                                  className="px-2.5 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 rounded text-[10px] font-bold"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Password Reset Modal for Super Admin */}
+              {selectedUserForPasswordReset && (
+                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-[#081729] border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-[#C9A227]/20 border border-[#C9A227]/40 rounded-xl text-[#C9A227]">
+                          <KeyRound className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-serif font-bold text-base text-white">Reset Staff Password</h3>
+                          <p className="text-[11px] text-slate-400">
+                            {selectedUserForPasswordReset.fullName} ({selectedUserForPasswordReset.username})
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedUserForPasswordReset(null)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-white"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form
+                      onSubmit={e => {
+                        e.preventDefault();
+                        const check = validatePassword(userResetPassVal);
+                        if (!check.isValid) {
+                          setUserResetFeedback(`Password error: ${check.message}`);
+                          return;
+                        }
+                        if (onUpdatePassword) {
+                          onUpdatePassword(selectedUserForPasswordReset.id, userResetPassVal);
+                        }
+                        setUserResetFeedback('✓ Password reset successfully!');
+                        setTimeout(() => {
+                          setSelectedUserForPasswordReset(null);
+                        }, 1200);
+                      }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          New Temporary / Permanent Password
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={userResetPassVal}
+                          onChange={e => setUserResetPassVal(e.target.value)}
+                          className="w-full p-2.5 bg-slate-950 border border-slate-700 text-slate-100 rounded-xl font-mono text-xs focus:border-[#C9A227]"
+                        />
+                      </div>
+
+                      <PasswordRequirementsChecklist password={userResetPassVal} />
+
+                      {userResetFeedback && (
+                        <div className={`p-2.5 rounded-xl text-xs font-semibold ${
+                          userResetFeedback.startsWith('✓') ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-red-950/80 text-red-300 border border-red-800'
+                        }`}>
+                          {userResetFeedback}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserForPasswordReset(null)}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-bold text-xs rounded-xl shadow"
+                        >
+                          Save New Password
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          );
+        })()}
 
         {/* ==================== TAB 5: PLATFORM ACTIVITY ==================== */}
         {activeTab === 'activity' && (
@@ -1337,7 +2135,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-[#C9A227] font-bold">{selectedFirm.firmCode || 'OM-ADV-001'}</span>
+                    <span className="font-mono text-xs text-[#C9A227] font-bold">{selectedFirm.firmCode || selectedFirm.id}</span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700">
                       {selectedFirm.status || 'Active'}
                     </span>
@@ -1390,13 +2188,31 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    handleOpenEditFirm(selectedFirm);
+                  }}
+                  className="w-full sm:w-auto px-4 py-3 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold rounded-xl text-xs uppercase tracking-wider border border-slate-700 hover:border-amber-400 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-4 h-4 text-amber-400" />
+                  <span>Edit Profile</span>
+                </button>
+
                 {onDeleteFirm && (
                   <button
                     onClick={() => {
-                      if (window.confirm(`Delete law firm workspace "${selectedFirm.firmName}" (${selectedFirm.firmCode}) from the platform?`)) {
-                        onDeleteFirm(selectedFirm.id);
-                        setSelectedFirm(null);
-                      }
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'Delete Law Firm Workspace',
+                        message: `Are you sure you want to permanently erase "${selectedFirm.firmName}" (${selectedFirm.firmCode || selectedFirm.id}) from the platform? This will erase all cases, court diaries, documents, and associated staff accounts.`,
+                        confirmLabel: 'Erase Workspace',
+                        variant: 'danger',
+                        onConfirm: () => {
+                          onDeleteFirm(selectedFirm.id);
+                          setSelectedFirm(null);
+                          setConfirmModal(null);
+                        }
+                      });
                     }}
                     className="w-full sm:w-auto px-4 py-3 bg-red-950/80 hover:bg-red-900 text-red-200 font-bold rounded-xl text-xs uppercase tracking-wider border border-red-700 transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
@@ -1529,6 +2345,281 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* IN-APP CONFIRMATION DIALOG MODAL (Bypasses iframe alert/confirm limitations) */}
+      {confirmModal && confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#081729] rounded-3xl border-2 border-red-500/70 shadow-2xl max-w-md w-full p-6 text-slate-100 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-red-950/80 border border-red-700/80 rounded-xl text-red-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-white">
+                    {confirmModal.title}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Confirmation Required</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {confirmModal.message}
+            </p>
+
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmModal.onConfirm();
+                }}
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition shadow-lg flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{confirmModal.confirmLabel || 'Confirm Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT LAW FIRM PROFILE MODAL */}
+      {editingFirm && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-[#081729] rounded-3xl border-2 border-[#C9A227] shadow-2xl max-w-2xl w-full p-6 text-slate-100 my-8 relative">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#C9A227] to-[#9B7B12] p-0.5 shadow-xl flex items-center justify-center shrink-0">
+                  <div className="w-full h-full bg-[#081729] rounded-[14px] flex items-center justify-center">
+                    <Edit3 className="w-6 h-6 text-[#C9A227]" />
+                  </div>
+                </div>
+                <div>
+                  <h2 className="font-serif font-extrabold text-2xl text-white">
+                    Edit Law Firm Details
+                  </h2>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Modifications will be immediately synchronized to Firebase Firestore database.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditingFirm(null)}
+                className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Error banner if any */}
+            {firmEditError && (
+              <div className="mb-4 p-3.5 bg-red-950/90 border border-red-700 text-red-200 text-xs font-bold rounded-xl flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{firmEditError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSaveFirmEdit} className="space-y-4">
+              
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* Firm Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Law Firm Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={firmEditForm.firmName || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, firmName: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. Omollo & Associates Advocates"
+                  />
+                </div>
+
+                {/* Firm Code */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Firm Code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={firmEditForm.firmCode || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, firmCode: e.target.value.toUpperCase() }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-[#C9A227] font-mono font-bold focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. OM-ADV-001"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* Proprietor / Managing Partner */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Managing Partner / Proprietor</label>
+                  <input
+                    type="text"
+                    value={firmEditForm.proprietorName || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, proprietorName: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. Adv. Anthony Omollo"
+                  />
+                </div>
+
+                {/* LSK Reg Number */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">LSK Registration Number</label>
+                  <input
+                    type="text"
+                    value={firmEditForm.registrationNumber || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, registrationNumber: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. LSK/2026/894"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* Official Email */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Official Email</label>
+                  <input
+                    type="email"
+                    value={firmEditForm.email || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. info@omollolegal.co.ke"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Official Phone Number</label>
+                  <input
+                    type="text"
+                    value={firmEditForm.phone || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. +254 712 345 678"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* County */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">County</label>
+                  <input
+                    type="text"
+                    value={firmEditForm.county || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, county: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. Nairobi"
+                  />
+                </div>
+
+                {/* City / Branch */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">City / Branch / Suite</label>
+                  <input
+                    type="text"
+                    value={firmEditForm.cityOrBranch || ''}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, cityOrBranch: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                    placeholder="e.g. Upper Hill Chambers, 4th Floor"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-3 gap-4 pt-2 border-t border-slate-800">
+                {/* Subscription Status */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Account Status</label>
+                  <select
+                    value={firmEditForm.status || 'Active'}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, status: e.target.value as any }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Trial">Trial</option>
+                    <option value="Pending Verification">Pending Verification</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+
+                {/* Subscription Tier */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Subscription Tier</label>
+                  <select
+                    value={firmEditForm.subscriptionTier || 'Professional'}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, subscriptionTier: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                  >
+                    <option value="Standard">Standard Package</option>
+                    <option value="Professional">Professional Package</option>
+                    <option value="Enterprise">Enterprise Package</option>
+                  </select>
+                </div>
+
+                {/* Monthly Fee */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Monthly Fee (KSh)</label>
+                  <input
+                    type="number"
+                    value={firmEditForm.monthlyFeeKsh || 25000}
+                    onChange={e => setFirmEditForm(prev => ({ ...prev, monthlyFeeKsh: Number(e.target.value) }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#C9A227]"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-3">
+                <div className="text-[11px] text-amber-300/90 font-mono flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Immediate Firebase Firestore Sync</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingFirm(null)}
+                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-lg flex items-center gap-2 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4 text-slate-950" />
+                    <span>Save Changes & Sync</span>
+                  </button>
+                </div>
+              </div>
+
+            </form>
+
           </div>
         </div>
       )}

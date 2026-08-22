@@ -135,9 +135,9 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
     setRejectionReason('');
 
     const autoNum = generateSystemInternalFileNumber(files, fileNumberPrefix);
-    const defaultAdvocate = users.find(u => u.role === 'Advocate' || u.role === 'Proprietor')?.fullName || 'Adv. James Kamau';
-    const defaultClerk = currentUser?.role === 'Clerk' ? currentUser.fullName : (users.find(u => u.role === 'Clerk')?.fullName || 'Peter Mutua');
-    const defaultSecretary = users.find(u => u.role === 'Secretary')?.fullName || 'Mary Wafula';
+    const defaultAdvocate = users.find(u => u.role === 'Advocate' || u.role === 'Proprietor')?.fullName || '';
+    const defaultClerk = currentUser?.role === 'Clerk' ? currentUser.fullName : (users.find(u => u.role === 'Clerk')?.fullName || '');
+    const defaultSecretary = users.find(u => u.role === 'Secretary')?.fullName || '';
 
     setConversionData({
       internalFileNumber: autoNum,

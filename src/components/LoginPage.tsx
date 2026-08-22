@@ -306,7 +306,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     let matchedUser = users.find(u => {
       const uFirmId = (u.firmId || '').toUpperCase();
       const uFirmCode = (u.firmCode || '').toUpperCase();
-      const matchesFirm = !cleanFirmId || uFirmId === cleanFirmId || uFirmCode === cleanFirmId;
+      const uFirmName = (u.firmName || '').toUpperCase();
+      const matchesFirm = !cleanFirmId || uFirmId === cleanFirmId || uFirmCode === cleanFirmId || uFirmName.includes(cleanFirmId);
       const uEmail = (u.email || '').toLowerCase();
       const uUsername = (u.username || '').toLowerCase();
       const matchesUser = uEmail === cleanUser || uUsername === cleanUser || u.id === rawUser;
@@ -427,7 +428,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   required
                   value={firmIdInput}
                   onChange={e => setFirmIdInput(e.target.value)}
-                  placeholder="e.g. OM-ADV-001 or PLATFORM"
+                  placeholder="e.g. YOUR-FIRM-CODE or PLATFORM"
                   className="w-full pl-10 pr-3 py-3 bg-slate-950 border border-slate-700 text-slate-100 text-sm font-semibold rounded-xl focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition font-mono uppercase"
                 />
               </div>

@@ -44,7 +44,14 @@ import {
   resetToDefaults, clearAllDataForProduction
 } from './data/store';
 
-import { saveDocumentToFirebase, triggerLocalStorageFirebaseSnapshot } from './lib/firebase';
+import { 
+  saveDocumentToFirebase, 
+  triggerLocalStorageFirebaseSnapshot, 
+  saveFirmToFirebase, 
+  saveUserToFirebase, 
+  deleteFirmFromFirebase, 
+  deleteUserFromFirebase 
+} from './lib/firebase';
 import { ShieldAlert } from 'lucide-react';
 
 
@@ -185,8 +192,9 @@ export default function App() {
     setActiveTab('dashboard');
     setIsRegisterModalOpen(false);
 
-    saveDocumentToFirebase('firms', newFirm);
-    saveDocumentToFirebase('users', proprietorUser);
+    // Persist immediately to Firebase Firestore
+    saveFirmToFirebase(newFirm);
+    saveUserToFirebase(proprietorUser);
 
     addAuditLog(
       proprietorUser.fullName,
@@ -194,6 +202,39 @@ export default function App() {
       'Registered Law Firm SaaS',
       'Settings',
       `Onboarded law firm "${newFirm.firmName}" (${newFirm.firmCode})`
+    );
+    setAuditLogsState(getStoredAuditLogs());
+  };
+
+  const handleUpdateFirm = (updatedFirm: LawFirmProfile) => {
+    const updatedList = firms.map(f => (f.id === updatedFirm.id || f.firmCode === updatedFirm.firmCode ? updatedFirm : f));
+    setFirmsState(updatedList);
+    saveFirms(updatedList);
+
+    // Save immediately to Firebase Firestore
+    saveFirmToFirebase(updatedFirm);
+
+    // If current workspace settings match this firm, update workspace settings as well
+    if (settings.firmCode === updatedFirm.firmCode || currentUser?.firmCode === updatedFirm.firmCode) {
+      setSettingsState(prev => {
+        const nextSettings = {
+          ...prev,
+          firmName: updatedFirm.firmName,
+          firmCode: updatedFirm.firmCode,
+          firmRegistrationNumber: updatedFirm.registrationNumber || prev.firmRegistrationNumber,
+          cityOrBranch: updatedFirm.cityOrBranch || prev.cityOrBranch
+        };
+        saveSettings(nextSettings);
+        return nextSettings;
+      });
+    }
+
+    addAuditLog(
+      currentUser?.fullName || 'Platform Owner',
+      currentUser?.role || 'Super Admin',
+      'Updated Law Firm Profile',
+      'Settings',
+      `Updated details for "${updatedFirm.firmName}" (${updatedFirm.firmCode}). Immediate Firebase sync executed.`
     );
     setAuditLogsState(getStoredAuditLogs());
   };
@@ -388,7 +429,7 @@ export default function App() {
     }
 
     // Async sync with Firebase Firestore
-    import('./lib/firebase').then(({ syncCollectionToFirebase }) => {
+    import('./lib/firebase').then(({ syncCollectionToFirebase, saveDocumentToFirebase }) => {
       const activeFiles = loadedFiles.length > 0 ? loadedFiles : getStoredFiles();
       syncCollectionToFirebase('files', activeFiles).then(remoteFiles => {
         if (remoteFiles && remoteFiles.length > 0) {
@@ -403,6 +444,45 @@ export default function App() {
       syncCollectionToFirebase('claims', getStoredInsuranceClaims()).then(remote => {
         if (remote && remote.length > 0) setClaimsState(remote);
       });
+
+      // Sync registered Law Firms from both 'firms' and 'law_firms' collections in Firestore
+      const localFirms = getStoredFirms();
+      Promise.all([
+        syncCollectionToFirebase('firms', localFirms),
+        syncCollectionToFirebase('law_firms', [])
+      ]).then(([remoteFirms, remoteLawFirms]) => {
+        const combinedFirms = [...(remoteFirms || []), ...(remoteLawFirms || [])];
+        const firmMap = new Map<string, LawFirmProfile>();
+        localFirms.forEach(f => {
+          if (f && (f.id || f.firmCode)) firmMap.set(f.id || f.firmCode, f);
+        });
+        combinedFirms.forEach(f => {
+          if (f && (f.id || f.firmCode)) firmMap.set(f.id || f.firmCode, f);
+        });
+        const mergedFirms = Array.from(firmMap.values());
+        if (mergedFirms.length > 0) {
+          setFirmsState(mergedFirms);
+          saveFirms(mergedFirms);
+        }
+      }).catch(err => console.warn('Law firms sync error:', err));
+
+      // Sync Users from 'users' collection in Firestore
+      const localUsers = getStoredUsers();
+      syncCollectionToFirebase('users', localUsers).then(remoteUsers => {
+        if (remoteUsers && remoteUsers.length > 0) {
+          const userMap = new Map<string, User>();
+          localUsers.forEach(u => {
+            if (u && (u.id || u.username)) userMap.set(u.id || u.username, u);
+          });
+          remoteUsers.forEach(u => {
+            if (u && (u.id || u.username)) userMap.set(u.id || u.username, u);
+          });
+          const mergedUsers = Array.from(userMap.values());
+          setUsersState(mergedUsers);
+          saveUsers(mergedUsers);
+        }
+      }).catch(err => console.warn('Users sync error:', err));
+
     }).catch(err => console.warn('Firebase sync error:', err));
   }, []);
 
@@ -449,20 +529,81 @@ export default function App() {
   };
 
   const handleDeleteFirm = (firmId: string) => {
-    const updatedFirms = firms.filter(f => f.id !== firmId);
+    const targetFirm = firms.find(f => f.id === firmId || f.firmCode === firmId);
+    const targetCode = targetFirm?.firmCode;
+    const targetId = targetFirm?.id || firmId;
+
+    // 1. Remove the firm
+    const updatedFirms = firms.filter(f => f.id !== targetId && f.firmCode !== targetId && (!targetCode || (f.id !== targetCode && f.firmCode !== targetCode)));
     setFirmsState(updatedFirms);
     saveFirms(updatedFirms);
 
-    const updatedUsers = users.filter(u => u.firmId !== firmId);
+    // 2. Remove ALL user accounts belonging to this deleted law firm
+    const usersToDelete = users.filter(u => 
+      (u.firmId === targetId || u.firmCode === targetId || (targetCode && (u.firmId === targetCode || u.firmCode === targetCode))) &&
+      u.role !== 'Super Admin' && u.role !== 'Platform Owner' && u.id !== '3TVRWijWagVJBVfuTcFXCDqDzR02' && u.username !== 'superadmin'
+    );
+    const updatedUsers = users.filter(u => 
+      u.role === 'Super Admin' || 
+      u.role === 'Platform Owner' || 
+      u.id === '3TVRWijWagVJBVfuTcFXCDqDzR02' || 
+      u.username === 'superadmin' ||
+      (u.firmId !== targetId && u.firmCode !== targetId && (!targetCode || (u.firmId !== targetCode && u.firmCode !== targetCode)))
+    );
     setUsersState(updatedUsers);
     saveUsers(updatedUsers);
+
+    // 3. Remove all files, court sessions, movements, etc. belonging to this firm
+    const updatedFiles = files.filter(f => f.firmId !== targetId && (!targetCode || f.firmCode !== targetCode));
+    setFilesState(updatedFiles);
+    saveFiles(updatedFiles);
+
+    // 4. Logout if the active session belongs to this deleted firm
+    if (currentUser?.firmId === targetId || (targetCode && currentUser?.firmCode === targetCode)) {
+      setUser(null);
+      setAuth(false);
+      setViewState('landing');
+    }
+
+    // 5. Delete firm and its user accounts from Firebase Firestore and backend API
+    deleteFirmFromFirebase(targetId, targetCode, usersToDelete.map(u => u.id));
 
     addAuditLog(
       currentUser?.fullName || 'Platform Owner',
       'Platform Owner',
-      'Delete Law Firm Workspace',
+      'Delete Law Firm Workspace & Users',
       'SuperAdmin',
-      `Erased law firm workspace ID ${firmId} from platform registry`
+      `Erased law firm "${targetFirm?.firmName || targetId}" (${targetCode || targetId}) and purged all ${usersToDelete.length} associated staff user accounts.`
+    );
+    setAuditLogsState(getStoredAuditLogs());
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+    if (targetUser.role === 'Super Admin' || targetUser.role === 'Platform Owner' || targetUser.id === '3TVRWijWagVJBVfuTcFXCDqDzR02' || targetUser.username === 'superadmin') {
+      alert('Global Super Admin account cannot be deleted.');
+      return;
+    }
+
+    const updatedUsers = users.filter(u => u.id !== userId);
+    setUsersState(updatedUsers);
+    saveUsers(updatedUsers);
+
+    if (currentUser?.id === userId) {
+      setUser(null);
+      setAuth(false);
+      setViewState('landing');
+    }
+
+    deleteUserFromFirebase(userId);
+
+    addAuditLog(
+      currentUser?.fullName || 'Platform Owner',
+      currentUser?.role || 'Super Admin',
+      'Delete User Account',
+      'User',
+      `Deleted user account ${targetUser.fullName} (${targetUser.username}) from ${targetUser.firmName || targetUser.firmCode || 'platform'}`
     );
     setAuditLogsState(getStoredAuditLogs());
   };
@@ -772,6 +913,7 @@ export default function App() {
     const updated = [...users, userWithFirm];
     setUsersState(updated);
     saveUsers(updated);
+    saveUserToFirebase(userWithFirm);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Created User Account', 'User', `Created ${user.role} account for ${user.fullName} (${user.username})`);
@@ -783,6 +925,7 @@ export default function App() {
     const updated = users.map(u => u.id === user.id ? user : u);
     setUsersState(updated);
     saveUsers(updated);
+    saveUserToFirebase(user);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Updated User Account', 'User', `Modified account status for ${user.fullName} to ${user.status}`);
@@ -793,6 +936,21 @@ export default function App() {
   const handleSaveSettings = (newSettings: SystemSettings) => {
     setSettingsState(newSettings);
     saveSettings(newSettings);
+
+    // Update matching firm profile in firms state and sync immediately to Firebase
+    const targetFirm = firms.find(f => f.firmCode === newSettings.firmCode || f.id === newSettings.firmCode);
+    if (targetFirm) {
+      const updatedFirm: LawFirmProfile = {
+        ...targetFirm,
+        firmName: newSettings.firmName || targetFirm.firmName,
+        registrationNumber: newSettings.firmRegistrationNumber || targetFirm.registrationNumber,
+        cityOrBranch: newSettings.cityOrBranch || targetFirm.cityOrBranch
+      };
+      const updatedFirms = firms.map(f => f.id === updatedFirm.id ? updatedFirm : f);
+      setFirmsState(updatedFirms);
+      saveFirms(updatedFirms);
+      saveFirmToFirebase(updatedFirm);
+    }
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Updated System Settings', 'Settings', 'Modified firm title or court directory configuration');
@@ -977,7 +1135,10 @@ export default function App() {
                 onDeleteFirm={handleDeleteFirm}
                 onWipeAllFirms={handleWipeAllFirms}
                 onUpdatePassword={handleUpdatePassword}
+                onDeleteUser={handleDeleteUser}
+                onUpdateUser={handleUpdateUser}
                 onAddLawFirm={handleRegisterFirmSuccess}
+                onUpdateFirm={handleUpdateFirm}
                 onLogout={() => {
                   setCurrentUser(null);
                   setViewState('login');
@@ -1221,6 +1382,7 @@ export default function App() {
               currentUser={currentUser}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
+              onDeleteUser={handleDeleteUser}
             />
           )}
 

@@ -11,7 +11,10 @@ import {
   Search,
   CheckCircle2,
   X,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  Trash2,
+  Building2
 } from 'lucide-react';
 import { validatePassword } from '../utils/passwordValidator';
 import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
@@ -21,19 +24,30 @@ interface UserManagementModuleProps {
   currentUser?: User | null;
   onAddUser: (user: User) => void;
   onUpdateUser: (user: User) => void;
+  onDeleteUser?: (userId: string) => void;
 }
 
 export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   users,
   currentUser,
   onAddUser,
-  onUpdateUser
+  onUpdateUser,
+  onDeleteUser
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUserForReset, setSelectedUserForReset] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('password123');
   const [resetSuccessMsg, setResetSuccessMsg] = useState('');
+
+  // Confirmation Modal
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // New User State
   const [formData, setFormData] = useState<Partial<User>>({
@@ -54,6 +68,25 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     onUpdateUser({
       ...user,
       status: updatedStatus
+    });
+  };
+
+  const handleDeleteStaffAccount = (user: User) => {
+    if (user.id === currentUser?.id) {
+      alert('You cannot delete your own logged-in account.');
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Staff User Account',
+      message: `Are you sure you want to permanently delete the staff account for "${user.fullName}" (${user.username} - ${user.role})? This user will no longer be able to access the firm registry.`,
+      confirmLabel: 'Delete Staff Account',
+      onConfirm: () => {
+        if (onDeleteUser) {
+          onDeleteUser(user.id);
+        }
+        setConfirmModal(null);
+      }
     });
   };
 
@@ -244,17 +277,29 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                           Self Account
                         </span>
                       ) : (
-                        <button
-                          onClick={() => handleToggleSuspend(u)}
-                          className={`px-2.5 py-1 text-[10px] font-bold rounded transition cursor-pointer flex items-center gap-1 ${
-                            u.status === 'Active'
-                              ? 'bg-red-950/80 text-red-300 hover:bg-red-900 border border-red-800'
-                              : 'bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 border border-emerald-800'
-                          }`}
-                        >
-                          {u.status === 'Active' ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                          {u.status === 'Active' ? 'Suspend' : 'Activate'}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleToggleSuspend(u)}
+                            className={`px-2.5 py-1 text-[10px] font-bold rounded transition cursor-pointer flex items-center gap-1 ${
+                              u.status === 'Active'
+                                ? 'bg-amber-950/80 text-amber-300 hover:bg-amber-900 border border-amber-800'
+                                : 'bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 border border-emerald-800'
+                            }`}
+                          >
+                            {u.status === 'Active' ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                            {u.status === 'Active' ? 'Suspend' : 'Activate'}
+                          </button>
+
+                          {onDeleteUser && (
+                            <button
+                              onClick={() => handleDeleteStaffAccount(u)}
+                              className="p-1 text-red-400 bg-red-950/60 hover:bg-red-900 border border-red-800 rounded transition cursor-pointer"
+                              title="Delete staff account"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
@@ -433,6 +478,34 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal && confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#081729] border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="font-serif font-bold text-lg text-white">{confirmModal.title}</h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">{confirmModal.message}</p>
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmModal.onConfirm}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {confirmModal.confirmLabel || 'Confirm Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

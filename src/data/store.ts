@@ -90,8 +90,26 @@ function saveItem<T>(key: string, value: T): void {
   }
 }
 
+const DEMO_USER_IDS = new Set([
+  'usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5', 'usr-6', 
+  'usr-abc-admin', 'usr-abc-clerk'
+]);
+const DEMO_USERNAMES = new Set([
+  'proprietor', 'adv.kamau', 'adv.otieno', 'sec.wafula', 'clerk.mutua', 'chaser.kinuthia', 'abcproprietor'
+]);
+
 export function getStoredFirms(): LawFirmProfile[] {
-  return loadItem(STORAGE_KEYS.FIRMS, INITIAL_FIRMS);
+  const stored = loadItem<LawFirmProfile[]>(STORAGE_KEYS.FIRMS, INITIAL_FIRMS);
+  const DEMO_FIRM_IDS = new Set(['firm-1', 'firm-2']);
+  const cleaned = (Array.isArray(stored) ? stored : []).filter(f => 
+    !DEMO_FIRM_IDS.has(f.id) && 
+    f.firmCode !== 'OM-ADV-001' && 
+    f.firmCode !== 'ABC-ADV-002'
+  );
+  if (Array.isArray(stored) && cleaned.length !== stored.length) {
+    saveFirms(cleaned);
+  }
+  return cleaned;
 }
 
 export function saveFirms(firms: LawFirmProfile[]): void {
@@ -108,19 +126,45 @@ export function saveSettings(settings: SystemSettings): void {
 
 export function getStoredUsers(): User[] {
   const stored = loadItem<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
-  if (!Array.isArray(stored) || stored.length === 0) {
-    saveUsers(INITIAL_USERS);
-    return INITIAL_USERS;
-  }
+  const userList = Array.isArray(stored) ? stored : INITIAL_USERS;
+  const currentFirms = getStoredFirms();
+  const validFirmIds = new Set(currentFirms.map(f => f.id));
+  const validFirmCodes = new Set(currentFirms.map(f => f.firmCode));
+  
+  // Filter out legacy demo accounts or orphaned user accounts whose law firm has been deleted
+  let cleaned = userList.filter(u => {
+    // Retain Platform Owner / Super Admin
+    if (
+      u.role === 'Super Admin' || 
+      u.id === '3TVRWijWagVJBVfuTcFXCDqDzR02' || 
+      u.username === 'superadmin' || 
+      u.email === 'anthonyomollo07@gmail.com' ||
+      u.firmId === 'platform-owner' ||
+      u.firmCode === 'PLATFORM'
+    ) {
+      return true;
+    }
+
+    // Strip demo users
+    if (DEMO_USER_IDS.has(u.id) || DEMO_USERNAMES.has(u.username)) {
+      return false;
+    }
+
+    // User must belong to an active registered firm in the system
+    const hasValidFirm = (u.firmId && validFirmIds.has(u.firmId)) || (u.firmCode && validFirmCodes.has(u.firmCode));
+    return Boolean(hasValidFirm);
+  });
+
   // Ensure Super Admin exists
-  const storedIds = new Set(stored.map(u => u.id));
-  const missingFromInitial = INITIAL_USERS.filter(u => !storedIds.has(u.id));
-  if (missingFromInitial.length > 0) {
-    const merged = [...stored, ...missingFromInitial];
-    saveUsers(merged);
-    return merged;
+  const superAdminExists = cleaned.some(u => u.role === 'Super Admin' || u.id === '3TVRWijWagVJBVfuTcFXCDqDzR02');
+  if (!superAdminExists) {
+    cleaned = [...INITIAL_USERS, ...cleaned];
   }
-  return stored;
+
+  if (cleaned.length !== userList.length || !Array.isArray(stored)) {
+    saveUsers(cleaned);
+  }
+  return cleaned;
 }
 
 export function saveUsers(users: User[]): void {

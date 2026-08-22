@@ -18,7 +18,7 @@ import {
   AlertCircle,
   Info
 } from 'lucide-react';
-import { saveDocumentToFirebase } from '../lib/firebase';
+import { saveDocumentToFirebase, saveFirmToFirebase, saveUserToFirebase } from '../lib/firebase';
 import { validatePassword } from '../utils/passwordValidator';
 import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
 
@@ -170,8 +170,8 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
       permissions: ['all']
     };
 
-    saveDocumentToFirebase('law_firms', newFirm);
-    saveDocumentToFirebase('users', proprietorUser);
+    saveFirmToFirebase(newFirm);
+    saveUserToFirebase(proprietorUser);
 
     setCreatedFirm(newFirm);
     setCreatedProprietor(proprietorUser);

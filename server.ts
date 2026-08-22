@@ -9,6 +9,8 @@ const PORT = 3000;
 app.use(express.json());
 
 // In-memory initial data or fallback
+let dbFirms: any[] = [];
+
 let dbUsers = [
   {
     id: "3TVRWijWagVJBVfuTcFXCDqDzR02",
@@ -24,126 +26,6 @@ let dbUsers = [
     status: "Active",
     lastLogin: "Today at 09:00 AM",
     permissions: ["all", "superadmin"]
-  },
-  {
-    id: "usr-1",
-    firmId: "firm-1",
-    firmCode: "OM-ADV-001",
-    firmName: "Omollo & Associates Advocates",
-    username: "proprietor",
-    fullName: "Adv. Harrison Vance (Proprietor)",
-    role: "Proprietor",
-    email: "admin@omolloadvocates.co.ke",
-    phone: "+254 722 000111",
-    password: "password123",
-    status: "Active",
-    lastLogin: "Today at 08:15 AM",
-    permissions: ["all"]
-  },
-  {
-    id: "usr-abc-admin",
-    firmId: "firm-2",
-    firmCode: "ABC-ADV-002",
-    firmName: "ABC Advocates",
-    username: "abcproprietor",
-    fullName: "Adv. Alice Wanjiru (Proprietor)",
-    role: "Proprietor",
-    email: "admin@abc.co.ke",
-    phone: "+254 712 345678",
-    password: "password123",
-    status: "Active",
-    lastLogin: "Today at 08:30 AM",
-    permissions: ["all"]
-  },
-  {
-    id: "usr-abc-clerk",
-    firmId: "firm-2",
-    firmCode: "ABC-ADV-002",
-    firmName: "ABC Advocates",
-    username: "clerk",
-    fullName: "John Doe (Registry Clerk)",
-    role: "Clerk",
-    email: "clerk@abc.co.ke",
-    phone: "+254 712 111222",
-    password: "password123",
-    status: "Active",
-    lastLogin: "Today at 08:00 AM",
-    permissions: ["file_movement", "bringup_manage"]
-  },
-  {
-    id: "usr-2",
-    firmId: "firm-1",
-    firmCode: "OM-ADV-001",
-    firmName: "Omollo & Associates Advocates",
-    username: "adv.kamau",
-    fullName: "Adv. James Kamau",
-    role: "Advocate",
-    email: "kamau@omolloadvocates.co.ke",
-    phone: "+254 722 222333",
-    password: "password123",
-    status: "Active",
-    lastLogin: "Today at 08:42 AM",
-    permissions: ["registry_read", "court_write", "file_movement"]
-  },
-  {
-    id: "usr-3",
-    firmId: "firm-1",
-    firmCode: "OM-ADV-001",
-    firmName: "Omollo & Associates Advocates",
-    username: "adv.otieno",
-    fullName: "Adv. Sarah Otieno",
-    role: "Advocate",
-    email: "otieno@lawfirm.co.ke",
-    phone: "+254 733 444555",
-    password: "password123",
-    status: "Active",
-    lastLogin: "Yesterday at 04:30 PM",
-    permissions: ["registry_read", "court_write", "file_movement"]
-  },
-  {
-    id: "usr-4",
-    firmId: "firm-1",
-    firmCode: "OM-ADV-001",
-    firmName: "Omollo & Associates Advocates",
-    username: "sec.wafula",
-    fullName: "Mary Wafula",
-    role: "Secretary",
-    email: "wafula@lawfirm.co.ke",
-    phone: "+254 711 555666",
-    password: "password123",
-    status: "Active",
-    lastLogin: "Today at 08:00 AM",
-    permissions: ["registry_write", "court_read"]
-  },
-  {
-    id: "usr-5",
-    firmId: "firm-1",
-    firmCode: "OM-ADV-001",
-    firmName: "Omollo & Associates Advocates",
-    username: "clerk.mutua",
-    fullName: "Peter Mutua",
-    role: "Clerk",
-    email: "mutua@lawfirm.co.ke",
-    phone: "+254 788 777888",
-    password: "password123",
-    status: "Active",
-    lastLogin: "Today at 07:45 AM",
-    permissions: ["file_movement", "bringup_manage"]
-  },
-  {
-    id: "usr-6",
-    firmId: "firm-1",
-    firmCode: "OM-ADV-001",
-    firmName: "Omollo & Associates Advocates",
-    username: "chaser.kinuthia",
-    fullName: "David Kinuthia",
-    role: "Case Chaser",
-    email: "kinuthia@chasers.co.ke",
-    phone: "+254 799 112233",
-    password: "password123",
-    status: "Active",
-    lastLogin: "2 days ago",
-    permissions: ["chaser_portal"]
   }
 ];
 
@@ -514,6 +396,19 @@ app.get("/api/stats", (req, res) => {
 });
 
 // 4. CRUD Endpoints
+app.get("/api/firms", (req, res) => res.json(dbFirms));
+app.post("/api/firms", (req, res) => {
+  const newFirm = { id: `firm-${Date.now()}`, ...req.body };
+  dbFirms.unshift(newFirm);
+  res.status(201).json(newFirm);
+});
+app.delete("/api/firms/:id", (req, res) => {
+  const { id } = req.params;
+  dbFirms = dbFirms.filter(f => f.id !== id && f.firmCode !== id);
+  dbUsers = dbUsers.filter(u => u.firmId !== id && u.firmCode !== id);
+  res.json({ success: true });
+});
+
 app.get("/api/users", (req, res) => res.json(dbUsers));
 app.post("/api/users", (req, res) => {
   const newUser = { id: `usr-${Date.now()}`, ...req.body };

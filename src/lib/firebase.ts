@@ -130,11 +130,15 @@ export async function syncCollectionToFirebase<T extends { id: string }>(
   }
 }
 
-export async function saveDocumentToFirebase<T extends { id: string }>(collectionName: string, item: T) {
-  if (isQuotaExceeded) return;
+export async function saveDocumentToFirebase<T extends { id?: string }>(collectionName: string, item: T) {
+  if (isQuotaExceeded || !item) return;
+
+  const docId = item.id || (item as any).firmCode || (item as any).username;
+  if (!docId) return;
 
   try {
-    const docPromise = setDoc(doc(db, collectionName, item.id), item).catch((err) => {
+    const docRef = doc(db, collectionName, docId);
+    const docPromise = setDoc(docRef, item, { merge: true }).catch((err) => {
       if (isQuotaError(err)) {
         handleQuotaExceeded(err);
       }
@@ -142,7 +146,7 @@ export async function saveDocumentToFirebase<T extends { id: string }>(collectio
     });
 
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Firestore save timeout')), 2500)
+      setTimeout(() => reject(new Error('Firestore save timeout')), 3000)
     );
 
     await Promise.race([
@@ -153,7 +157,137 @@ export async function saveDocumentToFirebase<T extends { id: string }>(collectio
     if (isQuotaError(err)) {
       handleQuotaExceeded(err);
     } else {
-      console.warn(`Failed or timed out saving ${item.id} to Firebase ${collectionName}:`, err);
+      console.warn(`Failed or timed out saving ${docId} to Firebase ${collectionName}:`, err);
+    }
+  }
+}
+
+/**
+ * Specifically saves or updates a Law Firm Profile in Firebase Firestore immediately.
+ * Persists to both 'firms' and 'law_firms' collections for redundancy and synchronicity.
+ */
+export async function saveFirmToFirebase(firm: any) {
+  if (!firm) return;
+  const firmId = firm.id || firm.firmCode;
+  if (!firmId) return;
+
+  const sanitizedFirm = {
+    ...firm,
+    id: firmId,
+    updatedAt: new Date().toISOString()
+  };
+
+  // Immediate concurrent write to both 'firms' and 'law_firms' in Firestore
+  await Promise.allSettled([
+    saveDocumentToFirebase('firms', sanitizedFirm),
+    saveDocumentToFirebase('law_firms', sanitizedFirm)
+  ]);
+
+  // Also sync to backend API if available
+  try {
+    fetch('/api/firms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sanitizedFirm)
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Specifically deletes a Law Firm Profile from Firebase Firestore immediately.
+ * Erases from both 'firms' and 'law_firms' collections, and purges all associated user accounts.
+ */
+export async function deleteFirmFromFirebase(firmId: string, firmCode?: string, associatedUserIds?: string[]) {
+  if (!firmId) return;
+
+  const targetIds = Array.from(new Set([firmId, firmCode].filter(Boolean) as string[]));
+
+  const deletePromises: Promise<any>[] = targetIds.flatMap(id => [
+    deleteDocumentFromFirebase('firms', id),
+    deleteDocumentFromFirebase('law_firms', id)
+  ]);
+
+  if (associatedUserIds && associatedUserIds.length > 0) {
+    associatedUserIds.forEach(uid => {
+      deletePromises.push(deleteDocumentFromFirebase('users', uid));
+    });
+  }
+
+  await Promise.allSettled(deletePromises);
+
+  // Also sync delete to backend API if available
+  targetIds.forEach(id => {
+    try {
+      fetch(`/api/firms/${id}`, { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
+  });
+
+  if (associatedUserIds && associatedUserIds.length > 0) {
+    associatedUserIds.forEach(uid => {
+      try {
+        fetch(`/api/users/${uid}`, { method: 'DELETE' }).catch(() => {});
+      } catch (e) {}
+    });
+  }
+}
+
+/**
+ * Saves a user account to Firebase Firestore immediately.
+ */
+export async function saveUserToFirebase(user: any) {
+  if (!user) return;
+  const userId = user.id || user.username;
+  if (!userId) return;
+
+  const sanitizedUser = {
+    ...user,
+    id: userId,
+    updatedAt: new Date().toISOString()
+  };
+
+  await saveDocumentToFirebase('users', sanitizedUser);
+
+  try {
+    fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sanitizedUser)
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Deletes a user account from Firebase Firestore immediately.
+ */
+export async function deleteUserFromFirebase(userId: string) {
+  if (!userId) return;
+  await deleteDocumentFromFirebase('users', userId);
+}
+
+export async function deleteDocumentFromFirebase(collectionName: string, docId: string) {
+  if (isQuotaExceeded || !docId) return;
+
+  try {
+    const docPromise = deleteDoc(doc(db, collectionName, docId)).catch((err) => {
+      if (isQuotaError(err)) {
+        handleQuotaExceeded(err);
+      }
+      throw err;
+    });
+
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Firestore delete timeout')), 2500)
+    );
+
+    await Promise.race([
+      docPromise,
+      timeoutPromise
+    ]);
+  } catch (err) {
+    if (isQuotaError(err)) {
+      handleQuotaExceeded(err);
+    } else {
+      console.warn(`Failed or timed out deleting ${docId} from Firebase ${collectionName}:`, err);
     }
   }
 }

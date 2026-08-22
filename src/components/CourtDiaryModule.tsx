@@ -46,15 +46,15 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
   // New Court Session form state
   const [formData, setFormData] = useState<Partial<CourtSession>>({
     fileId: files[0]?.id || '',
-    fileNumber: files[0]?.internalFileNumber || 'LFR/2026/0142',
+    fileNumber: files[0]?.internalFileNumber || '',
     clientName: files[0]?.clientName || '',
     opposingParty: files[0]?.opposingParty || '',
     courtStation: courtStations[0] || 'Milimani Law Courts - Commercial Division',
-    courtNumber: 'Court 4',
-    magistrate: 'Hon. Justice J. K. Mwangi',
+    courtNumber: 'Court 1',
+    magistrate: '',
     hearingDate: getNextBusinessDay(todayStr),
     hearingTime: '09:00 AM',
-    advocateName: 'Adv. James Kamau',
+    advocateName: '',
     purpose: 'Mention',
     status: 'Upcoming'
   });
@@ -120,7 +120,7 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
       magistrate: formData.magistrate || 'Hon. Magistrate',
       hearingDate: formData.hearingDate,
       hearingTime: formData.hearingTime || '09:00 AM',
-      advocateName: formData.advocateName || 'Adv. James Kamau',
+      advocateName: formData.advocateName || '',
       purpose: (formData.purpose as CourtSession['purpose']) || 'Mention',
       status: 'Upcoming'
     };

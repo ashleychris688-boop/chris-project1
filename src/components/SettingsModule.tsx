@@ -168,7 +168,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 value={formData.firmCode || ''}
                 onChange={e => setFormData({ ...formData, firmCode: e.target.value })}
                 className="w-full p-2.5 bg-slate-950 border border-slate-700 text-slate-100 rounded-lg font-mono font-bold focus:border-[#C9A227]"
-                placeholder="e.g. OM-ADV-001"
+                placeholder="e.g. LFR-001"
               />
             </div>
 
