@@ -74,8 +74,6 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
   onFirmRegistered,
   onSuccess
 }) => {
-  const [step, setStep] = useState<1 | 2>(1);
-
   // Form Fields
   const [firmName, setFirmName] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
@@ -89,14 +87,13 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [errorMessage, setErrorMessage] = useState('');
-  const [createdFirm, setCreatedFirm] = useState<LawFirmProfile | null>(null);
-  const [createdProprietor, setCreatedProprietor] = useState<User | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const regValidation = validateRegistrationNumber(registrationNumber);
 
   if (!isOpen) return null;
 
-  const handleStep1Submit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -122,72 +119,84 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
       return;
     }
 
-    // Auto-generate Firm ID and Code
-    const randomDigits = Math.floor(100000 + Math.random() * 900000);
-    const firmId = `LFR${randomDigits}`;
-    const initials = firmName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 4);
-    const firmCode = `${initials}-ADV-${Math.floor(100 + Math.random() * 900)}`;
+    setIsSubmitting(true);
 
-    const newFirm: LawFirmProfile = {
-      id: firmId,
-      firmName: firmName.trim(),
-      firmCode: firmCode,
-      registrationNumber: registrationNumber.trim() || `LSK/2026/${Math.floor(100 + Math.random() * 900)}`,
-      proprietorName: proprietorName.trim(),
-      cityOrBranch: `${county} HQ`,
-      physicalAddress: physicalAddress.trim() || `${county} Legal Chambers`,
-      country: country,
-      county: county,
-      adminUsername: email.trim().split('@')[0] || proprietorName.trim().toLowerCase().replace(/\s+/g, ''),
-      email: email.trim(),
-      phone: phone.trim(),
-      createdAt: new Date().toISOString().split('T')[0],
-      status: 'Active',
-      subscriptionTier: 'Professional',
-      subscriptionStatus: 'Active',
-      activeUsersCount: 1,
-      activeCasesCount: 0,
-      totalFilesCount: 0,
-      monthlyFeeKsh: 25000
-    };
+    try {
+      // Auto-generate Firm ID and Code
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      const firmId = `LFR${randomDigits}`;
+      const initials = firmName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 4);
+      const firmCode = `${initials}-ADV-${Math.floor(100 + Math.random() * 900)}`;
 
-    const proprietorUser: User = {
-      id: `usr-prop-${Date.now()}`,
-      firmId: firmId,
-      firmCode: firmCode,
-      firmName: firmName.trim(),
-      username: email.trim().split('@')[0] || proprietorName.trim().toLowerCase().replace(/\s+/g, ''),
-      fullName: proprietorName.trim(),
-      role: 'Proprietor',
-      email: email.trim(),
-      phone: phone.trim(),
-      physicalAddress: physicalAddress.trim() || `${county} Legal Chambers`,
-      county: county,
-      country: country,
-      password: password,
-      status: 'Active',
-      lastLogin: `Today at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-      permissions: ['all']
-    };
+      const newFirm: LawFirmProfile = {
+        id: firmId,
+        firmName: firmName.trim(),
+        firmCode: firmCode,
+        registrationNumber: registrationNumber.trim() || `LSK/2026/${Math.floor(100 + Math.random() * 900)}`,
+        proprietorName: proprietorName.trim(),
+        cityOrBranch: `${county} HQ`,
+        physicalAddress: physicalAddress.trim() || `${county} Legal Chambers`,
+        country: country,
+        county: county,
+        adminUsername: email.trim().split('@')[0] || proprietorName.trim().toLowerCase().replace(/\s+/g, ''),
+        email: email.trim(),
+        phone: phone.trim(),
+        createdAt: new Date().toISOString().split('T')[0],
+        status: 'Active',
+        subscriptionTier: 'Professional',
+        subscriptionStatus: 'Active',
+        activeUsersCount: 1,
+        activeCasesCount: 0,
+        totalFilesCount: 0,
+        monthlyFeeKsh: 25000
+      };
 
-    saveFirmToFirebase(newFirm);
-    saveUserToFirebase(proprietorUser);
+      const proprietorUser: User = {
+        id: `usr-prop-${Date.now()}`,
+        firmId: firmId,
+        firmCode: firmCode,
+        firmName: firmName.trim(),
+        username: email.trim().split('@')[0] || proprietorName.trim().toLowerCase().replace(/\s+/g, ''),
+        fullName: proprietorName.trim(),
+        role: 'Proprietor',
+        email: email.trim(),
+        phone: phone.trim(),
+        physicalAddress: physicalAddress.trim() || `${county} Legal Chambers`,
+        county: county,
+        country: country,
+        password: password,
+        status: 'Active',
+        lastLogin: `Today at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        permissions: ['all']
+      };
 
-    setCreatedFirm(newFirm);
-    setCreatedProprietor(proprietorUser);
-    setStep(2);
-  };
+      // 1. Immediately store to Firebase Firestore
+      await saveFirmToFirebase(newFirm);
+      await saveUserToFirebase(proprietorUser);
 
-  const handleLaunchWorkspace = () => {
-    if (createdFirm && createdProprietor) {
+      // 2. Automatically log the user into the firm user account and launch workspace
       if (onFirmRegistered) {
-        onFirmRegistered(createdFirm, createdProprietor);
+        onFirmRegistered(newFirm, proprietorUser);
       }
       if (onSuccess) {
-        onSuccess(createdFirm, createdProprietor);
+        onSuccess(newFirm, proprietorUser);
       }
-      setStep(1);
+
+      // 3. Clear form state and close modal
+      setFirmName('');
+      setRegistrationNumber('');
+      setProprietorName('');
+      setEmail('');
+      setPhone('');
+      setPhysicalAddress('');
+      setPassword('');
+      setConfirmPassword('');
+      setIsSubmitting(false);
       onClose();
+    } catch (err: any) {
+      console.error('Error registering law firm:', err);
+      setErrorMessage(err?.message || 'Failed to complete registration. Please try again.');
+      setIsSubmitting(false);
     }
   };
 
@@ -216,21 +225,23 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
               MULTI-TENANT LAW FIRM ONBOARDING
             </div>
             <h2 className="font-serif font-extrabold text-2xl text-white">
-              {step === 1 ? 'Register Your Law Firm Workspace' : 'Workspace Created Successfully!'}
+              Register Your Law Firm Workspace
             </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Complete the form below to immediately register and enter your firm's administrative workspace.
+            </p>
           </div>
         </div>
 
-        {/* STEP 1: FORM */}
-        {step === 1 && (
-          <form onSubmit={handleStep1Submit} className="space-y-4">
-            
-            {errorMessage && (
-              <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl font-semibold flex items-center gap-2">
-                <X className="w-4 h-4 text-red-400 shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
+        {/* REGISTRATION FORM */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {errorMessage && (
+            <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl font-semibold flex items-center gap-2">
+              <X className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
             <div className="grid sm:grid-cols-2 gap-4 text-xs">
               
@@ -473,91 +484,32 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
             </div>
 
             {/* Submit CTA */}
-            <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-xl flex items-center gap-2 cursor-pointer"
-              >
-                <span>Create Law Firm Workspace</span>
-                <ArrowRight className="w-4 h-4 text-slate-950" />
-              </button>
+            <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-400 flex items-center gap-1.5 order-2 sm:order-1">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Automatic authentication as Firm Administrator</span>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2 justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] disabled:opacity-50 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>{isSubmitting ? 'Registering & Entering...' : 'Register Law Firm & Open Workspace'}</span>
+                  <ArrowRight className="w-4 h-4 text-slate-950" />
+                </button>
+              </div>
             </div>
 
           </form>
-        )}
-
-        {/* STEP 2: CREATED WORKSPACE SUMMARY */}
-        {step === 2 && createdFirm && createdProprietor && (
-          <div className="space-y-6">
-            
-            <div className="p-4 rounded-2xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-200 text-xs flex items-center gap-3">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400 shrink-0" />
-              <div>
-                <h4 className="font-bold text-sm text-white">Your Workspace Is Live & Provisioned!</h4>
-                <p>The Proprietor Account has been registered with administrative privileges for this workspace.</p>
-              </div>
-            </div>
-
-            {/* Generated Details Grid */}
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-slate-400 uppercase font-semibold text-[10px]">Assigned Firm ID</span>
-                  <p className="text-lg font-mono font-bold text-[#C9A227]">{createdFirm.id}</p>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 uppercase font-semibold text-[10px]">Firm Code / Ref</span>
-                  <p className="text-lg font-mono font-bold text-white">{createdFirm.firmCode}</p>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 uppercase font-semibold text-[10px]">Law Firm Workspace</span>
-                  <p className="text-sm font-bold text-white">{createdFirm.firmName}</p>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 uppercase font-semibold text-[10px]">Proprietor Administrator</span>
-                  <p className="text-sm font-bold text-amber-300">{createdProprietor.fullName}</p>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 uppercase font-semibold text-[10px]">Administrator Login Email</span>
-                  <p className="text-xs font-mono text-slate-200">{createdProprietor.email}</p>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 uppercase font-semibold text-[10px]">County & Branch</span>
-                  <p className="text-xs font-semibold text-slate-200">{createdFirm.county}, {createdFirm.cityOrBranch}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Direct Action */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-800">
-              <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Proprietor credentials are active & verified</span>
-              </div>
-
-              <button
-                onClick={handleLaunchWorkspace}
-                className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-[#C9A227] to-[#B08D1E] hover:from-[#B08D1E] hover:to-[#967616] text-slate-950 font-black text-xs uppercase tracking-widest rounded-xl shadow-2xl transition flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>[ Launch {createdFirm.firmName.toUpperCase()} Workspace ]</span>
-                <ArrowRight className="w-4 h-4 text-slate-950" />
-              </button>
-            </div>
-
-          </div>
-        )}
 
       </div>
     </div>
