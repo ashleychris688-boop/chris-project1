@@ -93,18 +93,35 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     setErrorMessage('');
 
-    if (!firmName.trim() || !proprietorName.trim() || !email.trim() || !password.trim()) {
-      setErrorMessage('Please fill in all required fields marked with *');
+    if (!firmName.trim()) {
+      setErrorMessage('Please enter the Law Firm Name.');
+      return;
+    }
+
+    if (!proprietorName.trim()) {
+      setErrorMessage('Please enter the Proprietor / Managing Partner Name.');
+      return;
+    }
+
+    if (!email.trim()) {
+      setErrorMessage('Please enter an Official Firm Email address.');
+      return;
+    }
+
+    if (!password.trim()) {
+      setErrorMessage('Please enter a secure password.');
       return;
     }
 
     const passCheck = validatePassword(password);
     if (!passCheck.isValid) {
-      setErrorMessage(`Password requirement not met: ${passCheck.message}`);
+      setErrorMessage(`Password requirement: ${passCheck.message}`);
       return;
     }
 
@@ -115,7 +132,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
     const regValidation = validateRegistrationNumber(registrationNumber);
     if (registrationNumber.trim() && !regValidation.isValid) {
-      setErrorMessage(`Invalid Registration Number format: ${regValidation.message}`);
+      setErrorMessage(`Invalid Registration Number: ${regValidation.message}`);
       return;
     }
 
@@ -125,7 +142,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
       // Auto-generate Firm ID and Code
       const randomDigits = Math.floor(100000 + Math.random() * 900000);
       const firmId = `LFR${randomDigits}`;
-      const initials = firmName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 4);
+      const initials = firmName.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 4) || 'LFR';
       const firmCode = `${initials}-ADV-${Math.floor(100 + Math.random() * 900)}`;
 
       const newFirm: LawFirmProfile = {
@@ -140,7 +157,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
         county: county,
         adminUsername: email.trim().split('@')[0] || proprietorName.trim().toLowerCase().replace(/\s+/g, ''),
         email: email.trim(),
-        phone: phone.trim(),
+        phone: phone.trim() || '+254 700 000000',
         createdAt: new Date().toISOString().split('T')[0],
         status: 'Active',
         subscriptionTier: 'Professional',
@@ -160,7 +177,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
         fullName: proprietorName.trim(),
         role: 'Proprietor',
         email: email.trim(),
-        phone: phone.trim(),
+        phone: phone.trim() || '+254 700 000000',
         physicalAddress: physicalAddress.trim() || `${county} Legal Chambers`,
         county: county,
         country: country,
@@ -170,19 +187,19 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
         permissions: ['all']
       };
 
-      // 1. Immediately store to Firebase Firestore
-      await saveFirmToFirebase(newFirm);
-      await saveUserToFirebase(proprietorUser);
-
-      // 2. Automatically log the user into the firm user account and launch workspace
-      if (onFirmRegistered) {
-        onFirmRegistered(newFirm, proprietorUser);
-      }
+      // 1. Instantly trigger callback to authenticate and open workspace without blocking
       if (onSuccess) {
         onSuccess(newFirm, proprietorUser);
       }
+      if (onFirmRegistered) {
+        onFirmRegistered(newFirm, proprietorUser);
+      }
 
-      // 3. Clear form state and close modal
+      // 2. Synchronize to Firebase Firestore in background
+      saveFirmToFirebase(newFirm).catch(err => console.warn('Background Firebase firm sync:', err));
+      saveUserToFirebase(proprietorUser).catch(err => console.warn('Background Firebase user sync:', err));
+
+      // 3. Clear form state & close modal
       setFirmName('');
       setRegistrationNumber('');
       setProprietorName('');
@@ -234,7 +251,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
         </div>
 
         {/* REGISTRATION FORM */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="space-y-4">
           
           {errorMessage && (
             <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl font-semibold flex items-center gap-2">
@@ -483,6 +500,14 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
             </div>
 
+            {/* Error Message near bottom CTA for mobile visibility */}
+            {errorMessage && (
+              <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
             {/* Submit CTA */}
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs text-slate-400 flex items-center gap-1.5 order-2 sm:order-1">
@@ -500,6 +525,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                 </button>
                 <button
                   type="submit"
+                  onClick={() => handleSubmit()}
                   disabled={isSubmitting}
                   className="px-6 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] disabled:opacity-50 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-xl flex items-center justify-center gap-2 cursor-pointer"
                 >

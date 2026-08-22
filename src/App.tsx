@@ -173,8 +173,8 @@ export default function App() {
     saveUsers(updatedUsers);
 
     // Sync settings to match the new firm
-    setSettingsState(prev => ({
-      ...prev,
+    const nextSettings: SystemSettings = {
+      ...settings,
       firmName: newFirm.firmName,
       firmCode: newFirm.firmCode,
       firmRegistrationNumber: newFirm.registrationNumber,
@@ -182,7 +182,9 @@ export default function App() {
       address: newFirm.physicalAddress || `${newFirm.county} Legal Chambers`,
       phone: newFirm.phone,
       email: newFirm.email
-    }));
+    };
+    setSettingsState(nextSettings);
+    saveSettings(nextSettings);
 
     setCurrentUser(proprietorUser);
     setUser(proprietorUser);
@@ -192,9 +194,9 @@ export default function App() {
     setActiveTab('dashboard');
     setIsRegisterModalOpen(false);
 
-    // Persist immediately to Firebase Firestore
-    saveFirmToFirebase(newFirm);
-    saveUserToFirebase(proprietorUser);
+    // Persist to Firebase Firestore
+    saveFirmToFirebase(newFirm).catch(err => console.warn('Background Firebase firm sync:', err));
+    saveUserToFirebase(proprietorUser).catch(err => console.warn('Background Firebase user sync:', err));
 
     addAuditLog(
       proprietorUser.fullName,
