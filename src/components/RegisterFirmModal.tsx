@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { LawFirmProfile, User } from '../types';
 import { 
   Building2, 
@@ -12,13 +12,15 @@ import {
   Sparkles, 
   X, 
   ArrowRight, 
+  ArrowLeft,
   Globe, 
   ShieldCheck,
   FileCheck,
   AlertCircle,
-  Info
+  Info,
+  Check
 } from 'lucide-react';
-import { saveDocumentToFirebase, saveFirmToFirebase, saveUserToFirebase } from '../lib/firebase';
+import { saveFirmToFirebase, saveUserToFirebase } from '../lib/firebase';
 import { validatePassword } from '../utils/passwordValidator';
 import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
 
@@ -74,6 +76,10 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
   onFirmRegistered,
   onSuccess
 }) => {
+  // Multi-step state (1: Firm Details, 2: Proprietor & Contact, 3: Security & Review)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Form Fields
   const [firmName, setFirmName] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
@@ -93,46 +99,107 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
   if (!isOpen) return null;
 
+  const scrollToTop = () => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Step 1 Validation
+  const validateStep1 = (): boolean => {
+    setErrorMessage('');
+    if (!firmName.trim()) {
+      setErrorMessage('Please enter the Law Firm Name.');
+      scrollToTop();
+      return false;
+    }
+    if (registrationNumber.trim() && !regValidation.isValid) {
+      setErrorMessage(`Invalid Registration Number: ${regValidation.message}`);
+      scrollToTop();
+      return false;
+    }
+    return true;
+  };
+
+  // Step 2 Validation
+  const validateStep2 = (): boolean => {
+    setErrorMessage('');
+    if (!proprietorName.trim()) {
+      setErrorMessage('Please enter the Proprietor / Managing Partner Name.');
+      scrollToTop();
+      return false;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMessage('Please enter a valid Official Firm Email address.');
+      scrollToTop();
+      return false;
+    }
+    if (!phone.trim()) {
+      setErrorMessage('Please enter an official phone or mobile number.');
+      scrollToTop();
+      return false;
+    }
+    return true;
+  };
+
+  // Step 3 Validation
+  const validateStep3 = (): boolean => {
+    setErrorMessage('');
+    if (!password.trim()) {
+      setErrorMessage('Please create an Admin Password.');
+      scrollToTop();
+      return false;
+    }
+    const passCheck = validatePassword(password);
+    if (!passCheck.isValid) {
+      setErrorMessage(`Password requirement: ${passCheck.message}`);
+      scrollToTop();
+      return false;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match. Please verify and try again.');
+      scrollToTop();
+      return false;
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (currentStep === 1) {
+      if (validateStep1()) {
+        setCurrentStep(2);
+        scrollToTop();
+      }
+    } else if (currentStep === 2) {
+      if (validateStep2()) {
+        setCurrentStep(3);
+        scrollToTop();
+      }
+    }
+  };
+
+  const handleBack = () => {
+    setErrorMessage('');
+    if (currentStep === 3) setCurrentStep(2);
+    else if (currentStep === 2) setCurrentStep(1);
+    scrollToTop();
+  };
+
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
     }
     setErrorMessage('');
 
-    if (!firmName.trim()) {
-      setErrorMessage('Please enter the Law Firm Name.');
+    // Full validation
+    if (!validateStep1()) {
+      setCurrentStep(1);
       return;
     }
-
-    if (!proprietorName.trim()) {
-      setErrorMessage('Please enter the Proprietor / Managing Partner Name.');
+    if (!validateStep2()) {
+      setCurrentStep(2);
       return;
     }
-
-    if (!email.trim()) {
-      setErrorMessage('Please enter an Official Firm Email address.');
-      return;
-    }
-
-    if (!password.trim()) {
-      setErrorMessage('Please enter a secure password.');
-      return;
-    }
-
-    const passCheck = validatePassword(password);
-    if (!passCheck.isValid) {
-      setErrorMessage(`Password requirement: ${passCheck.message}`);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match. Please check and try again.');
-      return;
-    }
-
-    const regValidation = validateRegistrationNumber(registrationNumber);
-    if (registrationNumber.trim() && !regValidation.isValid) {
-      setErrorMessage(`Invalid Registration Number: ${regValidation.message}`);
+    if (!validateStep3()) {
+      setCurrentStep(3);
       return;
     }
 
@@ -208,6 +275,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
       setPhysicalAddress('');
       setPassword('');
       setConfirmPassword('');
+      setCurrentStep(1);
       setIsSubmitting(false);
       onClose();
     } catch (err: any) {
@@ -217,83 +285,191 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-[#081729] rounded-3xl border-2 border-[#C9A227]/60 shadow-2xl max-w-2xl w-full p-6 sm:p-8 text-slate-100 my-8 relative">
-        
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-[#C9A227] text-slate-400 hover:text-white transition cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
+  const isStep1Complete = firmName.trim().length > 0 && (!registrationNumber.trim() || regValidation.isValid);
+  const isStep2Complete = proprietorName.trim().length > 0 && email.trim().includes('@') && phone.trim().length > 0;
+  const isStep3Complete = password.length >= 6 && password === confirmPassword;
 
-        {/* Header */}
-        <div className="flex items-center gap-3 border-b border-slate-800 pb-5 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#C9A227] to-[#9B7B12] p-0.5 shadow-xl flex items-center justify-center shrink-0">
-            <div className="w-full h-full bg-[#081729] rounded-[14px] flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-[#C9A227]" />
+  return (
+    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 overflow-hidden">
+      <div 
+        id="register-firm-modal-container"
+        className="bg-[#081729] sm:rounded-3xl rounded-t-3xl border-t-2 sm:border-2 border-[#C9A227]/60 shadow-2xl max-w-2xl w-full text-slate-100 flex flex-col max-h-[95vh] sm:max-h-[90vh] h-[92vh] sm:h-auto relative animate-in fade-in slide-in-from-bottom-6 duration-200"
+      >
+        
+        {/* Header - Fixed Top */}
+        <div className="p-4 sm:p-6 border-b border-slate-800/80 bg-[#081729] shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#C9A227] to-[#9B7B12] p-0.5 shadow-xl flex items-center justify-center shrink-0">
+                <div className="w-full h-full bg-[#081729] rounded-[14px] flex items-center justify-center">
+                  <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#C9A227]" />
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-[#C9A227] font-mono font-bold uppercase tracking-widest flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-[#C9A227]" />
+                  <span>LAW FIRM ONBOARDING</span>
+                </div>
+                <h2 className="font-serif font-extrabold text-base sm:text-xl text-white leading-tight">
+                  Register Your Law Firm
+                </h2>
+              </div>
             </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-[#C9A227] text-slate-400 hover:text-white transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
           </div>
-          <div>
-            <div className="text-[10px] text-[#C9A227] font-mono font-bold uppercase tracking-widest flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#C9A227]" />
-              MULTI-TENANT LAW FIRM ONBOARDING
-            </div>
-            <h2 className="font-serif font-extrabold text-2xl text-white">
-              Register Your Law Firm Workspace
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Complete the form below to immediately register and enter your firm's administrative workspace.
-            </p>
+
+          {/* Smartphone-Optimized Stepper Tabs */}
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4">
+            
+            {/* Step 1 Tab */}
+            <button
+              type="button"
+              onClick={() => { setCurrentStep(1); scrollToTop(); }}
+              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                currentStep === 1
+                  ? 'bg-[#C9A227]/20 border-[#C9A227] text-[#C9A227]'
+                  : isStep1Complete
+                    ? 'bg-emerald-950/40 border-emerald-700/50 text-emerald-300'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-mono shrink-0 ${
+                currentStep === 1
+                  ? 'bg-[#C9A227] text-slate-950 font-black'
+                  : isStep1Complete
+                    ? 'bg-emerald-500 text-slate-950 font-black'
+                    : 'bg-slate-800 text-slate-400'
+              }`}>
+                {isStep1Complete ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : '1'}
+              </div>
+              <span className="truncate">1. Firm Info</span>
+            </button>
+
+            {/* Step 2 Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                if (validateStep1()) {
+                  setCurrentStep(2);
+                  scrollToTop();
+                }
+              }}
+              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                currentStep === 2
+                  ? 'bg-[#C9A227]/20 border-[#C9A227] text-[#C9A227]'
+                  : isStep2Complete
+                    ? 'bg-emerald-950/40 border-emerald-700/50 text-emerald-300'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-mono shrink-0 ${
+                currentStep === 2
+                  ? 'bg-[#C9A227] text-slate-950 font-black'
+                  : isStep2Complete
+                    ? 'bg-emerald-500 text-slate-950 font-black'
+                    : 'bg-slate-800 text-slate-400'
+              }`}>
+                {isStep2Complete ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : '2'}
+              </div>
+              <span className="truncate">2. Contact</span>
+            </button>
+
+            {/* Step 3 Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                if (validateStep1() && validateStep2()) {
+                  setCurrentStep(3);
+                  scrollToTop();
+                }
+              }}
+              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                currentStep === 3
+                  ? 'bg-[#C9A227]/20 border-[#C9A227] text-[#C9A227]'
+                  : isStep3Complete
+                    ? 'bg-emerald-950/40 border-emerald-700/50 text-emerald-300'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-mono shrink-0 ${
+                currentStep === 3
+                  ? 'bg-[#C9A227] text-slate-950 font-black'
+                  : isStep3Complete
+                    ? 'bg-emerald-500 text-slate-950 font-black'
+                    : 'bg-slate-800 text-slate-400'
+              }`}>
+                {isStep3Complete ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : '3'}
+              </div>
+              <span className="truncate">3. Security</span>
+            </button>
+
           </div>
         </div>
 
-        {/* REGISTRATION FORM */}
-        <form noValidate onSubmit={handleSubmit} className="space-y-4">
-          
+        {/* Scrollable Content Body - Fits 100% on Smartphone screens */}
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4"
+        >
+          {/* Error Message Box */}
           {errorMessage && (
-            <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl font-semibold flex items-center gap-2">
-              <X className="w-4 h-4 text-red-400 shrink-0" />
+            <div className="p-3 bg-red-950/90 border border-red-600 text-red-100 text-xs rounded-xl font-bold flex items-center gap-2 shadow-lg animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-            <div className="grid sm:grid-cols-2 gap-4 text-xs">
-              
+          {/* ================= STEP 1: LAW FIRM PROFILE ================= */}
+          {currentStep === 1 && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#C9A227] shrink-0" />
+                <span><strong>Step 1 of 3:</strong> Enter your registered practice information.</span>
+              </div>
+
               {/* Firm Name */}
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
-                  Law Firm Name *
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider flex items-center justify-between">
+                  <span>Law Firm Name <span className="text-red-400">*</span></span>
+                  <span className="text-[10px] text-slate-400 font-normal">Official Registered Name</span>
                 </label>
                 <div className="relative">
-                  <Landmark className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Landmark className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#C9A227]" />
                   <input
+                    id="input-firm-name"
                     type="text"
                     required
-                    placeholder="e.g. ABC Advocates & Legal Consultants"
+                    placeholder="e.g. Omollo & Associates Advocates LLP"
                     value={firmName}
                     onChange={e => setFirmName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
+                    className="w-full pl-9 pr-3 py-3 bg-slate-950 border-2 border-[#C9A227]/40 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs font-semibold placeholder:text-slate-500 shadow-inner"
                   />
                 </div>
               </div>
 
-              {/* Registration Number with Real-time Client-Side Validation */}
-              <div className="sm:col-span-2 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
-                <div className="flex items-center justify-between mb-1.5">
+              {/* LSK Registration Number */}
+              <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
                   <label className="block font-bold text-slate-200 text-xs">
-                    Law Firm / LSK Registration Number
+                    LSK / Practice Registration Number
                   </label>
                   {registrationNumber.trim() && (
-                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
                       regValidation.isValid 
                         ? 'bg-emerald-950 text-emerald-400 border border-emerald-700/60' 
                         : 'bg-rose-950 text-rose-400 border border-rose-700/60'
                     }`}>
                       {regValidation.isValid ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                      {regValidation.isValid ? 'Official Format Verified' : 'Invalid Registry Format'}
+                      <span>{regValidation.isValid ? 'Verified' : 'Invalid'}</span>
                     </span>
                   )}
                 </div>
@@ -305,7 +481,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                     placeholder="e.g. LSK/2026/088 or LR/2026/101"
                     value={registrationNumber}
                     onChange={e => setRegistrationNumber(e.target.value.toUpperCase())}
-                    className={`w-full pl-9 pr-3 py-2.5 bg-slate-950 text-white rounded-xl focus:outline-none transition border text-xs font-mono tracking-wide ${
+                    className={`w-full pl-9 pr-3 py-2.5 bg-slate-950 text-white rounded-xl focus:outline-none transition border text-sm sm:text-xs font-mono tracking-wide ${
                       !registrationNumber.trim() 
                         ? 'border-slate-700 focus:border-[#C9A227]' 
                         : regValidation.isValid 
@@ -315,227 +491,261 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                   />
                 </div>
 
-                {/* Real-time Guidance Message & Quick Format Shortcuts */}
-                <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
-                  <div className={`flex items-center gap-1.5 ${
-                    !registrationNumber.trim() 
-                      ? 'text-slate-400' 
-                      : regValidation.isValid 
-                        ? 'text-emerald-400 font-medium' 
-                        : 'text-rose-400 font-medium'
-                  }`}>
-                    {regValidation.isValid && registrationNumber.trim() ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    ) : !regValidation.isValid ? (
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                    ) : (
-                      <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    )}
-                    <span>{regValidation.message}</span>
-                  </div>
-
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
+                  <span className={regValidation.isValid ? 'text-slate-400' : 'text-rose-400'}>
+                    {regValidation.message}
+                  </span>
                   {!registrationNumber.trim() && (
-                    <div className="flex items-center gap-2 text-[10px] shrink-0">
-                      <span className="text-slate-500 font-medium">Quick Presets:</span>
+                    <div className="flex items-center gap-1.5 text-[10px] shrink-0">
+                      <span className="text-slate-500">Quick:</span>
                       <button
                         type="button"
                         onClick={() => setRegistrationNumber('LSK/2026/088')}
-                        className="text-[#C9A227] hover:text-amber-300 hover:underline font-mono"
+                        className="text-[#C9A227] hover:underline font-mono"
                       >
                         LSK/2026/088
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRegistrationNumber('LR/2026/101')}
-                        className="text-[#C9A227] hover:text-amber-300 hover:underline font-mono"
-                      >
-                        LR/2026/101
                       </button>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Proprietor Name */}
+              {/* County & Country */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">County / Region</label>
+                  <select
+                    value={county}
+                    onChange={e => setCounty(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                  >
+                    {KENYA_COUNTIES.map(c => (
+                      <option key={c} value={c} className="bg-slate-900 text-white">
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Country</label>
+                  <div className="relative">
+                    <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={country}
+                      onChange={e => setCountry(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Physical Address */}
               <div>
-                <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
-                  Proprietor / Managing Partner *
-                </label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Physical Chambers Address</label>
                 <div className="relative">
-                  <UserIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
+                    placeholder="e.g. 5th Floor, Mega Plaza, Oginga Odinga St, Kisumu"
+                    value={physicalAddress}
+                    onChange={e => setPhysicalAddress(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= STEP 2: PROPRIETOR & CONTACTS ================= */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-[#C9A227] shrink-0" />
+                <span><strong>Step 2 of 3:</strong> Enter Managing Partner and official contact info.</span>
+              </div>
+
+              {/* Proprietor Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
+                  Proprietor / Managing Partner <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <UserIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#C9A227]" />
+                  <input
+                    id="input-proprietor-name"
+                    type="text"
                     required
-                    placeholder="e.g. Adv. Jane Wanjiku"
+                    placeholder="e.g. SC Anthony Omollo"
                     value={proprietorName}
                     onChange={e => setProprietorName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
+                    className="w-full pl-9 pr-3 py-3 bg-slate-950 border-2 border-[#C9A227]/40 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs font-semibold placeholder:text-slate-500 shadow-inner"
                   />
                 </div>
               </div>
 
               {/* Official Email */}
-              <div>
-                <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
-                  Official Firm Email *
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
+                  Firm Official / Admin Email <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
+                    id="input-firm-email"
                     type="email"
                     required
-                    placeholder="e.g. admin@abc.co.ke"
+                    placeholder="e.g. anthonyomollo07@gmail.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400">This email will be your primary username for administrator access.</p>
               </div>
 
-              {/* Phone Number */}
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">
-                  Telephone / Mobile Number *
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-300">
+                  Official Phone / Mobile <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="text"
+                    type="tel"
                     required
                     placeholder="e.g. +254 712 345678"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs"
                   />
                 </div>
               </div>
-
-              {/* Physical Address */}
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-slate-300 mb-1">
-                  Physical Office Address
-                </label>
-                <div className="relative">
-                  <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="e.g. Suite 802, Upper Hill Legal Towers, Hospital Road"
-                    value={physicalAddress}
-                    onChange={e => setPhysicalAddress(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                  />
-                </div>
-              </div>
-
-              {/* Country */}
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">Country</label>
-                <div className="relative">
-                  <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={country}
-                    onChange={e => setCountry(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                  />
-                </div>
-              </div>
-
-              {/* County */}
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">County / Region</label>
-                <select
-                  value={county}
-                  onChange={e => setCounty(e.target.value)}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                >
-                  {KENYA_COUNTIES.map(c => (
-                    <option key={c} value={c} className="bg-slate-900 text-white">
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Password */}
-              <div className="sm:col-span-2 space-y-2">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
-                      Admin Password *
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="password"
-                        required
-                        placeholder="Caps, small, digit, special, ≥6 chars"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-[#C9A227] uppercase tracking-wider mb-1">
-                      Confirm Password *
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="password"
-                        required
-                        placeholder="Repeat password"
-                        value={confirmPassword}
-                        onChange={e => setConfirmPassword(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <PasswordRequirementsChecklist password={password} />
-              </div>
-
             </div>
+          )}
 
-            {/* Error Message near bottom CTA for mobile visibility */}
-            {errorMessage && (
-              <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl font-semibold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* Submit CTA */}
-            <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs text-slate-400 flex items-center gap-1.5 order-2 sm:order-1">
+          {/* ================= STEP 3: SECURITY & ACCESS ================= */}
+          {currentStep === 3 && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Automatic authentication as Firm Administrator</span>
+                <span><strong>Step 3 of 3:</strong> Set up your secure administrator password.</span>
               </div>
-              <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2 justify-end">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isSubmitting}
-                  className="px-5 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  onClick={() => handleSubmit()}
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] disabled:opacity-50 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-xl flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>{isSubmitting ? 'Registering & Entering...' : 'Register Law Firm & Open Workspace'}</span>
-                  <ArrowRight className="w-4 h-4 text-slate-950" />
-                </button>
+
+              {/* Password Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
+                    Admin Password <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="input-password"
+                      type="password"
+                      required
+                      placeholder="Password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
+                    Confirm Password <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="input-confirm-password"
+                      type="password"
+                      required
+                      placeholder="Confirm password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      className={`w-full pl-9 pr-3 py-2.5 bg-slate-950 border ${
+                        confirmPassword
+                          ? password === confirmPassword
+                            ? 'border-emerald-500'
+                            : 'border-red-500'
+                          : 'border-slate-700'
+                      } text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password Checklist */}
+              <PasswordRequirementsChecklist password={password} />
+
+              {/* Registration Summary Card */}
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                <div className="text-[10px] uppercase font-bold text-[#C9A227] tracking-wider">Registration Summary:</div>
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-400">Firm:</span>
+                  <span className="font-semibold text-white truncate max-w-[200px]">{firmName || '—'}</span>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-400">Proprietor:</span>
+                  <span className="font-semibold text-amber-300 truncate max-w-[200px]">{proprietorName || '—'}</span>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-400">Login Email:</span>
+                  <span className="font-mono text-emerald-400 truncate max-w-[200px]">{email || '—'}</span>
+                </div>
               </div>
             </div>
+          )}
 
-          </form>
+        </div>
+
+        {/* Footer Navigation Bar - Fixed at Bottom */}
+        <div className="p-4 sm:p-5 border-t border-slate-800 bg-[#081729] shrink-0 flex items-center justify-between gap-3">
+          {/* Back Button */}
+          {currentStep > 1 ? (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 text-xs font-bold transition cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
+
+          {/* Next / Submit Button */}
+          {currentStep < 3 ? (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="px-5 sm:px-6 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-xl flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>{currentStep === 1 ? 'Next: Contact Details' : 'Next: Security Setup'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleSubmit()}
+              disabled={isSubmitting}
+              className="px-5 sm:px-6 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] disabled:opacity-50 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-xl flex items-center gap-2 cursor-pointer"
+            >
+              <span>{isSubmitting ? 'Registering...' : 'Register & Enter Workspace'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
       </div>
     </div>
