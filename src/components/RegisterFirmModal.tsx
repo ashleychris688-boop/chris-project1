@@ -52,22 +52,22 @@ interface RegisterFirmModalProps {
 }
 
 const KENYA_COUNTIES = [
-  'Nairobi',
-  'Mombasa',
-  'Kisumu',
-  'Nakuru',
-  'Uasin Gishu (Eldoret)',
-  'Kiambu',
-  'Machakos',
-  'Nyeri',
-  'Kilifi',
-  'Meru',
-  'Kakamega',
-  'Kericho',
-  'Bungoma',
-  'Kajiado',
-  'Murang\'a',
-  'Garissa'
+  'NAIROBI',
+  'MOMBASA',
+  'KISUMU',
+  'NAKURU',
+  'UASIN GISHU (ELDORET)',
+  'KIAMBU',
+  'MACHAKOS',
+  'NYERI',
+  'KILIFI',
+  'MERU',
+  'KAKAMEGA',
+  'KERICHO',
+  'BUNGOMA',
+  'KAJIADO',
+  'MURANG\'A',
+  'GARISSA'
 ];
 
 export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
@@ -80,15 +80,15 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Form Fields
+  // Form Fields (All transformed to UPPERCASE)
   const [firmName, setFirmName] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [proprietorName, setProprietorName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [physicalAddress, setPhysicalAddress] = useState('');
-  const [country, setCountry] = useState('Kenya');
-  const [county, setCounty] = useState('Nairobi');
+  const [country, setCountry] = useState('KENYA');
+  const [county, setCounty] = useState('NAIROBI');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -439,8 +439,8 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
               {/* Firm Name */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider flex items-center justify-between">
-                  <span>Law Firm Name <span className="text-red-400">*</span></span>
-                  <span className="text-[10px] text-slate-400 font-normal">Official Registered Name</span>
+                  <span>LAW FIRM NAME <span className="text-red-400">*</span></span>
+                  <span className="text-[10px] text-slate-400 font-normal">OFFICIAL REGISTERED PRACTICE NAME</span>
                 </label>
                 <div className="relative">
                   <Landmark className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#C9A227]" />
@@ -448,10 +448,10 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                     id="input-firm-name"
                     type="text"
                     required
-                    placeholder="e.g. Omollo & Associates Advocates LLP"
+                    placeholder="E.G. OMOLLO & ASSOCIATES ADVOCATES LLP"
                     value={firmName}
-                    onChange={e => setFirmName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-3 bg-slate-950 border-2 border-[#C9A227]/40 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs font-semibold placeholder:text-slate-500 shadow-inner"
+                    onChange={e => setFirmName(e.target.value.toUpperCase())}
+                    className="w-full pl-9 pr-3 py-3 bg-slate-950 border-2 border-[#C9A227]/40 focus:border-[#C9A227] text-white uppercase rounded-xl focus:outline-none text-sm sm:text-xs font-semibold placeholder:text-slate-500 shadow-inner"
                   />
                 </div>
               </div>
@@ -459,17 +459,17 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
               {/* LSK Registration Number */}
               <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block font-bold text-slate-200 text-xs">
-                    LSK / Practice Registration Number
+                  <label className="block font-bold text-slate-200 text-xs uppercase">
+                    LSK / PRACTICE REGISTRATION NUMBER
                   </label>
                   {registrationNumber.trim() && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 uppercase ${
                       regValidation.isValid 
                         ? 'bg-emerald-950 text-emerald-400 border border-emerald-700/60' 
                         : 'bg-rose-950 text-rose-400 border border-rose-700/60'
                     }`}>
                       {regValidation.isValid ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                      <span>{regValidation.isValid ? 'Verified' : 'Invalid'}</span>
+                      <span>{regValidation.isValid ? 'VERIFIED' : 'INVALID'}</span>
                     </span>
                   )}
                 </div>
@@ -478,10 +478,10 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                   <FileCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="e.g. LSK/2026/088 or LR/2026/101"
+                    placeholder="E.G. LSK/2026/088 OR LR/2026/101"
                     value={registrationNumber}
                     onChange={e => setRegistrationNumber(e.target.value.toUpperCase())}
-                    className={`w-full pl-9 pr-3 py-2.5 bg-slate-950 text-white rounded-xl focus:outline-none transition border text-sm sm:text-xs font-mono tracking-wide ${
+                    className={`w-full pl-9 pr-3 py-2.5 bg-slate-950 text-white uppercase rounded-xl focus:outline-none transition border text-sm sm:text-xs font-mono tracking-wide ${
                       !registrationNumber.trim() 
                         ? 'border-slate-700 focus:border-[#C9A227]' 
                         : regValidation.isValid 
@@ -497,11 +497,11 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                   </span>
                   {!registrationNumber.trim() && (
                     <div className="flex items-center gap-1.5 text-[10px] shrink-0">
-                      <span className="text-slate-500">Quick:</span>
+                      <span className="text-slate-500 uppercase">QUICK:</span>
                       <button
                         type="button"
                         onClick={() => setRegistrationNumber('LSK/2026/088')}
-                        className="text-[#C9A227] hover:underline font-mono"
+                        className="text-[#C9A227] hover:underline font-mono uppercase"
                       >
                         LSK/2026/088
                       </button>
@@ -513,14 +513,14 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
               {/* County & Country */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">County / Region</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase">COUNTY / REGION</label>
                   <select
                     value={county}
-                    onChange={e => setCounty(e.target.value)}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                    onChange={e => setCounty(e.target.value.toUpperCase())}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 text-white uppercase rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
                   >
                     {KENYA_COUNTIES.map(c => (
-                      <option key={c} value={c} className="bg-slate-900 text-white">
+                      <option key={c} value={c} className="bg-slate-900 text-white uppercase">
                         {c}
                       </option>
                     ))}
@@ -528,14 +528,14 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Country</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase">COUNTRY</label>
                   <div className="relative">
                     <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={country}
-                      onChange={e => setCountry(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                      onChange={e => setCountry(e.target.value.toUpperCase())}
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white uppercase rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
                     />
                   </div>
                 </div>
@@ -543,15 +543,15 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
               {/* Physical Address */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Physical Chambers Address</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1 uppercase">PHYSICAL CHAMBERS ADDRESS</label>
                 <div className="relative">
                   <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="e.g. 5th Floor, Mega Plaza, Oginga Odinga St, Kisumu"
+                    placeholder="E.G. 5TH FLOOR, MEGA PLAZA, OGINGA ODINGA ST, KISUMU"
                     value={physicalAddress}
-                    onChange={e => setPhysicalAddress(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                    onChange={e => setPhysicalAddress(e.target.value.toUpperCase())}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white uppercase rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
                   />
                 </div>
               </div>
@@ -563,13 +563,13 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-2">
                 <UserIcon className="w-4 h-4 text-[#C9A227] shrink-0" />
-                <span><strong>Step 2 of 3:</strong> Enter Managing Partner and official contact info.</span>
+                <span><strong>STEP 2 OF 3:</strong> ENTER MANAGING PARTNER AND OFFICIAL CONTACT INFO.</span>
               </div>
 
               {/* Proprietor Name */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
-                  Proprietor / Managing Partner <span className="text-red-400">*</span>
+                  PROPRIETOR / MANAGING PARTNER <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <UserIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#C9A227]" />
@@ -577,10 +577,10 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                     id="input-proprietor-name"
                     type="text"
                     required
-                    placeholder="e.g. SC Anthony Omollo"
+                    placeholder="E.G. SC ANTHONY OMOLLO"
                     value={proprietorName}
-                    onChange={e => setProprietorName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-3 bg-slate-950 border-2 border-[#C9A227]/40 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs font-semibold placeholder:text-slate-500 shadow-inner"
+                    onChange={e => setProprietorName(e.target.value.toUpperCase())}
+                    className="w-full pl-9 pr-3 py-3 bg-slate-950 border-2 border-[#C9A227]/40 focus:border-[#C9A227] text-white uppercase rounded-xl focus:outline-none text-sm sm:text-xs font-semibold placeholder:text-slate-500 shadow-inner"
                   />
                 </div>
               </div>
@@ -588,7 +588,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
               {/* Official Email */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
-                  Firm Official / Admin Email <span className="text-red-400">*</span>
+                  FIRM OFFICIAL / ADMIN EMAIL <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -596,29 +596,29 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                     id="input-firm-email"
                     type="email"
                     required
-                    placeholder="e.g. anthonyomollo07@gmail.com"
+                    placeholder="E.G. ADMIN@OMOLLO-LAW.CO.KE"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs"
+                    onChange={e => setEmail(e.target.value.toUpperCase())}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 focus:border-[#C9A227] text-white uppercase rounded-xl focus:outline-none text-sm sm:text-xs"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400">This email will be your primary username for administrator access.</p>
+                <p className="text-[10px] text-slate-400 uppercase">THIS EMAIL WILL BE YOUR PRIMARY USERNAME FOR ADMINISTRATOR ACCESS.</p>
               </div>
 
               {/* Phone */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-300">
-                  Official Phone / Mobile <span className="text-red-400">*</span>
+                <label className="block text-xs font-bold text-slate-300 uppercase">
+                  OFFICIAL PHONE / MOBILE <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="tel"
                     required
-                    placeholder="e.g. +254 712 345678"
+                    placeholder="E.G. +254 712 345678"
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 focus:border-[#C9A227] text-white rounded-xl focus:outline-none text-sm sm:text-xs"
+                    onChange={e => setPhone(e.target.value.toUpperCase())}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 focus:border-[#C9A227] text-white uppercase rounded-xl focus:outline-none text-sm sm:text-xs"
                   />
                 </div>
               </div>
@@ -630,14 +630,14 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span><strong>Step 3 of 3:</strong> Set up your secure administrator password.</span>
+                <span><strong>STEP 3 OF 3:</strong> SET UP YOUR SECURE ADMINISTRATOR PASSWORD.</span>
               </div>
 
               {/* Password Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
-                    Admin Password <span className="text-red-400">*</span>
+                    ADMIN PASSWORD <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -645,7 +645,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                       id="input-password"
                       type="password"
                       required
-                      placeholder="Password"
+                      placeholder="••••••••"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
@@ -655,7 +655,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider">
-                    Confirm Password <span className="text-red-400">*</span>
+                    CONFIRM PASSWORD <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -663,7 +663,7 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                       id="input-confirm-password"
                       type="password"
                       required
-                      placeholder="Confirm password"
+                      placeholder="••••••••"
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       className={`w-full pl-9 pr-3 py-2.5 bg-slate-950 border ${
@@ -682,19 +682,19 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
               <PasswordRequirementsChecklist password={password} />
 
               {/* Registration Summary Card */}
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1.5">
-                <div className="text-[10px] uppercase font-bold text-[#C9A227] tracking-wider">Registration Summary:</div>
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1.5 uppercase">
+                <div className="text-[10px] uppercase font-bold text-[#C9A227] tracking-wider">REGISTRATION SUMMARY:</div>
                 <div className="flex justify-between text-slate-300">
-                  <span className="text-slate-400">Firm:</span>
-                  <span className="font-semibold text-white truncate max-w-[200px]">{firmName || '—'}</span>
+                  <span className="text-slate-400">FIRM:</span>
+                  <span className="font-semibold text-white truncate max-w-[200px] uppercase">{firmName || '—'}</span>
                 </div>
                 <div className="flex justify-between text-slate-300">
-                  <span className="text-slate-400">Proprietor:</span>
-                  <span className="font-semibold text-amber-300 truncate max-w-[200px]">{proprietorName || '—'}</span>
+                  <span className="text-slate-400">PROPRIETOR:</span>
+                  <span className="font-semibold text-amber-300 truncate max-w-[200px] uppercase">{proprietorName || '—'}</span>
                 </div>
                 <div className="flex justify-between text-slate-300">
-                  <span className="text-slate-400">Login Email:</span>
-                  <span className="font-mono text-emerald-400 truncate max-w-[200px]">{email || '—'}</span>
+                  <span className="text-slate-400">LOGIN EMAIL:</span>
+                  <span className="font-mono text-emerald-400 truncate max-w-[200px] uppercase">{email || '—'}</span>
                 </div>
               </div>
             </div>
