@@ -867,28 +867,6 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                   </button>
                 )}
 
-                {onWipeAllFirms && firms.length > 0 && (
-                  <button
-                    onClick={() => {
-                      setConfirmModal({
-                        isOpen: true,
-                        title: 'Erase All Law Firm Workspaces',
-                        message: 'Are you sure you want to erase ALL law firm workspaces from the owner platform? This will clear all law firm workspaces and retain only platform administrators.',
-                        confirmLabel: 'Erase All Workspaces',
-                        variant: 'danger',
-                        onConfirm: () => {
-                          onWipeAllFirms();
-                          setSelectedFirm(null);
-                          setConfirmModal(null);
-                        }
-                      });
-                    }}
-                    className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-lg"
-                  >
-                    <Trash2 className="w-4 h-4 text-amber-400" />
-                    <span>Erase All Sample Firms</span>
-                  </button>
-                )}
 
                 <button
                   onClick={onOpenRegisterModal}

@@ -156,9 +156,15 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       return false;
     }
 
-    // Filter to current law firm if firmId is available
-    if (currentUser?.firmId && u.firmId && u.firmId !== currentUser.firmId && currentUser.firmId !== 'platform-owner') {
-      return false;
+    // Strict multi-tenant firm isolation:
+    if (currentUser && currentUser.role !== 'Super Admin' && currentUser.role !== 'Platform Owner') {
+      const matchFirmId = currentUser.firmId && u.firmId && u.firmId === currentUser.firmId;
+      const matchFirmCode = currentUser.firmCode && u.firmCode && u.firmCode === currentUser.firmCode;
+      const matchFirmName = currentUser.firmName && u.firmName && u.firmName.toLowerCase() === currentUser.firmName.toLowerCase();
+
+      if (!matchFirmId && !matchFirmCode && !matchFirmName) {
+        return false;
+      }
     }
 
     return (

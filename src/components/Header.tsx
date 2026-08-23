@@ -271,13 +271,32 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                     <div className="space-y-1">
                       {allUsers
-                        .filter(u => 
-                          u.role !== 'Super Admin' && 
-                          u.role !== 'Platform Owner' && 
-                          u.username !== 'superadmin' && 
-                          u.id !== '3TVRWijWagVJBVfuTcFXCDqDzR02' &&
-                          (!currentUser?.firmId || !u.firmId || u.firmId === currentUser.firmId)
-                        )
+                        .filter(u => {
+                          if (
+                            u.role === 'Super Admin' || 
+                            u.role === 'Platform Owner' || 
+                            u.username === 'superadmin' || 
+                            u.id === '3TVRWijWagVJBVfuTcFXCDqDzR02' ||
+                            u.firmId === 'platform-owner'
+                          ) {
+                            return false;
+                          }
+                          // Strict multi-tenant isolation
+                          const targetFirmId = currentUser?.firmId;
+                          const targetFirmCode = currentUser?.firmCode || firmCode;
+                          const targetFirmName = currentUser?.firmName || firmName;
+
+                          if (targetFirmId && u.firmId) {
+                            return u.firmId === targetFirmId;
+                          }
+                          if (targetFirmCode && u.firmCode) {
+                            return u.firmCode === targetFirmCode;
+                          }
+                          if (targetFirmName && u.firmName) {
+                            return u.firmName.toLowerCase() === targetFirmName.toLowerCase();
+                          }
+                          return false;
+                        })
                         .map(user => (
                         <button
                           key={user.id}

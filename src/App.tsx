@@ -159,8 +159,28 @@ export default function App() {
 
   const activeFirmUsers = useMemo(() => {
     if (isSuperAdminView) return users;
-    return users.filter(u => u.role === 'Super Admin' || u.role === 'Platform Owner' || (u.firmCode || 'LFR-001') === currentFirmCode);
-  }, [users, currentFirmCode, isSuperAdminView]);
+    return users.filter(u => {
+      // Platform Owner/Super Admin should not be listed as normal firm staff
+      if (u.role === 'Super Admin' || u.role === 'Platform Owner' || u.firmId === 'platform-owner') {
+        return false;
+      }
+      // Strict match by firmId or firmCode or firmName
+      const targetFirmId = currentUser?.firmId;
+      const targetFirmCode = currentUser?.firmCode || settings.firmCode;
+      const targetFirmName = currentUser?.firmName || settings.firmName;
+
+      if (targetFirmId && u.firmId) {
+        return u.firmId === targetFirmId;
+      }
+      if (targetFirmCode && u.firmCode) {
+        return u.firmCode === targetFirmCode;
+      }
+      if (targetFirmName && u.firmName) {
+        return u.firmName.toLowerCase() === targetFirmName.toLowerCase();
+      }
+      return false;
+    });
+  }, [users, currentUser?.firmId, currentUser?.firmCode, currentUser?.firmName, settings.firmCode, settings.firmName, isSuperAdminView]);
 
   // SaaS Firm Registration Handler
   const handleRegisterFirmSuccess = (newFirm: LawFirmProfile, proprietorUser: User) => {
@@ -911,7 +931,12 @@ export default function App() {
   };
 
   const handleAddUser = (user: User) => {
-    const userWithFirm = { ...user, firmCode: user.firmCode || currentFirmCode, firmId: user.firmId || currentUser?.firmId };
+    const userWithFirm: User = { 
+      ...user, 
+      firmCode: user.firmCode || currentUser?.firmCode || settings.firmCode, 
+      firmId: user.firmId || currentUser?.firmId || `firm-${currentUser?.firmCode || settings.firmCode}`,
+      firmName: user.firmName || currentUser?.firmName || settings.firmName
+    };
     const updated = [...users, userWithFirm];
     setUsersState(updated);
     saveUsers(updated);
