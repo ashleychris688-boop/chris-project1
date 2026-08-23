@@ -36,6 +36,7 @@ import {
   FileCheck2,
   Users
 } from 'lucide-react';
+import { getTimeBasedGreeting } from '../utils/dateUtils';
 
 interface DashboardViewProps {
   currentUser: User | null;
@@ -205,7 +206,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
           <h2 className="font-serif text-2xl font-bold text-white">
-            Good Morning, {currentUser?.fullName || 'Proprietor'}
+            {getTimeBasedGreeting()}, {currentUser?.fullName || 'Proprietor'}
           </h2>
           <p className="text-slate-300 text-xs mt-1">
             {isAdmin 

@@ -2,6 +2,17 @@
  * Utility functions for court date validation and calendar business logic
  */
 
+export function getTimeBasedGreeting(date: Date = new Date()): string {
+  const hour = date.getHours();
+  if (hour >= 4 && hour < 12) {
+    return 'Good Morning';
+  } else if (hour >= 12 && hour < 17) {
+    return 'Good Afternoon';
+  } else {
+    return 'Good Evening';
+  }
+}
+
 export interface DateValidationResult {
   isValid: boolean;
   errorMessage?: string;

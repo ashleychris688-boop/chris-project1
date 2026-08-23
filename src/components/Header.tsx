@@ -16,6 +16,7 @@ import {
   Phone,
   MapPin
 } from 'lucide-react';
+import { getTimeBasedGreeting } from '../utils/dateUtils';
 
 interface HeaderProps {
   currentUser: User | null;
@@ -225,7 +226,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <UserCheck className="w-3.5 h-3.5 text-[#C9A227]" />
-                      Proprietor Profile & Session
+                      {getTimeBasedGreeting()}
                     </span>
                     <span className="px-1.5 py-0.5 rounded bg-[#C9A227]/20 text-[#C9A227] font-mono text-[9px] font-bold border border-[#C9A227]/40">
                       {currentUser?.role}
