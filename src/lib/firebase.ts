@@ -1,7 +1,26 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, collection, getDocs, doc, setDoc, deleteDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  collection, 
+  getDocs, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  disableNetwork, 
+  enableNetwork,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  setLogLevel
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfigData from '../../firebase-applet-config.json';
+
+// Silence verbose connection probing warnings
+try {
+  setLogLevel('error');
+} catch (e) {
+  // ignore
+}
 
 const firebaseConfig = {
   apiKey: firebaseConfigData.apiKey,
@@ -17,7 +36,11 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
 const firestoreSettings = {
-  experimentalAutoDetectLongPolling: true
+  experimentalForceLongPolling: true,
+  ignoreUndefinedProperties: true,
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 };
 
 export const db = firebaseConfigData.firestoreDatabaseId 
