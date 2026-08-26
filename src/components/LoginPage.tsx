@@ -352,37 +352,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#071526] flex flex-col items-center justify-center p-4 relative font-sans text-slate-100">
+    <div className="min-h-[100dvh] w-full max-w-full bg-[#071526] flex flex-col items-center justify-center px-2.5 sm:px-4 py-4 sm:py-8 relative font-sans text-slate-100 overflow-x-hidden">
       
       {/* Background Grid Pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(#C9A227_1px,transparent_1px)] [background-size:28px_28px] opacity-10 pointer-events-none"></div>
 
       {/* Top Header Bar */}
-      <div className="w-full max-w-xl flex items-center justify-between mb-6 z-10">
+      <div className="w-full max-w-xl flex items-center justify-between mb-4 sm:mb-6 z-10 px-1">
         <button
           onClick={onBackToLanding}
-          className="text-slate-300 hover:text-white flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg bg-slate-900/80 border border-slate-700 hover:border-[#C9A227] transition cursor-pointer"
+          className="text-slate-300 hover:text-white flex items-center gap-1.5 sm:gap-2 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900/80 border border-slate-700 hover:border-[#C9A227] transition cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-[#C9A227]" />
-          Back to Public Landing
+          <span>Back to Landing</span>
         </button>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-[#C9A227]">
-          <Building2 className="w-4 h-4" />
-          <span>LAW FIRM REGISTRY</span>
+        <div className="flex items-center gap-1.5 text-xs font-mono text-[#C9A227]">
+          <Building2 className="w-4 h-4 shrink-0" />
+          <span className="hidden xs:inline">LAW FIRM REGISTRY</span>
+          <span className="xs:hidden">REGISTRY</span>
         </div>
       </div>
 
       {/* Main Container */}
-      <div className="w-full max-w-xl bg-[#081729] rounded-3xl shadow-2xl border-2 border-[#C9A227]/50 overflow-hidden z-10">
+      <div className="w-full max-w-xl bg-[#081729] rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-[#C9A227]/50 overflow-hidden z-10">
         
         {/* BRANDING HEADER */}
-        <div className="p-6 text-center border-b border-slate-800 bg-[#0B1F3A] relative space-y-2">
+        <div className="p-4 sm:p-6 text-center border-b border-slate-800 bg-[#0B1F3A] relative space-y-2">
           
-          <div className="flex items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#C9A227] to-[#9B7B12] p-0.5 shadow-xl flex items-center justify-center shrink-0">
+          <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#C9A227] to-[#9B7B12] p-0.5 shadow-xl flex items-center justify-center shrink-0">
               <div className="w-full h-full bg-[#0B1F3A] rounded-[10px] flex items-center justify-center">
-                <Landmark className="w-6 h-6 text-[#C9A227]" />
+                <Landmark className="w-5 h-5 sm:w-6 sm:h-6 text-[#C9A227]" />
               </div>
             </div>
 
@@ -391,10 +392,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <Sparkles className="w-3 h-3 text-[#C9A227]" />
                 FIRM & WORKSPACE LOGIN
               </div>
-              <h1 className="font-serif font-extrabold text-2xl tracking-wide text-white">
+              <h1 className="font-serif font-extrabold text-xl sm:text-2xl tracking-wide text-white">
                 LAW FIRM REGISTRY
               </h1>
-              <p className="text-xs text-slate-300">
+              <p className="text-[11px] sm:text-xs text-slate-300">
                 Enter your Firm ID, User Name, and Password
               </p>
             </div>
@@ -403,7 +404,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
 
         {/* LOGIN FORM (Firm ID + Username + Password) */}
-        <form onSubmit={handleLoginSubmit} className="p-6 sm:p-8 space-y-5 bg-[#081729]">
+        <form onSubmit={handleLoginSubmit} className="p-4 sm:p-8 space-y-4 sm:space-y-5 bg-[#081729]">
+
           
           {errorMsg && (
             <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl flex items-center gap-2 font-medium">

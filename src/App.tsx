@@ -86,7 +86,9 @@ export default function App() {
   const [isAuthenticated, setAuth] = useState<boolean>(false);
   const [currentUser, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
 
   // Application Data States
   const [firms, setFirmsState] = useState<LawFirmProfile[]>(getStoredFirms());
@@ -1075,6 +1077,7 @@ export default function App() {
         sessionsTodayCount={courtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length}
         filesOutCount={files.filter(f => f.currentStatus.startsWith('Out')).length}
         pendingChequesCount={cheques.filter(c => c.status !== 'Cleared').length}
+        onToggleSidebar={() => setSidebarCollapsed(prev => !prev)}
       />
 
       {/* URGENT SAME-DAY COURT HEARING BROADCAST BANNER FOR CLERK, PROPRIETOR & SECRETARY */}

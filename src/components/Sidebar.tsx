@@ -23,7 +23,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  Lock
+  Lock,
+  X
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -53,7 +54,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isAdmin = currentUser?.role === 'Proprietor';
   const role = currentUser?.role || 'Proprietor';
-
   const isSuperAdmin = currentUser?.role === 'Super Admin';
 
   const menuItems = [
@@ -81,87 +81,118 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Filter menu items if not admin/super-admin
   const visibleItems = menuItems.filter(item => isSuperAdmin || isAdmin || item.roles.includes(role));
 
+  const handleItemClick = (id: string) => {
+    onSelectTab(id);
+    // On mobile screens, automatically close drawer after selection
+    if (window.innerWidth < 768) {
+      onToggleCollapse();
+    }
+  };
+
   return (
-    <aside 
-      className={`bg-[#081729] text-slate-200 border-r border-[#C9A227]/20 transition-all duration-300 flex flex-col z-20 select-none ${
-        collapsed ? 'w-16' : 'w-64'
-      }`}
-    >
-      {/* Sidebar Collapse Toggle Bar */}
-      <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-        {!collapsed && (
-          <div className="flex items-center gap-1 px-2">
-            <span className="text-[11px] font-bold text-[#C9A227] uppercase tracking-wider">
-              {isAdmin ? 'ADMIN NAVIGATION' : isSuperAdmin ? 'WORKSPACE NAVIGATION' : `${role.toUpperCase()} MENU`}
+    <>
+      {/* Mobile Backdrop when Sidebar drawer is open */}
+      {!collapsed && (
+        <div 
+          onClick={onToggleCollapse}
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 md:hidden transition-opacity"
+        />
+      )}
+
+      <aside 
+        className={`bg-[#081729] text-slate-200 border-r border-[#C9A227]/20 transition-all duration-300 flex flex-col select-none ${
+          // Mobile: fixed slide-over drawer
+          collapsed 
+            ? 'hidden md:flex md:w-16 z-20' 
+            : 'fixed inset-y-0 left-0 z-50 w-72 md:relative md:w-64 md:z-20 flex shadow-2xl md:shadow-none'
+        }`}
+      >
+        {/* Sidebar Collapse / Close Bar */}
+        <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+          {!collapsed && (
+            <div className="flex items-center gap-1.5 px-2">
+              <span className="text-[11px] font-bold text-[#C9A227] uppercase tracking-wider">
+                {isAdmin ? 'ADMIN NAVIGATION' : isSuperAdmin ? 'WORKSPACE NAVIGATION' : `${role.toUpperCase()} MENU`}
+              </span>
+            </div>
+          )}
+
+          {/* Desktop collapse toggle / Mobile close button */}
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+            title={collapsed ? "Expand Sidebar" : "Close Sidebar"}
+          >
+            {/* On mobile show X when open */}
+            <span className="md:hidden">
+              <X className="w-5 h-5 text-[#C9A227]" />
             </span>
+            {/* On desktop show chevron */}
+            <span className="hidden md:inline">
+              {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </span>
+          </button>
+        </div>
+
+        {/* Navigation Links */}
+        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5 custom-scrollbar">
+          {visibleItems.map(item => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleItemClick(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition group relative cursor-pointer min-h-[40px] ${
+                  isActive
+                    ? 'bg-gradient-to-r from-[#C9A227] to-[#A07F19] text-slate-950 font-bold shadow-md'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                }`}
+                title={collapsed ? item.label : undefined}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-[#C9A227]'}`} />
+                
+                {!collapsed && (
+                  <span className="truncate flex-1 text-left">{item.label}</span>
+                )}
+
+                {!collapsed && item.badge !== undefined && item.badge > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    item.badgeColor || (isActive ? 'bg-slate-900 text-white' : 'bg-[#DC3545] text-white')
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+
+                {/* Tooltip on collapsed state on desktop */}
+                {collapsed && (
+                  <div className="hidden md:block absolute left-full ml-2 px-2.5 py-1 bg-slate-900 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 border border-slate-700">
+                    {item.label}
+                    {item.badge !== undefined && item.badge > 0 && ` (${item.badge})`}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* System Footer info */}
+        {!collapsed && (
+          <div className="p-3 border-t border-slate-800 text-[10px] text-slate-400 bg-slate-950/40 flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-slate-300">LAW FIRM REGISTRY</div>
+              <div className="text-slate-500">{role} Workspace</div>
+            </div>
+            {isAdmin ? (
+              <Shield className="w-4 h-4 text-[#C9A227]" title="Admin / Proprietor Role" />
+            ) : (
+              <Lock className="w-3.5 h-3.5 text-amber-400" title="Role Restricted" />
+            )}
           </div>
         )}
-        <button
-          onClick={onToggleCollapse}
-          className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition mx-auto"
-          title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
-      </div>
-
-      {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5 custom-scrollbar">
-        {visibleItems.map(item => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => onSelectTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition group relative ${
-                isActive
-                  ? 'bg-gradient-to-r from-[#C9A227] to-[#A07F19] text-slate-950 font-bold shadow-md'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-              title={collapsed ? item.label : undefined}
-            >
-              <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-[#C9A227]'}`} />
-              
-              {!collapsed && (
-                <span className="truncate flex-1 text-left">{item.label}</span>
-              )}
-
-              {!collapsed && item.badge !== undefined && item.badge > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                  item.badgeColor || (isActive ? 'bg-slate-900 text-white' : 'bg-[#DC3545] text-white')
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-
-              {/* Tooltip on collapsed state */}
-              {collapsed && (
-                <div className="absolute left-full ml-2 px-2.5 py-1 bg-slate-900 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 border border-slate-700">
-                  {item.label}
-                  {item.badge !== undefined && item.badge > 0 && ` (${item.badge})`}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* System Footer info */}
-      {!collapsed && (
-        <div className="p-3 border-t border-slate-800 text-[10px] text-slate-400 bg-slate-950/40 flex items-center justify-between">
-          <div>
-            <div className="font-semibold text-slate-300">LAW FIRM REGISTRY</div>
-            <div className="text-slate-500">{role} Workspace</div>
-          </div>
-          {isAdmin ? (
-            <Shield className="w-4 h-4 text-[#C9A227]" title="Admin / Proprietor Role" />
-          ) : (
-            <Lock className="w-3.5 h-3.5 text-amber-400" title="Role Restricted" />
-          )}
-        </div>
-      )}
-    </aside>
+      </aside>
+    </>
   );
 };
+

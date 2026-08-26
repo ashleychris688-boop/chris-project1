@@ -14,7 +14,8 @@ import {
   Sparkles,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Menu
 } from 'lucide-react';
 import { getTimeBasedGreeting } from '../utils/dateUtils';
 
@@ -33,6 +34,7 @@ interface HeaderProps {
   sessionsTodayCount?: number;
   filesOutCount?: number;
   pendingChequesCount?: number;
+  onToggleSidebar?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,7 +51,8 @@ export const Header: React.FC<HeaderProps> = ({
   lastSyncTime,
   sessionsTodayCount = 0,
   filesOutCount = 0,
-  pendingChequesCount = 0
+  pendingChequesCount = 0,
+  onToggleSidebar
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -89,24 +92,37 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-[#081729] text-white sticky top-0 z-30 border-b border-[#C9A227]/30 shadow-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+    <header className="bg-[#081729] text-white sticky top-0 z-30 border-b border-[#C9A227]/30 shadow-xl w-full">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
         
-        {/* Left: Brand Identity */}
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigateTab('dashboard')}>
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#C9A227] to-[#9B7B12] p-0.5 flex items-center justify-center shadow-inner">
-            <div className="w-full h-full bg-[#081729] rounded-[7px] flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-[#C9A227]" />
+        {/* Left: Mobile Menu Button + Brand Identity */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="p-2 -ml-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 md:hidden cursor-pointer"
+              title="Open Navigation Menu"
+            >
+              <Menu className="w-5 h-5 text-[#C9A227]" />
+            </button>
+          )}
+
+          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" onClick={() => onNavigateTab('dashboard')}>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-[#C9A227] to-[#9B7B12] p-0.5 flex items-center justify-center shadow-inner shrink-0">
+              <div className="w-full h-full bg-[#081729] rounded-[7px] flex items-center justify-center">
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#C9A227]" />
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg tracking-wide text-white font-serif">{firmName}</span>
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#C9A227]/20 text-[#C9A227] border border-[#C9A227]/40 font-mono font-semibold">{firmCode}</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-bold text-sm sm:text-lg tracking-wide text-white font-serif truncate">{firmName}</span>
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#C9A227]/20 text-[#C9A227] border border-[#C9A227]/40 font-mono font-semibold shrink-0">{firmCode}</span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-slate-300 hidden sm:block truncate">Physical File & Litigation Registry Portal</p>
             </div>
-            <p className="text-[11px] text-slate-300 hidden sm:block">Physical File & Litigation Registry Portal</p>
           </div>
         </div>
+
 
         {/* Center: Global Search Bar */}
         <div className="flex-1 max-w-md hidden md:block">
@@ -167,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-[#C9A227]/40 rounded-lg shadow-2xl z-50 text-slate-100 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] max-w-xs sm:w-80 bg-slate-900 border border-[#C9A227]/40 rounded-xl shadow-2xl z-50 text-slate-100 overflow-hidden">
                 <div className="p-3 bg-[#0B1F3A] border-b border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-[#C9A227]" />
@@ -175,7 +191,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                   <button 
                     onClick={() => setShowNotifications(false)}
-                    className="text-xs text-slate-400 hover:text-white"
+                    className="text-xs text-slate-400 hover:text-white cursor-pointer"
                   >
                     Close
                   </button>
@@ -203,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowUserDropdown(!showUserDropdown)}
-              className="flex items-center gap-2 p-1.5 rounded-lg bg-slate-900/60 border border-slate-700/80 hover:border-[#C9A227]/60 transition text-left"
+              className="flex items-center gap-2 p-1.5 rounded-lg bg-slate-900/60 border border-slate-700/80 hover:border-[#C9A227]/60 transition text-left cursor-pointer"
             >
               <div className="w-8 h-8 rounded-full bg-[#0B1F3A] border border-[#C9A227] flex items-center justify-center font-semibold text-xs text-[#C9A227]">
                 {currentUser ? currentUser.fullName.charAt(0) : 'U'}
@@ -221,7 +237,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Quick Switch Role / User Dropdown */}
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-[#C9A227]/50 rounded-xl shadow-2xl z-50 overflow-hidden text-slate-100">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] max-w-xs sm:w-80 bg-slate-900 border border-[#C9A227]/50 rounded-xl shadow-2xl z-50 overflow-hidden text-slate-100">
                 <div className="p-3.5 bg-[#0B1F3A] border-b border-slate-800 space-y-1.5">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                     <span className="flex items-center gap-1">
