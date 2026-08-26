@@ -229,9 +229,15 @@ export interface LawFirmProfile {
   firmName: string;
   firmCode: string; // e.g., "OM-ADV-001"
   firmInitials?: string; // e.g. "NTA" or "HVA"
+  fileNumberPrefix?: string; // synonym / fallback for firmInitials
+  fileNumberFormatPattern?: string; // e.g. '{INITIALS}/{CASE_TYPE}/{NUMBER}/{YEAR}'
+  fileNumberPadding?: number; // 2, 3, or 4
+  fileNumberDelimiter?: string; // '/' or '-'
+  includeCaseTypeInFileNumber?: boolean;
   preliminaryStartingNumber?: number; // e.g. 1 or 8
   preliminaryNextNumber?: number; // current sequence number in year
   preliminaryYear?: number; // current year e.g. 2026 (resets annually)
+  annualSequenceReset?: boolean;
   registrationNumber?: string;
   proprietorName?: string;
   cityOrBranch?: string;
@@ -254,6 +260,7 @@ export interface LawFirmProfile {
 export interface SystemSettings {
   firmName: string;
   firmCode?: string;
+  firmInitials?: string;
   firmRegistrationNumber?: string;
   cityOrBranch?: string;
   firmLogoUrl?: string;
@@ -266,6 +273,14 @@ export interface SystemSettings {
   courtStations: string[];
   cabinets: string[];
   fileNumberPrefix?: string;
+  fileNumberFormatPattern?: string; // e.g. '{INITIALS}/{CASE_TYPE}/{NUMBER}/{YEAR}'
+  fileNumberPadding?: number; // 2 for '08', 3 for '008', 4 for '0008', 0 for '8'
+  fileNumberDelimiter?: string; // '/' or '-' or '.'
+  includeCaseTypeInFileNumber?: boolean;
+  preliminaryStartingNumber?: number; // e.g. 1 or 8
+  preliminaryNextNumber?: number; // active sequence counter
+  preliminaryYear?: number; // active sequence year
+  annualSequenceReset?: boolean;
 }
 
 export interface CaseChaserProfile {

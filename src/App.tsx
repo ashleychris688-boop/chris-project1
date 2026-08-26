@@ -249,6 +249,16 @@ export default function App() {
           ...prev,
           firmName: updatedFirm.firmName,
           firmCode: updatedFirm.firmCode,
+          firmInitials: updatedFirm.firmInitials || updatedFirm.fileNumberPrefix || prev.firmInitials,
+          fileNumberPrefix: updatedFirm.fileNumberPrefix || updatedFirm.firmInitials || prev.fileNumberPrefix,
+          fileNumberFormatPattern: updatedFirm.fileNumberFormatPattern || prev.fileNumberFormatPattern,
+          fileNumberPadding: updatedFirm.fileNumberPadding !== undefined ? updatedFirm.fileNumberPadding : prev.fileNumberPadding,
+          fileNumberDelimiter: updatedFirm.fileNumberDelimiter || prev.fileNumberDelimiter,
+          includeCaseTypeInFileNumber: updatedFirm.includeCaseTypeInFileNumber !== undefined ? updatedFirm.includeCaseTypeInFileNumber : prev.includeCaseTypeInFileNumber,
+          preliminaryStartingNumber: updatedFirm.preliminaryStartingNumber !== undefined ? updatedFirm.preliminaryStartingNumber : prev.preliminaryStartingNumber,
+          preliminaryNextNumber: updatedFirm.preliminaryNextNumber !== undefined ? updatedFirm.preliminaryNextNumber : prev.preliminaryNextNumber,
+          preliminaryYear: updatedFirm.preliminaryYear !== undefined ? updatedFirm.preliminaryYear : prev.preliminaryYear,
+          annualSequenceReset: updatedFirm.annualSequenceReset !== undefined ? updatedFirm.annualSequenceReset : prev.annualSequenceReset,
           firmRegistrationNumber: updatedFirm.registrationNumber || prev.firmRegistrationNumber,
           cityOrBranch: updatedFirm.cityOrBranch || prev.cityOrBranch
         };
@@ -971,11 +981,21 @@ export default function App() {
     saveSettings(newSettings);
 
     // Update matching firm profile in firms state and sync immediately to Firebase
-    const targetFirm = firms.find(f => f.firmCode === newSettings.firmCode || f.id === newSettings.firmCode);
+    const targetFirm = firms.find(f => f.firmCode === newSettings.firmCode || f.id === newSettings.firmCode || f.firmCode === currentUser?.firmCode);
     if (targetFirm) {
       const updatedFirm: LawFirmProfile = {
         ...targetFirm,
         firmName: newSettings.firmName || targetFirm.firmName,
+        firmInitials: newSettings.firmInitials || newSettings.fileNumberPrefix || targetFirm.firmInitials,
+        fileNumberPrefix: newSettings.fileNumberPrefix || newSettings.firmInitials || targetFirm.fileNumberPrefix,
+        fileNumberFormatPattern: newSettings.fileNumberFormatPattern || targetFirm.fileNumberFormatPattern,
+        fileNumberPadding: newSettings.fileNumberPadding !== undefined ? newSettings.fileNumberPadding : targetFirm.fileNumberPadding,
+        fileNumberDelimiter: newSettings.fileNumberDelimiter || targetFirm.fileNumberDelimiter,
+        includeCaseTypeInFileNumber: newSettings.includeCaseTypeInFileNumber !== undefined ? newSettings.includeCaseTypeInFileNumber : targetFirm.includeCaseTypeInFileNumber,
+        preliminaryStartingNumber: newSettings.preliminaryStartingNumber !== undefined ? newSettings.preliminaryStartingNumber : targetFirm.preliminaryStartingNumber,
+        preliminaryNextNumber: newSettings.preliminaryNextNumber !== undefined ? newSettings.preliminaryNextNumber : targetFirm.preliminaryNextNumber,
+        preliminaryYear: newSettings.preliminaryYear !== undefined ? newSettings.preliminaryYear : targetFirm.preliminaryYear,
+        annualSequenceReset: newSettings.annualSequenceReset !== undefined ? newSettings.annualSequenceReset : targetFirm.annualSequenceReset,
         registrationNumber: newSettings.firmRegistrationNumber || targetFirm.registrationNumber,
         cityOrBranch: newSettings.cityOrBranch || targetFirm.cityOrBranch
       };
@@ -986,7 +1006,7 @@ export default function App() {
     }
 
     if (currentUser) {
-      addAuditLog(currentUser.fullName, currentUser.role, 'Updated System Settings', 'Settings', 'Modified firm title or court directory configuration');
+      addAuditLog(currentUser.fullName, currentUser.role, 'Updated System Settings', 'Settings', 'Modified firm numbering scheme, court directory, or system preferences');
       setAuditLogsState(getStoredAuditLogs());
     }
   };
@@ -1429,8 +1449,10 @@ export default function App() {
           {activeTab === 'settings' && (
             <SettingsModule
               settings={settings}
+              currentFirm={activeFirmProfile}
               currentUser={currentUser}
               onSaveSettings={handleSaveSettings}
+              onUpdateFirm={handleUpdateFirm}
               onResetData={handleResetData}
               onClearDataForProduction={handleClearDataForProduction}
               onUpdatePassword={handleUpdatePassword}
