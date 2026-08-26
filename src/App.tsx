@@ -1047,6 +1047,7 @@ export default function App() {
           onLoginSuccess={handleLoginSuccess}
           onUpdateUser={handleUpdateUser}
           onBackToLanding={() => setViewState('landing')}
+          onOpenRegisterFirm={() => setIsRegisterModalOpen(true)}
         />
 
         <RegisterFirmModal

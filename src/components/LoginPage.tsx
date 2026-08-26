@@ -29,6 +29,7 @@ interface LoginPageProps {
   users: User[];
   onLoginSuccess: (user: User) => void;
   onBackToLanding: () => void;
+  onOpenRegisterFirm?: () => void;
   onUpdateUser?: (user: User) => void;
   initialRoleTab?: SelectedRoleTab;
 }
@@ -39,6 +40,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   users,
   onLoginSuccess,
   onBackToLanding,
+  onOpenRegisterFirm,
   onUpdateUser,
   initialRoleTab
 }) => {
@@ -521,6 +523,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               )}
             </button>
           </div>
+
+          {onOpenRegisterFirm && (
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={onOpenRegisterFirm}
+                className="text-xs text-[#C9A227] hover:underline font-bold transition flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                <span>New Law Firm? Register Your Law Firm Here</span>
+              </button>
+            </div>
+          )}
 
           <div className="text-[11px] text-slate-400 font-mono text-center pt-2 border-t border-slate-800">
             System automatically routes to your Law Firm Workspace or Owner Dashboard

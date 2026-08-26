@@ -50,16 +50,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button
               onClick={onOpenRegisterFirm}
-              className="px-2.5 sm:px-4 py-2 rounded-lg border border-[#C9A227] text-[#C9A227] hover:bg-[#C9A227]/10 font-bold text-[11px] sm:text-xs tracking-wide transition flex items-center gap-1 sm:gap-1.5 cursor-pointer"
+              className="px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] text-slate-950 font-extrabold text-[11px] sm:text-xs tracking-wider uppercase transition shadow-lg flex items-center gap-1 sm:gap-1.5 cursor-pointer"
             >
-              <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-950" />
               <span className="hidden xs:inline">Register Law Firm</span>
               <span className="xs:hidden">Register</span>
             </button>
 
             <button
               onClick={onGoToLogin}
-              className="px-3 sm:px-5 py-2 rounded-lg bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-extrabold text-[11px] sm:text-xs tracking-wider uppercase transition shadow-lg flex items-center gap-1 sm:gap-1.5 cursor-pointer"
+              className="px-3 sm:px-4 py-2 rounded-lg border border-[#C9A227] text-[#C9A227] hover:bg-[#C9A227]/10 font-bold text-[11px] sm:text-xs tracking-wider uppercase transition flex items-center gap-1 sm:gap-1.5 cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Login</span>

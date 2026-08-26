@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right: Quick Role Switcher, Notifications & User Menu */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
 
           {/* Cloud Redundancy Snapshot Sync Indicator */}
           {onManualCloudSync && (
