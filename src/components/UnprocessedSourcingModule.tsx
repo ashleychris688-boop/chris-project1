@@ -4,9 +4,15 @@ import {
   RegistryFile, 
   User, 
   ClientType, 
-  PartyCapacity 
+  PartyCapacity,
+  LawFirmProfile
 } from '../types';
 import { generateSystemInternalFileNumber } from '../utils/fileNumberGenerator';
+import { 
+  generatePreliminaryFileNumber, 
+  getCaseTypeAbbreviation, 
+  getNextPreliminarySequence 
+} from '../utils/fileNumberUtils';
 import { DEFAULT_CASE_CATEGORIES } from '../data/caseCategories';
 import { 
   Inbox, 
@@ -63,6 +69,8 @@ interface UnprocessedSourcingModuleProps {
   currentUser: User | null;
   isModal?: boolean;
   onCloseModal?: () => void;
+  currentFirm?: LawFirmProfile | null;
+  onUpdateFirm?: (firm: LawFirmProfile) => void;
 }
 
 export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps> = ({
@@ -76,7 +84,9 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
   users = [],
   currentUser,
   isModal = false,
-  onCloseModal
+  onCloseModal,
+  currentFirm = null,
+  onUpdateFirm
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -85,6 +95,17 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
   const [selectedRecord, setSelectedRecord] = useState<UnprocessedClientRecord | null>(null);
   const [reviewAction, setReviewAction] = useState<'approve_convert' | 'mark_approved' | 'reject'>('approve_convert');
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Preliminary File Number Helpers
+  const getFirmInitials = () => {
+    return (currentFirm?.firmInitials || currentFirm?.firmCode?.split('-')[0] || fileNumberPrefix || 'NTA').trim().toUpperCase();
+  };
+
+  const computePreliminaryNumber = (caseTypeOrCategory: string) => {
+    const { number: seqNum, year: curYear, firmInitials } = getNextPreliminarySequence(currentFirm);
+    const initials = currentFirm?.firmInitials || firmInitials || getFirmInitials();
+    return generatePreliminaryFileNumber(initials, caseTypeOrCategory, seqNum, curYear);
+  };
 
   // Conversion Form Fields
   const [conversionData, setConversionData] = useState({
@@ -134,13 +155,13 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
     setReviewAction('approve_convert');
     setRejectionReason('');
 
-    const autoNum = generateSystemInternalFileNumber(files, fileNumberPrefix);
+    const preliminaryNum = record.preliminaryRefNumber || computePreliminaryNumber(record.caseType || 'General Civil Suit');
     const defaultAdvocate = users.find(u => u.role === 'Advocate' || u.role === 'Proprietor')?.fullName || '';
     const defaultClerk = currentUser?.role === 'Clerk' ? currentUser.fullName : (users.find(u => u.role === 'Clerk')?.fullName || '');
     const defaultSecretary = users.find(u => u.role === 'Secretary')?.fullName || '';
 
     setConversionData({
-      internalFileNumber: autoNum,
+      internalFileNumber: preliminaryNum,
       courtCaseNumber: record.accidentDate ? `Accident Claim dtd ${record.accidentDate}` : '',
       clientType: 'Individual',
       partyCapacity: 'Plaintiff',
@@ -175,6 +196,16 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
       if (!conversionData.internalFileNumber.trim()) {
         alert('System File Number is required.');
         return;
+      }
+
+      // Increment firm preliminary sequence
+      if (currentFirm && onUpdateFirm) {
+        const { number: seqNum, year: curYear } = getNextPreliminarySequence(currentFirm);
+        onUpdateFirm({
+          ...currentFirm,
+          preliminaryNextNumber: seqNum + 1,
+          preliminaryYear: curYear
+        });
       }
 
       // Create new Registry File

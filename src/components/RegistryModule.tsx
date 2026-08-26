@@ -6,9 +6,17 @@ import {
   ClientType,
   PartyCapacity,
   UnprocessedClientRecord,
-  User
+  User,
+  LawFirmProfile
 } from '../types';
 import { DEFAULT_CASE_CATEGORIES, CaseCategoryConfig } from '../data/caseCategories';
+import { 
+  getCaseTypeAbbreviation,
+  generatePreliminaryFileNumber,
+  formatDirectFileNumber,
+  formatSequenceNumber,
+  getNextPreliminarySequence
+} from '../utils/fileNumberUtils';
 import { generateSystemInternalFileNumber } from '../utils/fileNumberGenerator';
 import { UnprocessedSourcingModule } from './UnprocessedSourcingModule';
 import { 
@@ -106,6 +114,8 @@ interface RegistryModuleProps {
   onUpdateUnprocessedRecord?: (record: UnprocessedClientRecord) => void;
   fileNumberPrefix?: string;
   users?: User[];
+  currentFirm?: LawFirmProfile | null;
+  onUpdateFirm?: (firm: LawFirmProfile) => void;
 }
 
 export type RegistryCategoryTab = 'ACTIVE' | 'CLOSED' | 'INCOMPLETE' | 'ALL';
@@ -122,7 +132,9 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   unprocessedRecords = [],
   onUpdateUnprocessedRecord,
   fileNumberPrefix = 'NGA',
-  users = []
+  users = [],
+  currentFirm = null,
+  onUpdateFirm
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourtStation, setSelectedCourtStation] = useState<string>('ALL');
@@ -132,6 +144,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   const [selectedFile, setSelectedFile] = useState<RegistryFile | null>(null);
   const [showAddModal, setShowAddModal] = useState(openNewModalInitially);
   const [showUnprocessedBucketModal, setShowUnprocessedBucketModal] = useState(false);
+
+  // Direct File Registration manual inputs: File Number (e.g. 08) and Year (e.g. 2026)
+  const [directFileNumber, setDirectFileNumber] = useState('');
+  const [directYear, setDirectYear] = useState(String(new Date().getFullYear()));
 
   // File Closing Modal State
   const [showCloseModalForFile, setShowCloseModalForFile] = useState<RegistryFile | null>(null);
@@ -145,6 +161,22 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   const [activeStationView, setActiveStationView] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 15;
+
+  // Helpers for Preliminary and Direct File Numbering
+  const getFirmInitials = () => {
+    return (currentFirm?.firmInitials || currentFirm?.firmCode?.split('-')[0] || fileNumberPrefix || 'NTA').trim().toUpperCase();
+  };
+
+  const computePreliminaryNumber = (caseTypeOrCategory: string) => {
+    const { number: seqNum, year: curYear, firmInitials } = getNextPreliminarySequence(currentFirm);
+    const initials = currentFirm?.firmInitials || firmInitials || getFirmInitials();
+    return generatePreliminaryFileNumber(initials, caseTypeOrCategory, seqNum, curYear);
+  };
+
+  const computeDirectNumber = (caseTypeOrCategory: string, fileNum: string, yr: string) => {
+    const initials = getFirmInitials();
+    return formatDirectFileNumber(initials, caseTypeOrCategory, fileNum || '01', yr || String(new Date().getFullYear()));
+  };
 
   // Escape key keyboard listener to return to station directory list
   React.useEffect(() => {
@@ -210,11 +242,22 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
   // Open modal and initialize system generated file number
   const openRegistrationModal = (mode: 'unprocessed' | 'direct' = 'direct') => {
-    const autoNum = generateSystemInternalFileNumber(files, fileNumberPrefix);
     setRegistrationMode(mode);
     setSelectedUnprocessedId('');
+    const defaultCat = 'Civil Litigation';
+    const defaultSub = 'General Civil Suit';
+
+    let initialNum = '';
+    if (mode === 'unprocessed') {
+      initialNum = computePreliminaryNumber(defaultSub);
+    } else {
+      setDirectFileNumber('');
+      setDirectYear(String(new Date().getFullYear()));
+      initialNum = '';
+    }
+
     setFormData({
-      internalFileNumber: autoNum,
+      internalFileNumber: initialNum,
       courtCaseNumber: '',
       clientName: '',
       clientType: 'Individual',
@@ -235,9 +278,9 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
         shelf: 'Shelf 1'
       },
       dateOpened: new Date().toISOString().split('T')[0],
-      caseCategory: 'Civil Litigation',
-      caseType: 'General Civil Suit',
-      subCaseType: 'General Civil Suit'
+      caseCategory: defaultCat,
+      caseType: defaultSub,
+      subCaseType: defaultSub
     });
     setShowAddModal(true);
   };
@@ -248,15 +291,18 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     const rec = (unprocessedRecords || []).find(r => r.id === recordId);
     if (!rec) return;
 
-    const autoNum = formData.internalFileNumber || generateSystemInternalFileNumber(files, fileNumberPrefix);
+    const caseType = rec.caseType || 'General Civil Suit';
+    const preliminaryNum = rec.preliminaryRefNumber || computePreliminaryNumber(caseType);
+
     setFormData(prev => ({
       ...prev,
-      internalFileNumber: autoNum,
+      internalFileNumber: preliminaryNum,
       clientName: rec.clientFullName,
       caseChaserName: rec.caseChaserName,
       insuranceCompanyName: rec.insuranceCompany || 'None',
       courtStation: rec.courtStation || courtStations[0] || 'Milimani Law Courts',
-      caseType: rec.caseType || prev.caseType,
+      caseType: caseType,
+      subCaseType: caseType,
       notes: rec.briefDescription ? `[Preliminary Intake Note]: ${rec.briefDescription}` : prev.notes,
       dateOpened: rec.dateCaptured || new Date().toISOString().split('T')[0]
     }));
@@ -390,11 +436,35 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       return;
     }
 
-    const autoNum = generateSystemInternalFileNumber(files, fileNumberPrefix);
-    const chosenNum = formData.internalFileNumber || autoNum;
-
     const chosenCat = formData.caseCategory || 'Civil Litigation';
-    const chosenType = formData.caseType || formData.subCaseType || 'General Civil Suit';
+    const chosenType = formData.subCaseType || formData.caseType || 'General Civil Suit';
+
+    let chosenNum = '';
+
+    if (registrationMode === 'direct') {
+      if (!directFileNumber.trim()) {
+        alert('For Direct File Registration, please enter the File Number (e.g. 08, 42, 101).');
+        return;
+      }
+      if (!directYear.trim()) {
+        alert('For Direct File Registration, please enter the Year (e.g. 2026).');
+        return;
+      }
+      chosenNum = computeDirectNumber(chosenType, directFileNumber, directYear);
+    } else {
+      // Preliminary intake mode: auto-generated format (FirmInitials/CaseTypeAbbr/Number/Year)
+      chosenNum = formData.internalFileNumber || computePreliminaryNumber(chosenType);
+
+      // Increment firm preliminary sequence
+      if (currentFirm && onUpdateFirm) {
+        const { number: seqNum, year: curYear } = getNextPreliminarySequence(currentFirm);
+        onUpdateFirm({
+          ...currentFirm,
+          preliminaryNextNumber: seqNum + 1,
+          preliminaryYear: curYear
+        });
+      }
+    }
 
     const newFile: RegistryFile = {
       id: `f-${Date.now()}`,
@@ -1359,13 +1429,19 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
             </div>
 
             {/* DUAL REGISTRATION MODE TABS */}
-            <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-950 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1.5 bg-slate-950 rounded-xl border border-slate-800">
               <button
                 type="button"
                 onClick={() => {
                   setRegistrationMode('unprocessed');
                   if (availableUnprocessedRecords.length > 0 && !selectedUnprocessedId) {
                     handleSelectUnprocessedRecord(availableUnprocessedRecords[0].id);
+                  } else {
+                    const defaultSub = formData.subCaseType || formData.caseType || 'General Civil Suit';
+                    setFormData(prev => ({
+                      ...prev,
+                      internalFileNumber: computePreliminaryNumber(defaultSub)
+                    }));
                   }
                 }}
                 className={`p-3 rounded-lg border text-left transition flex items-start gap-3 cursor-pointer ${
@@ -1381,7 +1457,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
                 <div>
                   <div className="font-bold text-xs flex items-center gap-1.5">
-                    <span>1. From Unprocessed Preliminary Client Bucket</span>
+                    <span>1. Preliminary Sourced Intake (Bucket)</span>
                     {availableUnprocessedRecords.length > 0 && (
                       <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded text-[10px] font-mono">
                         {availableUnprocessedRecords.length} Available
@@ -1389,7 +1465,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     )}
                   </div>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    Import records sourced by Case Chasers. Only enter Court Case No. & missing details.
+                    Auto-generated file number: {getFirmInitials()}/[TYPE]/[SEQ]/[YEAR] (Annual sequence).
                   </p>
                 </div>
               </button>
@@ -1399,10 +1475,9 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 onClick={() => {
                   setRegistrationMode('direct');
                   setSelectedUnprocessedId('');
-                  const autoNum = generateSystemInternalFileNumber(files, fileNumberPrefix);
                   setFormData(prev => ({
                     ...prev,
-                    internalFileNumber: autoNum,
+                    internalFileNumber: directFileNumber ? computeDirectNumber(prev.subCaseType || prev.caseType || 'General Civil Suit', directFileNumber, directYear) : '',
                     clientName: '',
                     caseChaserName: 'Direct / Walk-in (No Chaser)',
                     notes: ''
@@ -1420,9 +1495,9 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   <FilePlus2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="font-bold text-xs">2. Direct Registration / Outside File</div>
+                  <div className="font-bold text-xs">2. Direct File Registration (Manual Number)</div>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    For walk-in matters brought directly to the law firm without a Case Chaser. Enter full details.
+                    After entering case type, enter the file number and year to format the file code.
                   </p>
                 </div>
               </button>
@@ -1436,10 +1511,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
                     <div className="font-serif font-bold text-amber-200 flex items-center gap-2">
                       <Inbox className="w-4 h-4 text-[#C9A227]" />
-                      Select Unprocessed Client Record from Preliminary Bucket
+                      Select Sourced Intake Record from Preliminary Bucket
                     </div>
                     <span className="text-[10px] text-amber-400 font-mono">
-                      {availableUnprocessedRecords.length} Record(s) Pending Conversion
+                      {availableUnprocessedRecords.length} Record(s) Available
                     </span>
                   </div>
 
@@ -1482,85 +1557,19 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
               )}
 
-              {/* FILE NUMBERS SECTION */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold text-[#C9A227]">Internal File Number</label>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800">
-                      System Generated (No Sharing)
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    readOnly
-                    value={formData.internalFileNumber}
-                    className="w-full p-2.5 bg-slate-950 border border-[#C9A227]/60 rounded-xl font-mono font-bold text-amber-300 cursor-not-allowed"
-                    title="Internal file number is automatically assigned by system using firm prefix"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold text-amber-300">Court Case Number *</label>
-                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">
-                      {registrationMode === 'unprocessed' ? 'Primary Input Required' : 'Required'}
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Milimani HCCC No. 892 of 2026 or CMCC/1042/2026"
-                    value={formData.courtCaseNumber}
-                    onChange={e => setFormData({ ...formData, courtCaseNumber: e.target.value })}
-                    className="w-full p-2.5 bg-slate-950 border-2 border-amber-400 rounded-xl text-slate-100 font-bold focus:border-[#C9A227] shadow-inner"
-                  />
-                </div>
-              </div>
-
-              {/* CLIENT DETAILS SECTION */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[#C9A227] mb-1">
-                    Client Full Name * {registrationMode === 'unprocessed' && '(Pre-filled from Bucket)'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Acme Enterprises Ltd"
-                    value={formData.clientName}
-                    onChange={e => setFormData({ ...formData, clientName: e.target.value })}
-                    className={`w-full p-2.5 bg-slate-950 border rounded-xl text-slate-100 focus:border-[#C9A227] ${
-                      registrationMode === 'unprocessed' ? 'border-amber-500/60 font-semibold' : 'border-slate-700'
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-[#C9A227] mb-1">Opposing Party</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Jubilee Insurance Co."
-                    value={formData.opposingParty}
-                    onChange={e => setFormData({ ...formData, opposingParty: e.target.value })}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
-                  />
-                </div>
-              </div>
-
-              {/* Client Profile, Case Category & Legal Capacity */}
+              {/* STEP 1: CASE CLASSIFICATION & MATTER TYPE */}
               <div className="p-3.5 bg-[#0B1F3A]/80 border border-[#C9A227]/30 rounded-xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <div className="font-serif font-bold text-slate-200 flex items-center gap-2">
-                    <UserIcon className="w-4 h-4 text-[#C9A227]" />
-                    Case Classification & Client Profile
+                    <Scale className="w-4 h-4 text-[#C9A227]" />
+                    Step 1: Case Classification & Matter Type
                   </div>
-                  <span className="text-[10px] text-amber-300/80 font-mono">Kenyan Law Firm Matter Standard</span>
+                  <span className="text-[10px] text-amber-300/80 font-mono">
+                    Abbreviation: <strong className="text-emerald-400 font-bold">{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType || formData.caseCategory)}</strong>
+                  </span>
                 </div>
 
-                {/* Grid 1: Case Category and Sub-Type */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-[#C9A227] mb-1">
                       1. Primary Case Category ({DEFAULT_CASE_CATEGORIES.length} Standards)
@@ -1572,12 +1581,21 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                         const catObj = DEFAULT_CASE_CATEGORIES.find(c => c.category === newCat) || DEFAULT_CASE_CATEGORIES[0];
                         const defaultSub = catObj.subTypes[0] || newCat;
                         const defaultCap = catObj.recommendedCapacities[0] || 'Plaintiff';
+                        
+                        let nextNum = formData.internalFileNumber;
+                        if (registrationMode === 'unprocessed') {
+                          nextNum = computePreliminaryNumber(defaultSub);
+                        } else if (directFileNumber) {
+                          nextNum = computeDirectNumber(defaultSub, directFileNumber, directYear);
+                        }
+
                         setFormData({
                           ...formData,
                           caseCategory: newCat,
                           caseType: defaultSub,
                           subCaseType: defaultSub,
-                          partyCapacity: defaultCap
+                          partyCapacity: defaultCap,
+                          internalFileNumber: nextNum
                         });
                       }}
                       className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-semibold focus:border-[#C9A227]"
@@ -1590,7 +1608,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
                   <div>
                     <label className="block font-bold text-[#C9A227] mb-1">
-                      2. Specific Matter / Sub-Type
+                      2. Specific Matter / Sub-Type *
                     </label>
                     {(() => {
                       const selectedCatObj = DEFAULT_CASE_CATEGORIES.find(c => c.category === (formData.caseCategory || 'Civil Litigation')) || DEFAULT_CASE_CATEGORIES[0];
@@ -1599,13 +1617,20 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                           value={formData.subCaseType || formData.caseType || selectedCatObj.subTypes[0]}
                           onChange={e => {
                             const newSub = e.target.value;
+                            let nextNum = formData.internalFileNumber;
+                            if (registrationMode === 'unprocessed') {
+                              nextNum = computePreliminaryNumber(newSub);
+                            } else if (directFileNumber) {
+                              nextNum = computeDirectNumber(newSub, directFileNumber, directYear);
+                            }
                             setFormData({
                               ...formData,
                               caseType: newSub,
-                              subCaseType: newSub
+                              subCaseType: newSub,
+                              internalFileNumber: nextNum
                             });
                           }}
-                          className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                          className="w-full p-2.5 bg-slate-950 border border-[#C9A227]/70 rounded-xl text-slate-100 font-bold focus:border-[#C9A227]"
                         >
                           {selectedCatObj.subTypes.map(sub => (
                             <option key={sub} value={sub}>{sub}</option>
@@ -1615,9 +1640,184 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     })()}
                   </div>
                 </div>
+              </div>
+
+              {/* STEP 2: INTERNAL FILE NUMBER SECTION (Done after entering Case Type) */}
+              {registrationMode === 'unprocessed' ? (
+                <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/40 rounded-xl space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-emerald-500/30 pb-2">
+                    <label className="font-bold text-emerald-400 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-emerald-400" />
+                      Auto-Generated Preliminary File Number
+                    </label>
+                    <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-700">
+                      Format: [Firm Initials]/[Case Type Abbr]/[Number]/[Year]
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      required
+                      readOnly
+                      value={formData.internalFileNumber || computePreliminaryNumber(formData.subCaseType || formData.caseType || 'GEN')}
+                      className="w-full p-3 bg-slate-950 border-2 border-emerald-500/60 rounded-xl font-mono text-base font-black text-emerald-300 tracking-wider cursor-not-allowed shadow-inner"
+                      title="Preliminary internal file number is automatically generated based on firm initials, case abbreviation, sequential counter, and year"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Generated automatically after entering case type: Firm Initials (<strong>{getFirmInitials()}</strong>) / Case Type Abbr (<strong>{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType)}</strong>) / Sequential Number / Year (<strong>{new Date().getFullYear()}</strong>). Sequence resets back to starting number annually.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-amber-950/20 border border-[#C9A227]/40 rounded-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-[#C9A227]/30 pb-2">
+                    <label className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <FilePlus2 className="w-4 h-4 text-[#C9A227]" />
+                      Direct File Number Assignment
+                    </label>
+                    <span className="text-[10px] font-mono text-amber-300 bg-slate-950 px-2 py-0.5 rounded border border-amber-700/50">
+                      Target Code: {getFirmInitials()}/{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType)}/{directFileNumber ? formatSequenceNumber(directFileNumber) : '##'}/{directYear || new Date().getFullYear()}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-300">
+                    After selecting the case type above, please enter the <strong>File Number</strong> and <strong>Year</strong> to form the internal file number:
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-200 mb-1">
+                        1. File Number <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 08, 42, or 104"
+                        value={directFileNumber}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setDirectFileNumber(val);
+                          const generated = computeDirectNumber(
+                            formData.subCaseType || formData.caseType || 'General Civil Suit',
+                            val,
+                            directYear
+                          );
+                          setFormData(prev => ({ ...prev, internalFileNumber: generated }));
+                        }}
+                        className="w-full p-2.5 bg-slate-950 border-2 border-amber-500/60 rounded-xl font-mono text-amber-300 font-bold focus:border-[#C9A227] shadow-inner"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-200 mb-1">
+                        2. Year <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="1980"
+                        max="2100"
+                        placeholder="e.g. 2026"
+                        value={directYear}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setDirectYear(val);
+                          const generated = computeDirectNumber(
+                            formData.subCaseType || formData.caseType || 'General Civil Suit',
+                            directFileNumber,
+                            val
+                          );
+                          setFormData(prev => ({ ...prev, internalFileNumber: generated }));
+                        }}
+                        className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl font-mono text-slate-100 font-bold focus:border-[#C9A227]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Formatted Internal File Result Preview */}
+                  <div className="p-2.5 bg-slate-950 rounded-lg border border-[#C9A227]/50 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">Generated Direct Internal File Number:</span>
+                    <span className="font-mono font-black text-amber-300 text-sm">
+                      {directFileNumber ? computeDirectNumber(formData.subCaseType || formData.caseType || 'GEN', directFileNumber, directYear) : 'Enter file number above'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* COURT CASE NUMBER & OPPOSING PARTY */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-amber-300">Court Case Number *</label>
+                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                      Required
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Milimani HCCC No. 892 of 2026 or CMCC/1042/2026"
+                    value={formData.courtCaseNumber}
+                    onChange={e => setFormData({ ...formData, courtCaseNumber: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border-2 border-amber-400 rounded-xl text-slate-100 font-bold focus:border-[#C9A227] shadow-inner"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[#C9A227] mb-1">Opposing Party</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Jubilee Insurance Co. / John Doe"
+                    value={formData.opposingParty}
+                    onChange={e => setFormData({ ...formData, opposingParty: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                  />
+                </div>
+              </div>
+
+              {/* CLIENT DETAILS SECTION */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-[#C9A227] mb-1">
+                    Client Full Name * {registrationMode === 'unprocessed' && '(Pre-filled from Bucket)'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Acme Enterprises Ltd or Jane Wanjiku"
+                    value={formData.clientName}
+                    onChange={e => setFormData({ ...formData, clientName: e.target.value })}
+                    className={`w-full p-2.5 bg-slate-950 border rounded-xl text-slate-100 focus:border-[#C9A227] ${
+                      registrationMode === 'unprocessed' ? 'border-amber-500/60 font-semibold' : 'border-slate-700'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[#C9A227] mb-1">Insurance Company Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Directline, CIC, APA Insurance (or None)"
+                    value={formData.insuranceCompanyName}
+                    onChange={e => setFormData({ ...formData, insuranceCompanyName: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                  />
+                </div>
+              </div>
+
+              {/* Client Profile & Legal Capacity */}
+              <div className="p-3.5 bg-[#0B1F3A]/80 border border-[#C9A227]/30 rounded-xl space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="font-serif font-bold text-slate-200 flex items-center gap-2">
+                    <UserIcon className="w-4 h-4 text-[#C9A227]" />
+                    Client Profile & Legal Role
+                  </div>
+                  <span className="text-[10px] text-amber-300/80 font-mono">Kenyan Law Firm Matter Standard</span>
+                </div>
 
                 {/* Grid 2: Client Type & Party Capacity */}
-                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800/80">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-[#C9A227] mb-1">
                       3. Client Entity Type (Who Client Is)
@@ -1678,7 +1878,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-[#C9A227] mb-1">Court Station</label>
                   <select
@@ -1714,7 +1914,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-[#C9A227] mb-1">Initial Category</label>
                   <select
@@ -1755,7 +1955,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   <MapPin className="w-4 h-4 text-[#C9A227]" />
                   Initial Physical Registry Cabinet & Shelf
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input
                     type="text"
                     placeholder="Room (e.g. Central Registry)"

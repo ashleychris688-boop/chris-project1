@@ -184,6 +184,10 @@ export default function App() {
     });
   }, [users, currentUser?.firmId, currentUser?.firmCode, currentUser?.firmName, settings.firmCode, settings.firmName, isSuperAdminView]);
 
+  const activeFirmProfile = useMemo(() => {
+    return firms.find(f => f.firmCode === currentFirmCode || f.id === currentFirmCode) || firms[0] || null;
+  }, [firms, currentFirmCode]);
+
   // SaaS Firm Registration Handler
   const handleRegisterFirmSuccess = (newFirm: LawFirmProfile, proprietorUser: User) => {
     const updatedFirms = [newFirm, ...firms];
@@ -1270,6 +1274,8 @@ export default function App() {
               onUpdateUnprocessedRecord={handleUpdateUnprocessedRecord}
               fileNumberPrefix={settings.fileNumberPrefix}
               users={activeFirmUsers}
+              currentFirm={activeFirmProfile}
+              onUpdateFirm={handleUpdateFirm}
             />
           )}
 
@@ -1343,6 +1349,7 @@ export default function App() {
               onAddTask={handleAddTask}
               onUpdateTask={handleUpdateTask}
               onUpdateChaserProfile={handleUpdateChaserProfile}
+              currentFirm={activeFirmProfile}
             />
           )}
 
@@ -1357,6 +1364,8 @@ export default function App() {
               fileNumberPrefix={settings.fileNumberPrefix}
               users={activeFirmUsers}
               currentUser={currentUser}
+              currentFirm={activeFirmProfile}
+              onUpdateFirm={handleUpdateFirm}
             />
           )}
 

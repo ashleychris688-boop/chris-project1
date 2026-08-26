@@ -82,6 +82,8 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
 
   // Form Fields (All transformed to UPPERCASE)
   const [firmName, setFirmName] = useState('');
+  const [firmInitials, setFirmInitials] = useState('');
+  const [preliminaryStartingNumber, setPreliminaryStartingNumber] = useState<number | string>(1);
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [proprietorName, setProprietorName] = useState('');
   const [email, setEmail] = useState('');
@@ -209,13 +211,20 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
       // Auto-generate Firm ID and Code
       const randomDigits = Math.floor(100000 + Math.random() * 900000);
       const firmId = `LFR${randomDigits}`;
-      const initials = firmName.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 4) || 'LFR';
+      const fallbackInitials = firmName.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 4) || 'LFR';
+      const initials = (firmInitials.trim() || fallbackInitials).toUpperCase();
       const firmCode = `${initials}-ADV-${Math.floor(100 + Math.random() * 900)}`;
+      const startingNum = Math.max(1, parseInt(String(preliminaryStartingNumber), 10) || 1);
+      const currentYear = new Date().getFullYear();
 
       const newFirm: LawFirmProfile = {
         id: firmId,
         firmName: firmName.trim(),
         firmCode: firmCode,
+        firmInitials: initials,
+        preliminaryStartingNumber: startingNum,
+        preliminaryNextNumber: startingNum,
+        preliminaryYear: currentYear,
         registrationNumber: registrationNumber.trim() || `LSK/2026/${Math.floor(100 + Math.random() * 900)}`,
         proprietorName: proprietorName.trim(),
         cityOrBranch: `${county} HQ`,
@@ -507,6 +516,64 @@ export const RegisterFirmModal: React.FC<RegisterFirmModalProps> = ({
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Preset Firm Initials & Preliminary Sequence Setup */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-3.5 rounded-2xl border border-[#C9A227]/40 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="text-xs font-bold text-[#C9A227] uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#C9A227]" />
+                    <span>Firm File Prefix & Preliminary Sequence</span>
+                  </div>
+                  <span className="text-[10px] text-amber-300 font-mono">Annually Resets</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-200 mb-1 uppercase">
+                      PRESET FIRM INITIALS <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="E.G. NTA, HVA, OMA"
+                      value={firmInitials}
+                      onChange={e => setFirmInitials(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-[#C9A227]/50 rounded-xl text-white uppercase font-mono font-bold focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Initials chosen by proprietor (e.g. NTA)
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-200 mb-1 uppercase">
+                      PRELIMINARY STARTING NO. <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      placeholder="1 or 8"
+                      value={preliminaryStartingNumber}
+                      onChange={e => setPreliminaryStartingNumber(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono font-bold focus:outline-none focus:border-[#C9A227] text-sm sm:text-xs"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Initial preliminary matter counter
+                    </span>
+                  </div>
+                </div>
+
+                {/* Live Preview of Preliminary Format */}
+                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                  <div className="text-slate-400 text-[11px]">
+                    Preliminary File Format:
+                  </div>
+                  <div className="font-mono font-bold text-amber-300">
+                    {(firmInitials.trim() || 'NTA')}/SUCC/{String(preliminaryStartingNumber || 1).padStart(2, '0')}/{new Date().getFullYear()}
+                  </div>
                 </div>
               </div>
 

@@ -8,8 +8,14 @@ import {
   ChaserTask,
   TaskTitlePreset,
   UnprocessedClientRecord,
-  UnprocessedStatus
+  UnprocessedStatus,
+  LawFirmProfile
 } from '../types';
+import { 
+  generatePreliminaryFileNumber, 
+  getCaseTypeAbbreviation, 
+  getNextPreliminarySequence 
+} from '../utils/fileNumberUtils';
 import { STANDARD_MISSING_REQUIREMENTS_CHECKLIST } from '../data/chaserData';
 import { 
   Handshake, 
@@ -73,6 +79,7 @@ interface CaseChaserModuleProps {
   onAddTask: (task: ChaserTask) => void;
   onUpdateTask: (task: ChaserTask) => void;
   onUpdateChaserProfile?: (chaser: CaseChaserProfile) => void;
+  currentFirm?: LawFirmProfile | null;
 }
 
 export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
@@ -91,7 +98,8 @@ export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
   onUpdateResponsibility,
   onAddTask,
   onUpdateTask,
-  onUpdateChaserProfile
+  onUpdateChaserProfile,
+  currentFirm = null
 }) => {
   const isChaserRole = currentUser?.role === 'Case Chaser';
   const isAdminOrProprietor = currentUser?.role === 'Proprietor' || currentUser?.role === 'Admin';
@@ -256,8 +264,13 @@ export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const dateStr = now.toISOString().split('T')[0];
 
+    const { number: seqNum, year: curYear, firmInitials } = getNextPreliminarySequence(currentFirm);
+    const initials = currentFirm?.firmInitials || firmInitials || 'NTA';
+    const preliminaryRef = generatePreliminaryFileNumber(initials, newIntakeData.caseType || 'Motor Accident / Insurance', seqNum, curYear);
+
     const record: UnprocessedClientRecord = {
       id: `unproc-${Date.now()}`,
+      preliminaryRefNumber: preliminaryRef,
       clientFullName: newIntakeData.clientFullName,
       phoneNumber: newIntakeData.phoneNumber,
       altPhoneNumber: newIntakeData.altPhoneNumber || undefined,
@@ -1410,6 +1423,23 @@ export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
                         <option value="Criminal Defense">Criminal Defense</option>
                         <option value="General Legal">General Legal Matter</option>
                       </select>
+                    </div>
+
+                    {/* Preview of Preliminary File Code generated after selecting Case Type */}
+                    <div className="md:col-span-2 p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded-lg flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-emerald-300 font-mono block">Preliminary File Reference (Initials / Case Abbr / Seq / Year):</span>
+                        <span className="font-mono font-bold text-emerald-300 text-sm">
+                          {(() => {
+                            const { number: seqNum, year: curYear, firmInitials } = getNextPreliminarySequence(currentFirm);
+                            const initials = currentFirm?.firmInitials || firmInitials || 'NTA';
+                            return generatePreliminaryFileNumber(initials, newIntakeData.caseType || 'Motor Accident / Insurance', seqNum, curYear);
+                          })()}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700">
+                        Abbr: {getCaseTypeAbbreviation(newIntakeData.caseType)}
+                      </span>
                     </div>
 
                     <div>

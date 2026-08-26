@@ -228,6 +228,10 @@ export interface LawFirmProfile {
   id: string; // e.g. "LFR000245" or "firm-1"
   firmName: string;
   firmCode: string; // e.g., "OM-ADV-001"
+  firmInitials?: string; // e.g. "NTA" or "HVA"
+  preliminaryStartingNumber?: number; // e.g. 1 or 8
+  preliminaryNextNumber?: number; // current sequence number in year
+  preliminaryYear?: number; // current year e.g. 2026 (resets annually)
   registrationNumber?: string;
   proprietorName?: string;
   cityOrBranch?: string;
@@ -394,6 +398,7 @@ export type UnprocessedStatus = 'Pending Review' | 'Approved' | 'Rejected' | 'Co
 export interface UnprocessedClientRecord {
   id: string;
   firmCode?: string;
+  preliminaryRefNumber?: string; // e.g. "NTA/SUCC/08/2026"
   // Basic Client Information
   clientFullName: string;
   phoneNumber: string;

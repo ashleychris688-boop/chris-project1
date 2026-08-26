@@ -735,7 +735,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
                   NEW DESTINATION LOCATION
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-300 mb-1">Location / Holder Room</label>
                     <select
