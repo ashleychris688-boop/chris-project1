@@ -51,6 +51,7 @@ interface SettingsModuleProps {
 const SAMPLE_CASE_CATEGORIES = [
   'Succession & Probate',
   'Civil Litigation',
+  'Accidents',
   'Commercial & Corporate',
   'Conveyancing',
   'Land & Environment',

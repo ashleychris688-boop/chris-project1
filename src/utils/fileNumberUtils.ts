@@ -4,7 +4,8 @@ import { LawFirmProfile } from '../types';
  * Maps standard Kenyan case categories and specific matter types to standard law firm abbreviations.
  * Examples:
  * - Succession & Probate -> SUCC
- * - Civil Litigation -> LIT
+ * - Civil Litigation -> CIV
+ * - Accidents -> ACC
  * - Commercial & Corporate -> COMM
  * - Conveyancing -> CONV
  * - Land & Environment -> ELC
@@ -35,20 +36,33 @@ export const CASE_TYPE_ABBREVIATIONS: Record<string, string> = {
   'Probate Dispute': 'SUCC',
 
   // Civil Litigation
-  'Civil Litigation': 'LIT',
-  'General Civil Suit': 'LIT',
-  'Personal Injury': 'LIT',
+  'Civil Litigation': 'CIV',
+  'General Civil Suit': 'CIV',
+  'Personal Injury': 'CIV',
   'Road Traffic Accident (RTA)': 'RTA',
-  'Declaratory Suit': 'LIT',
-  'Recovery of Damages': 'LIT',
-  'Breach of Contract': 'LIT',
-  'Negligence': 'LIT',
-  'Defamation': 'LIT',
-  'Professional Negligence': 'LIT',
-  'Tort Claims': 'LIT',
-  'Specific Performance': 'LIT',
-  'Injunction Application': 'LIT',
+  'Declaratory Suit': 'CIV',
+  'Recovery of Damages': 'CIV',
+  'Breach of Contract': 'CIV',
+  'Negligence': 'CIV',
+  'Defamation': 'CIV',
+  'Debt Recovery': 'CIV',
+  'Professional Negligence': 'CIV',
+  'Tort Claims': 'CIV',
+  'Specific Performance': 'CIV',
+  'Injunction Application': 'CIV',
   'Judicial Review': 'JR',
+
+  // Accidents
+  'Accidents': 'ACC',
+  'Personal Injury Claim': 'ACC',
+  'Motor Vehicle Collision': 'ACC',
+  'Pedestrian Knockdown': 'ACC',
+  'Passenger Injury Claim': 'ACC',
+  'Motorcycle / Boda Boda Accident': 'ACC',
+  'Workplace Accident (WIBA)': 'WIBA',
+  'Fatal Accident / Dependency Claim': 'ACC',
+  'Public Service Vehicle (PSV) Accident': 'ACC',
+  'Property Damage / Vehicle Repair Claim': 'ACC',
 
   // Commercial & Corporate
   'Commercial & Corporate': 'COMM',
@@ -190,8 +204,11 @@ export function getCaseTypeAbbreviation(categoryOrType?: string): string {
   if (lower.includes('succ') || lower.includes('probate') || lower.includes('estate') || lower.includes('admin')) {
     return 'SUCC';
   }
-  if (lower.includes('litig') || lower.includes('civil') || lower.includes('suit') || lower.includes('tort')) {
-    return 'LIT';
+  if (lower.includes('accident') || lower.includes('rta') || lower.includes('collision') || lower.includes('knockdown')) {
+    return 'ACC';
+  }
+  if (lower.includes('civil') || lower.includes('litig') || lower.includes('suit') || lower.includes('tort')) {
+    return 'CIV';
   }
   if (lower.includes('comm') || lower.includes('corp') || lower.includes('comp') || lower.includes('bankr')) {
     return 'COMM';
@@ -211,7 +228,7 @@ export function getCaseTypeAbbreviation(categoryOrType?: string): string {
   if (lower.includes('crim')) {
     return 'CRIM';
   }
-  if (lower.includes('insur') || lower.includes('accident') || lower.includes('rta')) {
+  if (lower.includes('insur')) {
     return 'INS';
   }
   if (lower.includes('const') || lower.includes('human right')) {

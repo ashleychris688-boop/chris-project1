@@ -277,18 +277,8 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
                           >
                             <div className="flex items-center gap-2.5 truncate">
                               <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C9A227]' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                              <div className="truncate">
-                                <div className="font-semibold text-xs text-white truncate flex items-center gap-1.5">
-                                  <span>{court.name}</span>
-                                  {court.stationType && court.stationType !== 'Trial Station' && (
-                                    <span className="px-1.5 py-0.2 text-[8px] font-mono uppercase rounded bg-slate-800 text-slate-400 border border-slate-700">
-                                      {court.stationType}
-                                    </span>
-                                  )}
-                                </div>
-                                {court.notes && (
-                                  <div className="text-[10px] text-slate-400 truncate mt-0.5">{court.notes}</div>
-                                )}
+                              <div className="font-semibold text-xs text-white truncate">
+                                {court.name}
                               </div>
                             </div>
 

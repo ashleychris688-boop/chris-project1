@@ -10,9 +10,10 @@ export const DEFAULT_CASE_CATEGORIES: CaseCategoryConfig[] = [
   {
     category: 'Civil Litigation',
     subTypes: [
-      'General Civil Suit',
-      'Personal Injury',
+      'Accidents',
       'Road Traffic Accident (RTA)',
+      'Personal Injury',
+      'General Civil Suit',
       'Declaratory Suit',
       'Recovery of Damages',
       'Breach of Contract',
@@ -26,6 +27,22 @@ export const DEFAULT_CASE_CATEGORIES: CaseCategoryConfig[] = [
       'Judicial Review'
     ],
     recommendedCapacities: ['Plaintiff', 'Defendant', 'Applicant', 'Respondent', 'Interested Party', 'Decree Holder', 'Judgment Debtor']
+  },
+  {
+    category: 'Accidents',
+    subTypes: [
+      'Road Traffic Accident (RTA)',
+      'Personal Injury Claim',
+      'Motor Vehicle Collision',
+      'Pedestrian Knockdown',
+      'Passenger Injury Claim',
+      'Motorcycle / Boda Boda Accident',
+      'Workplace Accident (WIBA)',
+      'Fatal Accident / Dependency Claim',
+      'Public Service Vehicle (PSV) Accident',
+      'Property Damage / Vehicle Repair Claim'
+    ],
+    recommendedCapacities: ['Claimant', 'Plaintiff', 'Defendant', 'Insured', 'Insurer', 'Interested Party', 'Legal Representative']
   },
   {
     category: 'Criminal Matters',

@@ -1401,8 +1401,9 @@ export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
                         onChange={e => setNewIntakeData({ ...newIntakeData, caseType: e.target.value })}
                         className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 font-semibold focus:border-[#C9A227] focus:outline-none"
                       >
-                        <option value="Motor Accident / Insurance">Motor Accident / Insurance Claim</option>
+                        <option value="Accidents">Accidents (RTA / Personal Injury)</option>
                         <option value="Civil Litigation">Civil Litigation</option>
+                        <option value="Motor Accident / Insurance">Motor Accident / Insurance Claim</option>
                         <option value="Land Dispute">Land Dispute / Property</option>
                         <option value="Employment & Labour">Employment & Labour Relations</option>
                         <option value="Succession & Probate">Succession & Probate</option>

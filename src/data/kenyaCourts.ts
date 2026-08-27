@@ -10,24 +10,22 @@ export type CourtCategory =
 
 export interface KenyaCourtStation {
   id: string;
-  name: string;                // Complete formal station name used across files & diaries
-  stationName: string;         // Short station name (e.g. "Milimani", "Nakuru", "Kisumu")
+  name: string;                // Station name used across files & diaries
+  stationName: string;         // Short town/station name
   category: CourtCategory;
   stationType?: 'Apex' | 'Permanent Station' | 'Sub-Registry' | 'High Court Hub' | 'Trial Station' | 'Specialized Division';
   countyOrLocation?: string;
-  notes?: string;
 }
 
 // 1. SUPREME COURT
 const SUPREME_COURTS: KenyaCourtStation[] = [
   {
     id: 'sc-nairobi',
-    name: 'Supreme Court of Kenya (Nairobi)',
+    name: 'Supreme Court of Kenya',
     stationName: 'Nairobi',
     category: 'Supreme Court',
     stationType: 'Apex',
-    countyOrLocation: 'Nairobi',
-    notes: 'Single apex station; highest court in Kenya established under Article 163 of the Constitution'
+    countyOrLocation: 'Nairobi'
   }
 ];
 
@@ -41,7 +39,7 @@ const COURT_OF_APPEAL: KenyaCourtStation[] = [
   { id: 'coa-kisumu', name: 'Court of Appeal - Kisumu', stationName: 'Kisumu', category: 'Court of Appeal', stationType: 'Permanent Station', countyOrLocation: 'Kisumu' },
   { id: 'coa-eldoret', name: 'Court of Appeal - Eldoret', stationName: 'Eldoret', category: 'Court of Appeal', stationType: 'Permanent Station', countyOrLocation: 'Uasin Gishu' },
   { id: 'coa-kakamega', name: 'Court of Appeal - Kakamega', stationName: 'Kakamega', category: 'Court of Appeal', stationType: 'Permanent Station', countyOrLocation: 'Kakamega' },
-  { id: 'coa-meru', name: 'Court of Appeal - Meru (Nkubu)', stationName: 'Meru (Nkubu)', category: 'Court of Appeal', stationType: 'Permanent Station', countyOrLocation: 'Meru', notes: 'Sitting at Nkubu Law Courts' },
+  { id: 'coa-meru', name: 'Court of Appeal - Meru', stationName: 'Meru', category: 'Court of Appeal', stationType: 'Permanent Station', countyOrLocation: 'Meru' },
   // Sub-registries
   { id: 'coa-malindi', name: 'Court of Appeal Sub-Registry - Malindi', stationName: 'Malindi', category: 'Court of Appeal', stationType: 'Sub-Registry', countyOrLocation: 'Kilifi' },
   { id: 'coa-embu', name: 'Court of Appeal Sub-Registry - Embu', stationName: 'Embu', category: 'Court of Appeal', stationType: 'Sub-Registry', countyOrLocation: 'Embu' },
@@ -56,7 +54,7 @@ const HIGH_COURT_NAMES = [
   'Kericho', 'Bomet', 'Kerugoya', 'Kitale', 'Lodwar', 'Kapenguria', 'Kisii', 'Nyamira',
   'Narok', 'Kisumu', 'Siaya', 'Kitui', 'Machakos', 'Makueni', 'Kajiado', 'Malindi',
   'Garsen', 'Meru', 'Chuka', 'Marsabit', 'Migori', 'Mombasa', 'Kwale', 'Voi',
-  'Murang\'a', 'Nairobi (Milimani)', 'Kibera', 'Kiambu', 'Thika', 'Nakuru', 'Naivasha',
+  'Murang\'a', 'Milimani (Nairobi)', 'Kibera', 'Kiambu', 'Thika', 'Nakuru', 'Naivasha',
   'Nyandarua', 'Kabarnet', 'Nyahururu', 'Nanyuki', 'Nyeri'
 ];
 
@@ -93,8 +91,8 @@ const ELRC_COURTS: KenyaCourtStation[] = [
 
 // 5. MAGISTRATES' COURTS (LAW COURTS) & SPECIALIZED DIVISIONS
 const SPECIALIZED_MAGISTRATE_DIVISIONS: KenyaCourtStation[] = [
-  { id: 'mc-milimani-comm', name: 'Milimani Commercial Court – Commercial & Civil Division', stationName: 'Milimani Commercial & Civil', category: 'Magistrates\' Courts (Law Courts)', stationType: 'Specialized Division', countyOrLocation: 'Nairobi' },
-  { id: 'mc-milimani-family', name: 'Milimani Commercial Court – Family & Divorce Division', stationName: 'Milimani Family & Divorce', category: 'Magistrates\' Courts (Law Courts)', stationType: 'Specialized Division', countyOrLocation: 'Nairobi' },
+  { id: 'mc-milimani-comm', name: 'Milimani Law Courts - Commercial & Civil Division', stationName: 'Milimani Commercial & Civil', category: 'Magistrates\' Courts (Law Courts)', stationType: 'Specialized Division', countyOrLocation: 'Nairobi' },
+  { id: 'mc-milimani-family', name: 'Milimani Law Courts - Family Division', stationName: 'Milimani Family', category: 'Magistrates\' Courts (Law Courts)', stationType: 'Specialized Division', countyOrLocation: 'Nairobi' },
   { id: 'mc-milimani-anti-corr', name: 'Milimani Anti-Corruption Court', stationName: 'Milimani Anti-Corruption', category: 'Magistrates\' Courts (Law Courts)', stationType: 'Specialized Division', countyOrLocation: 'Nairobi' }
 ];
 
@@ -159,7 +157,7 @@ const KADHIS_STATIONS_RAW = [
   'Upperhill (Nairobi)', 'Kibera', 'Mombasa', 'Msambweni', 'Kwale', 'Voi',
   'Malindi', 'Kilifi', 'Mariakani', 'Garsen', 'Hola', 'Lamu', 'Witu',
   'Garissa', 'Daadab', 'Wajir', 'Mandera', 'Balambala', 'Elwak', 'Ijara',
-  'Modogashe (Sub-Registry)', 'Bura/Fafi (Sub-Registry)', 'Bute', 'Eldas',
+  'Modogashe', 'Bura/Fafi', 'Bute', 'Eldas',
   'Habaswein', 'Takaba', 'Isiolo', 'Garbatulla', 'Merti', 'Marsabit', 'Moyale',
   'Meru', 'Kitui', 'Machakos', 'Kajiado', 'Nakuru', 'Nyeri', 'Eldoret',
   'Kakamega', 'Bungoma', 'Kericho'
@@ -170,7 +168,7 @@ const KADHIS_COURTS: KenyaCourtStation[] = KADHIS_STATIONS_RAW.map(st => ({
   name: `Kadhis' Court - ${st}`,
   stationName: st,
   category: 'Kadhis\' Court',
-  stationType: st.includes('Sub-Registry') ? 'Sub-Registry' : 'Trial Station',
+  stationType: 'Trial Station',
   countyOrLocation: st
 }));
 
@@ -178,12 +176,11 @@ const KADHIS_COURTS: KenyaCourtStation[] = KADHIS_STATIONS_RAW.map(st => ({
 const CHILDRENS_COURTS: KenyaCourtStation[] = [
   {
     id: 'cc-milimani',
-    name: 'Milimani Children\'s Court (Nairobi)',
+    name: 'Milimani Children\'s Court',
     stationName: 'Milimani (Nairobi)',
     category: 'Children\'s Court',
     stationType: 'Specialized Division',
-    countyOrLocation: 'Nairobi',
-    notes: 'Dedicated children court station'
+    countyOrLocation: 'Nairobi'
   },
   {
     id: 'cc-tononoka',
@@ -191,8 +188,7 @@ const CHILDRENS_COURTS: KenyaCourtStation[] = [
     stationName: 'Tononoka (Mombasa)',
     category: 'Children\'s Court',
     stationType: 'Specialized Division',
-    countyOrLocation: 'Mombasa',
-    notes: 'Dedicated children court station'
+    countyOrLocation: 'Mombasa'
   }
 ];
 
@@ -213,63 +209,54 @@ export const KENYA_COURT_CATEGORIES: {
   category: CourtCategory;
   shortLabel: string;
   badgeColor: string;
-  description: string;
   count: number;
 }[] = [
   {
     category: 'Supreme Court',
     shortLabel: 'Supreme',
     badgeColor: 'bg-amber-950 text-amber-300 border-amber-600/70',
-    description: 'Apex constitutional and supreme appellate court in Kenya (Article 163).',
     count: SUPREME_COURTS.length
   },
   {
     category: 'Court of Appeal',
     shortLabel: 'Appeal',
     badgeColor: 'bg-purple-950 text-purple-300 border-purple-600/70',
-    description: 'Permanent stations & sub-registries for appellate jurisdiction.',
     count: COURT_OF_APPEAL.length
   },
   {
     category: 'High Court',
     shortLabel: 'High Court',
     badgeColor: 'bg-blue-950 text-blue-300 border-blue-600/70',
-    description: 'Principal regional seats with unlimited original jurisdiction in civil and criminal matters.',
     count: HIGH_COURTS.length
   },
   {
     category: 'Employment and Labour Relations Court (ELRC)',
     shortLabel: 'ELRC',
     badgeColor: 'bg-cyan-950 text-cyan-300 border-cyan-600/70',
-    description: 'Specialized court with status of High Court for employment & industrial disputes.',
     count: ELRC_COURTS.length
   },
   {
     category: 'Magistrates\' Courts (Law Courts)',
     shortLabel: 'Magistrates',
     badgeColor: 'bg-emerald-950 text-emerald-300 border-emerald-600/70',
-    description: 'Primary trial courts and specialized magistrate divisions across all counties.',
     count: MAGISTRATES_COURTS.length
   },
   {
     category: 'Small Claims Court (SCC)',
     shortLabel: 'Small Claims',
     badgeColor: 'bg-teal-950 text-teal-300 border-teal-600/70',
-    description: 'Expedited dispute resolution for claims up to statutory threshold.',
     count: SMALL_CLAIMS_COURTS.length
   },
   {
     category: 'Kadhis\' Court',
     shortLabel: 'Kadhis',
     badgeColor: 'bg-lime-950 text-lime-300 border-lime-600/70',
-    description: 'Constitutional courts determining questions of Muslim law relating to personal status, marriage, divorce, and inheritance.',
     count: KADHIS_COURTS.length
   },
   {
     category: 'Children\'s Court',
     shortLabel: 'Children',
     badgeColor: 'bg-rose-950 text-rose-300 border-rose-600/70',
-    description: 'Specialized stations and designated magistrates dealing with care, protection & custody of minors.',
     count: CHILDRENS_COURTS.length
   }
 ];
