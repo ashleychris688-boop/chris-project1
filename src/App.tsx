@@ -1244,7 +1244,7 @@ export default function App() {
             <button
               onClick={() => handleAcknowledgeAlert(urgentAlerts[0].id)}
               className="px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 font-extrabold rounded-lg text-[11px] border border-emerald-700 shadow transition flex items-center gap-1"
-              title="Acknowledge and clear this same-day court alert"
+              title="Acknowledge"
             >
               Acknowledge ✓
             </button>
@@ -1252,7 +1252,7 @@ export default function App() {
               <button
                 onClick={() => saveAlerts([])}
                 className="px-2.5 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 font-semibold rounded-lg text-[10px] border border-slate-700"
-                title="Dismiss all current alerts"
+                title="Dismiss all"
               >
                 Clear All ({urgentAlerts.length})
               </button>

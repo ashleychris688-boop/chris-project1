@@ -296,7 +296,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
             {locationCounts['Central Registry']}
           </div>
           <p className="text-[10px] text-slate-400">
-            Stored in main registry vault cabinets.
+            Vault cabinets & shelves.
           </p>
         </button>
 
@@ -317,7 +317,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
             {locationCounts["Clerk's Desk"]}
           </div>
           <p className="text-[10px] text-slate-400">
-            With court clerks for filing & court prep.
+            Filing & court prep.
           </p>
         </button>
 
@@ -338,7 +338,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
             {locationCounts["Secretary's Desk"]}
           </div>
           <p className="text-[10px] text-slate-400">
-            With advocates' secretaries for correspondence.
+            Correspondence & intake.
           </p>
         </button>
 
@@ -359,7 +359,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
             {locationCounts["Advocate's Desk"]}
           </div>
           <p className="text-[10px] text-slate-400">
-            With partner / associate for drafting & research.
+            Drafting & hearings.
           </p>
         </button>
 
@@ -380,7 +380,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
             {locationCounts["Proprietor's Desk"]}
           </div>
           <p className="text-[10px] text-slate-400">
-            With Managing Proprietor for executive review.
+            Executive review.
           </p>
         </button>
 
@@ -394,7 +394,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by file #, court case #, client name, opposing party, court station, custodian..."
+              placeholder="Search file #, case #, client, opposing party, station..."
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               className="w-full pl-9 pr-8 py-2.5 bg-slate-950 border border-slate-700 text-white text-xs rounded-xl focus:outline-none focus:border-[#C9A227] placeholder-slate-500"
@@ -415,7 +415,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
             className="px-6 py-2.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 cursor-pointer"
           >
             <Search className="w-4 h-4" />
-            <span>Search Physical Files</span>
+            <span>Search</span>
           </button>
         </form>
 

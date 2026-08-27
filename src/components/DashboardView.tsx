@@ -488,8 +488,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex items-center gap-2">
                 <UserSquare2 className="w-6 h-6 text-purple-400" />
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-white">Secretary Role Workspace</h3>
-                  <p className="text-xs text-slate-300">Central Registry Management, Opening Files, Court Stations Directory & Cause List Entry</p>
+                  <h3 className="font-serif font-bold text-lg text-white">Secretary Workspace</h3>
+                  <p className="text-xs text-slate-300">Registry management, cause lists & file intake.</p>
                 </div>
               </div>
               <button
@@ -508,7 +508,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <FolderArchive className="w-6 h-6 text-purple-400" />
                 <h4 className="font-bold text-sm text-white">Central Registry</h4>
-                <p className="text-xs text-slate-300">Manage {files.length} physical files, assign file numbers, monitor missing requirements.</p>
+                <p className="text-xs text-slate-300">Physical files, case numbers & status tracking.</p>
               </div>
 
               <div 
@@ -517,7 +517,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <Scale className="w-6 h-6 text-purple-400" />
                 <h4 className="font-bold text-sm text-white">Daily Cause Lists</h4>
-                <p className="text-xs text-slate-300">Log upcoming court sessions, set hearing times, assign magistrate & advocates.</p>
+                <p className="text-xs text-slate-300">Court sessions, hearing times & appearances.</p>
               </div>
 
               <div 
@@ -526,13 +526,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <ListOrdered className="w-6 h-6 text-purple-400" />
                 <h4 className="font-bold text-sm text-white">Upcoming Scheduling</h4>
-                <p className="text-xs text-slate-300">Generate weekly file retrieval lists for upcoming court dates.</p>
+                <p className="text-xs text-slate-300">Weekly file retrieval schedules.</p>
               </div>
             </div>
 
             {/* Recent Registry Files Table snippet */}
             <div className="pt-2">
-              <h4 className="font-bold text-sm text-slate-200 mb-3">Recently Opened Files (Secretary Desk)</h4>
+              <h4 className="font-bold text-sm text-slate-200 mb-3">Recently Opened Files</h4>
               <div className="space-y-2">
                 {files.slice(0, 4).map(f => (
                   <div key={f.id} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -557,8 +557,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-white">Clerk Role Workspace</h3>
-                  <p className="text-xs text-slate-300">Physical File Tracker, Cabinet Location Mapping, Dispatches & Movement Register</p>
+                  <h3 className="font-serif font-bold text-lg text-white">Clerk Workspace</h3>
+                  <p className="text-xs text-slate-300">File tracking, movements & shelf indexing.</p>
                 </div>
               </div>
               <button
@@ -577,7 +577,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <PackageSearch className="w-6 h-6 text-emerald-400" />
                 <h4 className="font-bold text-sm text-white">Physical File Tracker</h4>
-                <p className="text-xs text-slate-300">Track {filesOutCount} files currently out in court or advocate offices.</p>
+                <p className="text-xs text-slate-300">Active files out on assignment.</p>
               </div>
 
               <div 
@@ -586,7 +586,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <ListOrdered className="w-6 h-6 text-emerald-400" />
                 <h4 className="font-bold text-sm text-white">Retrieval & Upcoming</h4>
-                <p className="text-xs text-slate-300">Collect physical files from central shelves for tomorrow's court list.</p>
+                <p className="text-xs text-slate-300">Files queued for court sessions.</p>
               </div>
 
               <div 
@@ -595,7 +595,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <MapPin className="w-6 h-6 text-emerald-400" />
                 <h4 className="font-bold text-sm text-white">Cabinet Location Index</h4>
-                <p className="text-xs text-slate-300">Cabinet A through E shelf index mapping across all litigation vaults.</p>
+                <p className="text-xs text-slate-300">Vault & shelf index mapping.</p>
               </div>
 
               <div 
@@ -608,14 +608,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     Review Intakes
                   </span>
                 </div>
-                <h4 className="font-bold text-sm text-white">Unprocessed Client Bucket</h4>
-                <p className="text-xs text-slate-300">Approve, convert to registry, or reject preliminary client intakes captured by Case Chasers.</p>
+                <h4 className="font-bold text-sm text-white">Unprocessed Bucket</h4>
+                <p className="text-xs text-slate-300">Review preliminary case intakes.</p>
               </div>
             </div>
 
             {/* Movement Logs snippet */}
             <div className="pt-2">
-              <h4 className="font-bold text-sm text-slate-200 mb-3">Recent File Movement Log (Clerk Register)</h4>
+              <h4 className="font-bold text-sm text-slate-200 mb-3">Recent File Movements</h4>
               <div className="space-y-2">
                 {fileMovements.slice(0, 4).map(m => (
                   <div key={m.id} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -640,8 +640,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex items-center gap-2">
                 <Gavel className="w-6 h-6 text-sky-400" />
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-white">Advocate Role Workspace</h3>
-                  <p className="text-xs text-slate-300">Assigned Court Cases, Daily Cause List, Hearing Outcomes & Rulings</p>
+                  <h3 className="font-serif font-bold text-lg text-white">Advocate Workspace</h3>
+                  <p className="text-xs text-slate-300">Cause list, hearings & court outcomes.</p>
                 </div>
               </div>
               <button
@@ -659,8 +659,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="p-4 rounded-xl bg-slate-900 border border-sky-900/60 hover:border-sky-400 cursor-pointer transition space-y-2"
               >
                 <Scale className="w-6 h-6 text-sky-400" />
-                <h4 className="font-bold text-sm text-white">My Cause List</h4>
-                <p className="text-xs text-slate-300">View upcoming hearings in Milimani High Court & Civil Magistrates.</p>
+                <h4 className="font-bold text-sm text-white">Cause List</h4>
+                <p className="text-xs text-slate-300">Scheduled hearings and mentions.</p>
               </div>
 
               <div 
@@ -669,7 +669,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <FileCheck2 className="w-6 h-6 text-sky-400" />
                 <h4 className="font-bold text-sm text-white">Court Outcomes</h4>
-                <p className="text-xs text-slate-300">Record rulings, mention directions, interlocutory orders & judgments.</p>
+                <p className="text-xs text-slate-300">Orders, rulings & judgments.</p>
               </div>
 
               <div 
@@ -678,13 +678,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <FolderArchive className="w-6 h-6 text-sky-400" />
                 <h4 className="font-bold text-sm text-white">Assigned Files</h4>
-                <p className="text-xs text-slate-300">Review client files assigned to Adv. Kamau & Adv. Otieno.</p>
+                <p className="text-xs text-slate-300">Active matters on record.</p>
               </div>
             </div>
 
             {/* Upcoming hearings list */}
             <div className="pt-2">
-              <h4 className="font-bold text-sm text-slate-200 mb-3">Upcoming Advocate Hearings</h4>
+              <h4 className="font-bold text-sm text-slate-200 mb-3">Upcoming Hearings</h4>
               <div className="space-y-2">
                 {courtSessions.slice(0, 3).map(cs => (
                   <div key={cs.id} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -709,8 +709,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex items-center gap-2">
                 <Handshake className="w-6 h-6 text-amber-400" />
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-white">Case Chaser Role Workspace</h3>
-                  <p className="text-xs text-slate-300">Assigned Files Follow-up, Requirement Checklists, Client Interaction Logs & Commission Payouts</p>
+                  <h3 className="font-serif font-bold text-lg text-white">Case Chaser Workspace</h3>
+                  <p className="text-xs text-slate-300">Client follow-ups, requirements & tasks.</p>
                 </div>
               </div>
               <button
@@ -728,8 +728,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="p-4 rounded-xl bg-slate-900 border border-amber-900/60 hover:border-amber-400 cursor-pointer transition space-y-2"
               >
                 <FolderArchive className="w-6 h-6 text-amber-400" />
-                <h4 className="font-bold text-sm text-white">Assigned Files & Requirements</h4>
-                <p className="text-xs text-slate-300">Track missing client documents, police abstracts & medical reports.</p>
+                <h4 className="font-bold text-sm text-white">Assigned Files</h4>
+                <p className="text-xs text-slate-300">Track documentation & requirements.</p>
               </div>
 
               <div 
@@ -737,8 +737,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="p-4 rounded-xl bg-slate-900 border border-amber-900/60 hover:border-amber-400 cursor-pointer transition space-y-2"
               >
                 <CheckCircle2 className="w-6 h-6 text-amber-400" />
-                <h4 className="font-bold text-sm text-white">Workflow Tasks & Logs</h4>
-                <p className="text-xs text-slate-300">Log client contacts, field visits & complete assigned workflow tasks.</p>
+                <h4 className="font-bold text-sm text-white">Tasks & Field Logs</h4>
+                <p className="text-xs text-slate-300">Client contacts & field actions.</p>
               </div>
             </div>
 

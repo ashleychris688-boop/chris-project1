@@ -150,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 animate-pulse' 
                   : 'bg-slate-900/90 border-emerald-700/60 hover:bg-slate-800 text-emerald-400'
               }`}
-              title={`Periodic Local Storage -> Firebase Redundancy Sync. ${lastSyncTime ? 'Last synced: ' + lastSyncTime : 'Click to sync now.'}`}
+              title={lastSyncTime ? `Firebase Sync (${lastSyncTime})` : 'Firebase Sync'}
             >
               <Sparkles className={`w-3.5 h-3.5 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
               <span className="hidden lg:inline text-[11px]">Firebase Backup</span>
@@ -164,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onGoToSuperAdmin}
               className="px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500/30 text-amber-300 font-mono text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
-              title="Return to Platform Control Center"
+              title="Platform Admin"
             >
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               <span className="hidden sm:inline">Platform Admin</span>
@@ -176,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 relative transition"
-              title="System Alerts & Notifications"
+              title="Alerts"
             >
               <Bell className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#DC3545] rounded-full animate-pulse"></span>

@@ -1212,7 +1212,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                                 setCloseJudgmentNotes('');
                               }}
                               className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                              title="Close File (Judgment Entered)"
+                              title="Close File"
                             >
                               <FolderLock className="w-4 h-4" />
                             </button>
@@ -1973,7 +1973,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                       readOnly
                       value={formData.internalFileNumber || computePreliminaryNumber(formData.subCaseType || formData.caseType || 'GEN')}
                       className="w-full p-3 bg-slate-950 border-2 border-emerald-500/60 rounded-xl font-mono text-base font-black text-emerald-300 tracking-wider cursor-not-allowed shadow-inner"
-                      title="Preliminary internal file number"
+                      title="File Number"
                     />
                   </div>
                 </div>

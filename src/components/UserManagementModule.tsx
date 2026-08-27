@@ -272,7 +272,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                       {u.id === currentUser?.id ? (
                         <span
                           className="px-2.5 py-1 text-[10px] font-bold rounded bg-slate-900/90 border border-slate-800 text-slate-500 cursor-not-allowed flex items-center gap-1 opacity-70"
-                          title="Proprietor cannot suspend own account"
+                          title="Self Account"
                         >
                           <Lock className="w-3 h-3 text-slate-600" />
                           Self Account

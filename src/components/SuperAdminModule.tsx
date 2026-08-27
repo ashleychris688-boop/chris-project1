@@ -860,10 +860,10 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                   <button
                     onClick={handlePurgeSuspendedOrRejectedFirms}
                     className="px-3.5 py-2.5 rounded-xl bg-red-950/90 hover:bg-red-900 border border-red-700 text-red-200 font-extrabold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-lg"
-                    title="Delete all law firms that have been suspended or rejected for over 3 months"
+                    title="Purge inactive firms"
                   >
                     <Trash2 className="w-4 h-4 text-red-400" />
-                    <span>Delete Rejected / Suspended Firms (&gt;3 Months)</span>
+                    <span>Delete Inactive Firms (&gt;3 Months)</span>
                   </button>
                 )}
 
@@ -960,7 +960,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                               <button
                                 onClick={() => handleOpenEditFirm(firm)}
                                 className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-400 rounded-xl text-xs font-bold transition inline-flex items-center gap-1 cursor-pointer"
-                                title="Edit Law Firm Details & Sync to Firebase"
+                                title="Edit Firm"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                                 <span>Edit</span>
@@ -968,9 +968,10 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                               <button
                                 onClick={() => setSelectedFirm(firm)}
                                 className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-[#C9A227] border border-slate-700 hover:border-[#C9A227] rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer"
+                                title="Inspect Overview"
                               >
                                 <Eye className="w-3.5 h-3.5" />
-                                <span>Inspect Account Overview</span>
+                                <span>Inspect</span>
                               </button>
                               {onDeleteFirm && (
                                 <button
@@ -1028,7 +1029,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 <button
                   onClick={handlePurgeRejectedRequests}
                   className="px-3.5 py-2.5 bg-red-950/90 hover:bg-red-900 border border-red-700 text-red-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-lg"
-                  title="Clear all rejected applications older than 3 months"
+                  title="Purge rejected requests"
                 >
                   <Trash2 className="w-4 h-4 text-red-400" />
                   <span>Clear Rejected Applications (&gt;3 Months)</span>
@@ -1517,7 +1518,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                                     });
                                   }}
                                   className="px-3 py-1.5 bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
-                                  title="Delete firm and purge all staff user accounts"
+                                  title="Delete Firm"
                                 >
                                   <Trash2 className="w-3.5 h-3.5 text-red-400" />
                                   <span>Delete Firm & Staff</span>
@@ -1609,7 +1610,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                                                   setUserResetFeedback('');
                                                 }}
                                                 className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-200 text-[10px] font-bold rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1"
-                                                title="Reset password for this staff account"
+                                                title="Reset Password"
                                               >
                                                 <KeyRound className="w-3 h-3 text-[#C9A227]" />
                                                 <span>Reset Pass</span>
@@ -1627,7 +1628,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                                                       ? 'bg-amber-950/70 text-amber-300 hover:bg-amber-900 border-amber-800'
                                                       : 'bg-emerald-950/70 text-emerald-300 hover:bg-emerald-900 border-emerald-800'
                                                   }`}
-                                                  title={staffUser.status === 'Active' ? 'Suspend user account' : 'Activate user account'}
+                                                  title={staffUser.status === 'Active' ? 'Suspend User' : 'Activate User'}
                                                 >
                                                   {staffUser.status === 'Active' ? 'Suspend' : 'Activate'}
                                                 </button>
@@ -1650,7 +1651,7 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                                                     });
                                                   }}
                                                   className="p-1 text-red-400 bg-red-950/70 hover:bg-red-900 border border-red-800 rounded-lg transition cursor-pointer"
-                                                  title="Delete user account"
+                                                  title="Delete User"
                                                 >
                                                   <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
