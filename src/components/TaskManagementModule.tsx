@@ -543,11 +543,8 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
             </span>
           </div>
           <h1 className="font-serif font-bold text-2xl text-white mt-1">
-            Task Management & Accountability Engine
+            Task Management & Accountability
           </h1>
-          <p className="text-slate-400 text-xs">
-            Assign, track, verify, and monitor litigation, registry, court, client, and insurance tasks across firm staff.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">

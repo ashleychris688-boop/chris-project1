@@ -548,15 +548,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     <div className="space-y-6 font-sans text-slate-100">
       
       {/* Module Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-6 rounded-2xl border border-[#C9A227]/40 shadow-2xl">
-        <div>
-          <div className="flex items-center gap-2">
-            <FolderArchive className="w-6 h-6 text-[#C9A227]" />
-            <h2 className="font-serif font-bold text-xl text-white">Central Physical File Registry</h2>
-          </div>
-          <p className="text-slate-300 text-xs mt-1">
-            Systematic physical file management categorized by Court Station and organized into Active, Closed, and Incomplete files.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-5 rounded-2xl border border-[#C9A227]/40 shadow-2xl">
+        <div className="flex items-center gap-2.5">
+          <FolderArchive className="w-6 h-6 text-[#C9A227]" />
+          <h2 className="font-serif font-bold text-xl text-white">Physical File Registry</h2>
         </div>
 
         <button
@@ -569,18 +564,13 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* STEP 1 & STEP 2: CATEGORY & COURT STATION DIRECTORY LIST      */}
+      {/* CATEGORY & COURT STATION DIRECTORY LIST                       */}
       {/* ------------------------------------------------------------- */}
       {activeStationView === null ? (
         <div className="space-y-6">
           
-          {/* 1st STEP: CHOOSE CATEGORY STATUS */}
+          {/* CATEGORY STATUS SELECTION */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#C9A227] text-slate-950 font-black text-xs flex items-center justify-center">1</div>
-              <h3 className="font-serif font-bold text-base text-white">1st Step: Select File Status Category</h3>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               
               {/* CARD 1: ACTIVE FILES */}
@@ -609,14 +599,11 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     Active Files
                     {categoryTab === 'ACTIVE' && <CheckCircle2 className="w-4 h-4 text-[#C9A227]" />}
                   </h3>
-                  <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                    Files filed in court & undergoing active litigation.
-                  </p>
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-emerald-400 font-mono font-bold">
                   <span>ACTIVE LITIGATION</span>
-                  <span>{categoryTab === 'ACTIVE' ? 'SELECTED' : 'CLICK TO SELECT'}</span>
+                  <span>{categoryTab === 'ACTIVE' ? 'SELECTED' : 'SELECT'}</span>
                 </div>
               </div>
 
@@ -646,14 +633,11 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     Closed Files
                     {categoryTab === 'CLOSED' && <CheckCircle2 className="w-4 h-4 text-[#C9A227]" />}
                   </h3>
-                  <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                    Files where judgment was entered & closed in registry.
-                  </p>
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono font-bold">
                   <span>JUDGMENT ENTERED</span>
-                  <span>{categoryTab === 'CLOSED' ? 'SELECTED' : 'CLICK TO SELECT'}</span>
+                  <span>{categoryTab === 'CLOSED' ? 'SELECTED' : 'SELECT'}</span>
                 </div>
               </div>
 
@@ -681,34 +665,23 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     Unprocessed Sourcing Bucket
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                   </h3>
-                  <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                    Intakes captured by Case Chasers awaiting clerk review & registry conversion.
-                  </p>
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-amber-900/60 flex items-center justify-between text-[10px] text-amber-400 font-mono font-bold">
                   <span>PENDING REVIEW</span>
-                  <span className="underline group-hover:text-amber-200">CONVERT TO FILE &rarr;</span>
+                  <span className="underline group-hover:text-amber-200">OPEN BUCKET &rarr;</span>
                 </div>
               </div>
 
             </div>
           </div>
 
-          {/* 2nd STEP: COURT STATIONS DIRECTORY LIST (ADMIN NAVIGATION PANE LAYOUT) */}
+          {/* COURT STATIONS DIRECTORY LIST */}
           <div className="bg-[#081729] p-5 rounded-2xl border border-[#C9A227]/40 shadow-xl space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-[#C9A227] text-slate-950 font-black text-xs flex items-center justify-center">2</div>
-                  <h3 className="font-serif font-bold text-base text-white">
-                    2nd Step: Select Court Station Directory
-                  </h3>
-                </div>
-                <p className="text-slate-300 text-xs mt-0.5">
-                  Click a court station from the list below to view and manage its registered {categoryTab === 'ACTIVE' ? 'Active' : categoryTab === 'CLOSED' ? 'Closed' : categoryTab === 'INCOMPLETE' ? 'Incomplete' : 'All'} physical files.
-                </p>
-              </div>
+              <h3 className="font-serif font-bold text-base text-white">
+                Court Stations Directory
+              </h3>
 
               {/* Station Search Input */}
               <div className="relative shrink-0">
@@ -743,9 +716,6 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     <div className="text-xs font-black text-white group-hover:text-[#C9A227] transition">
                       ALL COURT STATIONS
                     </div>
-                    <div className="text-[11px] text-slate-400">
-                      Firm-wide master register containing all {categoryTab.toLowerCase()} files across all Kenya law courts
-                    </div>
                   </div>
                 </div>
 
@@ -779,12 +749,6 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-slate-200 group-hover:text-white truncate" title={station}>
                           {station}
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          {categoryTab === 'ACTIVE' && 'Active court litigation files'}
-                          {categoryTab === 'CLOSED' && 'Closed judgments & archived files'}
-                          {categoryTab === 'INCOMPLETE' && 'Files pending missing documents'}
-                          {categoryTab === 'ALL' && 'Total registered court files'}
                         </div>
                       </div>
                     </div>
@@ -843,16 +807,11 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
             </div>
 
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Landmark className="w-5 h-5 text-[#C9A227]" />
-                  <h3 className="font-serif font-black text-lg text-white">
-                    {activeStationView === 'ALL' ? 'ALL COURT STATIONS MASTER REGISTER' : activeStationView}
-                  </h3>
-                </div>
-                <p className="text-slate-300 text-xs mt-0.5">
-                  Viewing registered {categoryTab.toLowerCase()} files under {activeStationView === 'ALL' ? 'all court stations' : activeStationView}. Use the search bar or pagination controls below.
-                </p>
+              <div className="flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-[#C9A227]" />
+                <h3 className="font-serif font-black text-lg text-white">
+                  {activeStationView === 'ALL' ? 'ALL COURT STATIONS MASTER REGISTER' : activeStationView}
+                </h3>
               </div>
             </div>
 
@@ -1411,24 +1370,19 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
           <div className="bg-[#081729] rounded-2xl max-w-3xl w-full p-6 space-y-5 border border-[#C9A227]/40 shadow-2xl overflow-y-auto max-h-[92vh] text-slate-100">
             
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-serif font-bold text-lg text-white">Register New Physical File</h3>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-700/60 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-[#C9A227]" />
-                    {formData.internalFileNumber || generateSystemInternalFileNumber(files, fileNumberPrefix)}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Select registration source: Import pre-filled client intake from Bucket OR enter a direct walk-in file.
-                </p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif font-bold text-lg text-white">Register New Physical File</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-700/60 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-[#C9A227]" />
+                  {formData.internalFileNumber || generateSystemInternalFileNumber(files, fileNumberPrefix)}
+                </span>
               </div>
               <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* DUAL REGISTRATION MODE TABS */}
+            {/* REGISTRATION MODE TABS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1.5 bg-slate-950 rounded-xl border border-slate-800">
               <button
                 type="button"
@@ -1444,7 +1398,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     }));
                   }
                 }}
-                className={`p-3 rounded-lg border text-left transition flex items-start gap-3 cursor-pointer ${
+                className={`p-3 rounded-lg border text-left transition flex items-center gap-3 cursor-pointer ${
                   registrationMode === 'unprocessed'
                     ? 'bg-[#0B1F3A] border-[#C9A227] text-white shadow-lg ring-1 ring-[#C9A227]/50'
                     : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
@@ -1457,16 +1411,13 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
                 <div>
                   <div className="font-bold text-xs flex items-center gap-1.5">
-                    <span>1. Preliminary Sourced Intake (Bucket)</span>
+                    <span>From Sourced Bucket</span>
                     {availableUnprocessedRecords.length > 0 && (
                       <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded text-[10px] font-mono">
-                        {availableUnprocessedRecords.length} Available
+                        {availableUnprocessedRecords.length}
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Auto-generated file number: {getFirmInitials()}/[TYPE]/[SEQ]/[YEAR] (Annual sequence).
-                  </p>
                 </div>
               </button>
 
@@ -1483,7 +1434,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                     notes: ''
                   }));
                 }}
-                className={`p-3 rounded-lg border text-left transition flex items-start gap-3 cursor-pointer ${
+                className={`p-3 rounded-lg border text-left transition flex items-center gap-3 cursor-pointer ${
                   registrationMode === 'direct'
                     ? 'bg-[#0B1F3A] border-[#C9A227] text-white shadow-lg ring-1 ring-[#C9A227]/50'
                     : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
@@ -1495,10 +1446,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   <FilePlus2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="font-bold text-xs">2. Direct File Registration (Manual Number)</div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    After entering case type, enter the file number and year to format the file code.
-                  </p>
+                  <div className="font-bold text-xs">Direct Registration</div>
                 </div>
               </button>
             </div>
@@ -1557,12 +1505,12 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
               )}
 
-              {/* STEP 1: CASE CLASSIFICATION & MATTER TYPE */}
+              {/* CASE CLASSIFICATION & MATTER TYPE */}
               <div className="p-3.5 bg-[#0B1F3A]/80 border border-[#C9A227]/30 rounded-xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <div className="font-serif font-bold text-slate-200 flex items-center gap-2">
                     <Scale className="w-4 h-4 text-[#C9A227]" />
-                    Step 1: Case Classification & Matter Type
+                    Case Classification & Matter Type
                   </div>
                   <span className="text-[10px] text-amber-300/80 font-mono">
                     Abbreviation: <strong className="text-emerald-400 font-bold">{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType || formData.caseCategory)}</strong>
@@ -1572,7 +1520,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-[#C9A227] mb-1">
-                      1. Primary Case Category ({DEFAULT_CASE_CATEGORIES.length} Standards)
+                      Primary Case Category
                     </label>
                     <select
                       value={formData.caseCategory || 'Civil Litigation'}
@@ -1608,7 +1556,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
                   <div>
                     <label className="block font-bold text-[#C9A227] mb-1">
-                      2. Specific Matter / Sub-Type *
+                      Specific Matter / Sub-Type *
                     </label>
                     {(() => {
                       const selectedCatObj = DEFAULT_CASE_CATEGORIES.find(c => c.category === (formData.caseCategory || 'Civil Litigation')) || DEFAULT_CASE_CATEGORIES[0];
@@ -1642,7 +1590,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
               </div>
 
-              {/* STEP 2: INTERNAL FILE NUMBER SECTION (Done after entering Case Type) */}
+              {/* INTERNAL FILE NUMBER SECTION */}
               {registrationMode === 'unprocessed' ? (
                 <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/40 rounded-xl space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-emerald-500/30 pb-2">
@@ -1651,7 +1599,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                       Auto-Generated Preliminary File Number
                     </label>
                     <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-700">
-                      Format: [Firm Initials]/[Case Type Abbr]/[Number]/[Year]
+                      {getFirmInitials()}/{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType)}/SEQ/{new Date().getFullYear()}
                     </span>
                   </div>
 
@@ -1662,12 +1610,9 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                       readOnly
                       value={formData.internalFileNumber || computePreliminaryNumber(formData.subCaseType || formData.caseType || 'GEN')}
                       className="w-full p-3 bg-slate-950 border-2 border-emerald-500/60 rounded-xl font-mono text-base font-black text-emerald-300 tracking-wider cursor-not-allowed shadow-inner"
-                      title="Preliminary internal file number is automatically generated based on firm initials, case abbreviation, sequential counter, and year"
+                      title="Preliminary internal file number"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    Generated automatically after entering case type: Firm Initials (<strong>{getFirmInitials()}</strong>) / Case Type Abbr (<strong>{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType)}</strong>) / Sequential Number / Year (<strong>{new Date().getFullYear()}</strong>). Sequence resets back to starting number annually.
-                  </p>
                 </div>
               ) : (
                 <div className="p-3.5 bg-amber-950/20 border border-[#C9A227]/40 rounded-xl space-y-3">
@@ -1677,18 +1622,14 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                       Direct File Number Assignment
                     </label>
                     <span className="text-[10px] font-mono text-amber-300 bg-slate-950 px-2 py-0.5 rounded border border-amber-700/50">
-                      Target Code: {getFirmInitials()}/{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType)}/{directFileNumber ? formatSequenceNumber(directFileNumber) : '##'}/{directYear || new Date().getFullYear()}
+                      {getFirmInitials()}/{getCaseTypeAbbreviation(formData.subCaseType || formData.caseType)}/{directFileNumber ? formatSequenceNumber(directFileNumber) : '##'}/{directYear || new Date().getFullYear()}
                     </span>
                   </div>
-
-                  <p className="text-[11px] text-slate-300">
-                    After selecting the case type above, please enter the <strong>File Number</strong> and <strong>Year</strong> to form the internal file number:
-                  </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block font-bold text-slate-200 mb-1">
-                        1. File Number <span className="text-red-400">*</span>
+                        File Number <span className="text-red-400">*</span>
                       </label>
                       <input
                         type="text"
@@ -1711,7 +1652,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
                     <div>
                       <label className="block font-bold text-slate-200 mb-1">
-                        2. Year <span className="text-red-400">*</span>
+                        Year <span className="text-red-400">*</span>
                       </label>
                       <input
                         type="number"
@@ -1737,7 +1678,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
                   {/* Formatted Internal File Result Preview */}
                   <div className="p-2.5 bg-slate-950 rounded-lg border border-[#C9A227]/50 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">Generated Direct Internal File Number:</span>
+                    <span className="text-[11px] text-slate-400">Direct Internal File Number:</span>
                     <span className="font-mono font-black text-amber-300 text-sm">
                       {directFileNumber ? computeDirectNumber(formData.subCaseType || formData.caseType || 'GEN', directFileNumber, directYear) : 'Enter file number above'}
                     </span>

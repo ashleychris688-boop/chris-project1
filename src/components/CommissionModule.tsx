@@ -115,18 +115,13 @@ export const CommissionModule: React.FC<CommissionModuleProps> = ({
   return (
     <div className="space-y-6">
       {/* Header with Admin Privilege Notice */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#081729] p-6 rounded-2xl border border-slate-800 shadow-xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <CircleDollarSign className="w-6 h-6 text-[#C9A227]" />
-            <h2 className="text-xl font-bold font-serif text-white">Commission Tracker & Ledger</h2>
-            <span className="px-2.5 py-0.5 bg-red-950 text-red-400 border border-red-800 text-[10px] font-mono font-bold rounded-full uppercase flex items-center gap-1">
-              <ShieldAlert className="w-3 h-3" /> Admin Only
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">
-            Exclusive proprietor access for managing 10% Case Chaser commissions, logging settlement payouts, and monitoring outstanding firm liabilities.
-          </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#081729] p-5 rounded-2xl border border-slate-800 shadow-xl">
+        <div className="flex items-center gap-2.5">
+          <CircleDollarSign className="w-6 h-6 text-[#C9A227]" />
+          <h2 className="text-xl font-bold font-serif text-white">Commission Tracker & Ledger</h2>
+          <span className="px-2.5 py-0.5 bg-red-950 text-red-400 border border-red-800 text-[10px] font-mono font-bold rounded-full uppercase flex items-center gap-1">
+            <ShieldAlert className="w-3 h-3" /> Admin Only
+          </span>
         </div>
 
         <button

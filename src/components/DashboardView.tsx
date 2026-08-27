@@ -208,11 +208,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <h2 className="font-serif text-2xl font-bold text-white">
             {getTimeBasedGreeting()}, {currentUser?.fullName || 'Proprietor'}
           </h2>
-          <p className="text-slate-300 text-xs mt-1">
-            {isAdmin 
-              ? 'Firm Master Proprietor Dashboard • All 5 departmental workspaces accessible.' 
-              : `Role Workspace: ${currentUser?.role} • Restricted to role stipulated permissions.`}
-          </p>
         </div>
       </div>
 

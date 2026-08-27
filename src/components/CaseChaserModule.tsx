@@ -568,12 +568,6 @@ export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
                     {isClerkOrProprietor ? 'Clerk & Admin Review' : `${activeChaser?.chaserId || 'CC-001'} • Dashboard`}
                   </span>
                 </div>
-                <p className="text-slate-300 text-xs mt-0.5">
-                  {isClerkOrProprietor 
-                    ? 'Central preliminary intake review bucket. Inspect captured client matters, approve, convert to physical registry files, or reject.'
-                    : 'Client acquisition, file requirement verification & workflow follow-up dashboard'
-                  }
-                </p>
               </div>
             </div>
           </div>
@@ -1293,13 +1287,6 @@ export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
             <form onSubmit={handleSaveIntake} className="flex flex-col flex-1 overflow-hidden">
               {/* Scrollable Form Body */}
               <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1">
-                <div className="p-3 bg-amber-950/40 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <strong>Workflow Guideline:</strong> Case Chasers only capture preliminary client details into the <strong>Unprocessed Bucket</strong> with status <strong>Pending Review</strong>. Official file creation, case numbers, and staff assignments are strictly performed by a <strong>Clerk</strong> or <strong>Proprietor</strong>.
-                  </div>
-                </div>
-
                 {/* SECTION 1: BASIC CLIENT INFORMATION */}
                 <div className="space-y-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
                   <h4 className="font-bold text-[#C9A227] uppercase tracking-wider text-[11px] flex items-center gap-1.5">

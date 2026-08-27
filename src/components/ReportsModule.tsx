@@ -191,15 +191,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     <div className="space-y-6 font-sans text-slate-100">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-6 rounded-2xl border border-[#C9A227]/30 shadow-xl print:hidden">
-        <div>
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-[#C9A227]" />
-            <h2 className="font-serif font-bold text-xl text-white">Executive & Operational Reports Engine</h2>
-          </div>
-          <p className="text-slate-300 text-xs mt-1">
-            Generate printable & PDF reports for Court Lists, Upcoming Lists, Outstanding Commissions, Insurance Payments & Performance Audits.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-5 rounded-2xl border border-[#C9A227]/30 shadow-xl print:hidden">
+        <div className="flex items-center gap-2.5">
+          <BarChart3 className="w-6 h-6 text-[#C9A227]" />
+          <h2 className="font-serif font-bold text-xl text-white">Reports Engine</h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

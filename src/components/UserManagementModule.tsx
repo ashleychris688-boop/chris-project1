@@ -179,15 +179,10 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     <div className="space-y-6 font-sans text-slate-100">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-6 rounded-2xl border border-[#C9A227]/30 shadow-xl">
-        <div>
-          <div className="flex items-center gap-2">
-            <Users className="w-6 h-6 text-[#C9A227]" />
-            <h2 className="font-serif font-bold text-xl text-white">Proprietor User Management & Access Control</h2>
-          </div>
-          <p className="text-slate-300 text-xs mt-1">
-            Add firm staff accounts, assign operational roles, grant permissions, suspend users & reset passwords.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-5 rounded-2xl border border-[#C9A227]/30 shadow-xl">
+        <div className="flex items-center gap-2.5">
+          <Users className="w-6 h-6 text-[#C9A227]" />
+          <h2 className="font-serif font-bold text-xl text-white">Proprietor User Management</h2>
         </div>
 
         <button

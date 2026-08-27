@@ -102,17 +102,12 @@ export const StaffModules: React.FC<StaffModuleProps> = ({
     <div className="space-y-6 font-sans text-slate-100">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-6 rounded-2xl border border-[#C9A227]/30 shadow-xl">
-        <div>
-          <div className="flex items-center gap-2">
-            <Icon className="w-6 h-6 text-[#C9A227]" />
-            <h2 className="font-serif font-bold text-xl text-white">
-              Firm Directory — {roleFilter}s Register
-            </h2>
-          </div>
-          <p className="text-slate-300 text-xs mt-1">
-            Overview of active staff, assigned physical litigation files & operational performance metrics.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-5 rounded-2xl border border-[#C9A227]/30 shadow-xl">
+        <div className="flex items-center gap-2.5">
+          <Icon className="w-6 h-6 text-[#C9A227]" />
+          <h2 className="font-serif font-bold text-xl text-white">
+            Firm Directory — {roleFilter}s Register
+          </h2>
         </div>
 
         {isProprietorOrAdmin && (

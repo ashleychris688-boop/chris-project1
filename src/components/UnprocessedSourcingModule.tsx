@@ -295,9 +295,6 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
                 Clerk & Admin Review
               </span>
             </div>
-            <p className="text-slate-300 text-xs mt-1">
-              Preliminary client intakes captured by Case Chasers. Review details, approve, convert into active registry files, or reject.
-            </p>
           </div>
         </div>
 
