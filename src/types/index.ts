@@ -135,6 +135,31 @@ export interface CourtSession {
   status: 'Upcoming' | 'Completed' | 'Adjourned';
 }
 
+export interface CorumEntry {
+  id: string;
+  firmCode?: string;
+  fileId: string;
+  fileNumber: string;
+  courtCaseNumber?: string;
+  date: string;                     // Appearance Date (YYYY-MM-DD)
+  time?: string;
+  courtStation?: string;
+  courtNumber?: string;
+  coram: string;                    // Presiding Judge / Magistrate / Bench
+  advocatePresent: string;          // Firm / Plaintiff / Attending Advocate
+  defendantAdvocate: string;        // Defendant Advocate / Opposing Counsel
+  comingUpFor: string;              // Coming up for (Mention, Hearing, Ruling, Judgment, Notice of Motion, etc.)
+  orders: string;                   // Court Orders issued
+  remarks: string;                  // Remarks / Proceedings notes recorded by advocate
+  officeAction: string;             // Office Action required (clerk / registry / advocate next step)
+  nextCourtDate?: string;           // Next hearing/mention date if fixed
+  nextCourtTime?: string;
+  nextComingUpFor?: string;         // Next purpose
+  caseStatusAfter?: FileStatus;
+  recordedBy?: string;              // Name of advocate / staff who entered the record
+  recordedAt?: string;
+}
+
 export interface CourtOutcome {
   id: string;
   firmCode?: string;
@@ -142,12 +167,22 @@ export interface CourtOutcome {
   fileNumber: string;
   sessionId?: string;
   appearanceDate: string;
+  courtStation?: string;
+  courtNumber?: string;
+  coram?: string;
+  magistrate?: string;
+  advocatePresent: string;
+  defendantAdvocate?: string;
+  comingUpFor?: string;
   outcomeDetails: string;
   ordersIssued: string;
-  nextHearingDate?: string;
-  advocatePresent: string;
   remarks: string;
+  officeAction?: string;
+  nextHearingDate?: string;
+  nextHearingTime?: string;
   caseStatusAfter: FileStatus;
+  recordedBy?: string;
+  recordedAt?: string;
 }
 
 export interface BringUpItem {

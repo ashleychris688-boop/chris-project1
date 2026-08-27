@@ -4,6 +4,7 @@ import {
   FileMovement,
   CourtSession,
   CourtOutcome,
+  CorumEntry,
   BringUpItem,
   InsuranceClaim,
   PendingCheque,
@@ -27,6 +28,7 @@ import {
   INITIAL_MOVEMENTS,
   INITIAL_COURT_SESSIONS,
   INITIAL_COURT_OUTCOMES,
+  INITIAL_CORUM_ENTRIES,
   INITIAL_BRING_UP_ITEMS,
   INITIAL_INSURANCE_CLAIMS,
   INITIAL_PENDING_CHEQUES,
@@ -55,6 +57,7 @@ const STORAGE_KEYS = {
   MOVEMENTS: 'lfr_movements_v2',
   COURT_SESSIONS: 'lfr_court_sessions_v2',
   COURT_OUTCOMES: 'lfr_court_outcomes_v2',
+  CORUM_ENTRIES: 'lfr_corum_entries_v2',
   BRING_UP_ITEMS: 'lfr_bring_up_items_v2',
   INSURANCE_CLAIMS: 'lfr_insurance_claims_v2',
   CHEQUES: 'lfr_pending_cheques_v2',
@@ -201,6 +204,14 @@ export function getStoredCourtOutcomes(): CourtOutcome[] {
 
 export function saveCourtOutcomes(outcomes: CourtOutcome[]): void {
   saveItem(STORAGE_KEYS.COURT_OUTCOMES, outcomes);
+}
+
+export function getStoredCorumEntries(): CorumEntry[] {
+  return loadItem(STORAGE_KEYS.CORUM_ENTRIES, INITIAL_CORUM_ENTRIES);
+}
+
+export function saveCorumEntries(entries: CorumEntry[]): void {
+  saveItem(STORAGE_KEYS.CORUM_ENTRIES, entries);
 }
 
 export function getStoredBringUpItems(): BringUpItem[] {

@@ -4,6 +4,7 @@ import {
   FileMovement,
   CourtSession,
   CourtOutcome,
+  CorumEntry,
   BringUpItem,
   InsuranceClaim,
   PendingCheque,
@@ -60,6 +61,7 @@ export const INITIAL_FILES: RegistryFile[] = [];
 export const INITIAL_MOVEMENTS: FileMovement[] = [];
 export const INITIAL_COURT_SESSIONS: CourtSession[] = [];
 export const INITIAL_COURT_OUTCOMES: CourtOutcome[] = [];
+export const INITIAL_CORUM_ENTRIES: CorumEntry[] = [];
 export const INITIAL_BRING_UP_ITEMS: BringUpItem[] = [];
 export const INITIAL_INSURANCE_CLAIMS: InsuranceClaim[] = [];
 export const INITIAL_PENDING_CHEQUES: PendingCheque[] = [];

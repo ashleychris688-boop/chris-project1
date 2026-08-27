@@ -5,6 +5,7 @@ import {
   FileMovement, 
   CourtSession, 
   CourtOutcome, 
+  CorumEntry,
   BringUpItem, 
   InsuranceClaim, 
   PendingCheque, 
@@ -28,6 +29,7 @@ import {
   getStoredMovements, saveMovements,
   getStoredCourtSessions, saveCourtSessions,
   getStoredCourtOutcomes, saveCourtOutcomes,
+  getStoredCorumEntries, saveCorumEntries,
   getStoredBringUpItems, saveBringUpItems,
   getStoredInsuranceClaims, saveInsuranceClaims,
   getStoredPendingCheques, savePendingCheques,
@@ -99,6 +101,7 @@ export default function App() {
   const [movements, setMovementsState] = useState<FileMovement[]>(getStoredMovements());
   const [courtSessions, setCourtSessionsState] = useState<CourtSession[]>(getStoredCourtSessions());
   const [courtOutcomes, setCourtOutcomesState] = useState<CourtOutcome[]>(getStoredCourtOutcomes());
+  const [corumEntries, setCorumEntriesState] = useState<CorumEntry[]>(getStoredCorumEntries());
   const [bringUpItems, setBringUpItemsState] = useState<BringUpItem[]>(getStoredBringUpItems());
   const [claims, setClaimsState] = useState<InsuranceClaim[]>(getStoredInsuranceClaims());
   const [cheques, setChequesState] = useState<PendingCheque[]>(getStoredPendingCheques());
@@ -123,6 +126,16 @@ export default function App() {
     if (isSuperAdminView) return courtSessions;
     return courtSessions.filter(s => (s.firmCode || 'LFR-001') === currentFirmCode);
   }, [courtSessions, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmCourtOutcomes = useMemo(() => {
+    if (isSuperAdminView) return courtOutcomes;
+    return courtOutcomes.filter(o => (o.firmCode || 'LFR-001') === currentFirmCode);
+  }, [courtOutcomes, currentFirmCode, isSuperAdminView]);
+
+  const activeFirmCorumEntries = useMemo(() => {
+    if (isSuperAdminView) return corumEntries;
+    return corumEntries.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
+  }, [corumEntries, currentFirmCode, isSuperAdminView]);
 
   const activeFirmMovements = useMemo(() => {
     if (isSuperAdminView) return movements;
@@ -872,6 +885,102 @@ export default function App() {
     }
   };
 
+  const handleAddCorumEntry = (
+    newCorumEntry: CorumEntry,
+    nextCourtDate?: string,
+    updatedCaseStatus?: RegistryFile['currentStatus']
+  ) => {
+    const corumWithFirm = { ...newCorumEntry, firmCode: newCorumEntry.firmCode || currentFirmCode };
+    const updatedCorum = [corumWithFirm, ...corumEntries];
+    setCorumEntriesState(updatedCorum);
+    saveCorumEntries(updatedCorum);
+
+    // Also bridge as CourtOutcome for unified reporting across views
+    const outcomeBridge: CourtOutcome = {
+      id: `co-${newCorumEntry.id}`,
+      firmCode: corumWithFirm.firmCode,
+      fileId: newCorumEntry.fileId,
+      fileNumber: newCorumEntry.fileNumber,
+      appearanceDate: newCorumEntry.date,
+      courtStation: newCorumEntry.courtStation,
+      courtNumber: newCorumEntry.courtNumber,
+      coram: newCorumEntry.coram,
+      magistrate: newCorumEntry.coram,
+      advocatePresent: newCorumEntry.advocatePresent,
+      defendantAdvocate: newCorumEntry.defendantAdvocate,
+      comingUpFor: newCorumEntry.comingUpFor,
+      outcomeDetails: `${newCorumEntry.comingUpFor}: ${newCorumEntry.remarks}`,
+      ordersIssued: newCorumEntry.orders,
+      remarks: newCorumEntry.remarks,
+      officeAction: newCorumEntry.officeAction,
+      nextHearingDate: newCorumEntry.nextCourtDate,
+      nextHearingTime: newCorumEntry.nextCourtTime,
+      caseStatusAfter: newCorumEntry.caseStatusAfter || updatedCaseStatus || 'Active',
+      recordedBy: newCorumEntry.recordedBy,
+      recordedAt: newCorumEntry.recordedAt
+    };
+    const updatedOutcomes = [outcomeBridge, ...courtOutcomes.filter(o => o.id !== outcomeBridge.id)];
+    setCourtOutcomesState(updatedOutcomes);
+    saveCourtOutcomes(updatedOutcomes);
+
+    // If next court date is fixed, schedule diary entry
+    if (nextCourtDate) {
+      const targetFile = files.find(f => f.id === newCorumEntry.fileId || f.internalFileNumber === newCorumEntry.fileNumber);
+      const validPurpose: CourtSession['purpose'] = (
+        ['Mention', 'Hearing', 'Ruling', 'Judgment', 'Notice of Motion', 'Pre-Trial Conference'].includes(newCorumEntry.nextComingUpFor || '')
+          ? (newCorumEntry.nextComingUpFor as CourtSession['purpose'])
+          : 'Mention'
+      );
+
+      const newSession: CourtSession = {
+        id: `cs-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        firmCode: currentFirmCode,
+        fileId: newCorumEntry.fileId,
+        fileNumber: newCorumEntry.fileNumber,
+        clientName: targetFile?.clientName || 'Client on Record',
+        opposingParty: targetFile?.opposingParty || 'Opposing Party',
+        hearingDate: nextCourtDate,
+        hearingTime: newCorumEntry.nextCourtTime || '09:00 AM',
+        courtStation: newCorumEntry.courtStation,
+        courtNumber: newCorumEntry.courtNumber,
+        magistrate: newCorumEntry.coram,
+        advocateName: newCorumEntry.advocatePresent || targetFile?.advocateName || 'Advocate on Record',
+        purpose: validPurpose,
+        status: 'Upcoming'
+      };
+      const updatedSessions = [newSession, ...courtSessions];
+      setCourtSessionsState(updatedSessions);
+      saveCourtSessions(updatedSessions);
+    }
+
+    // Update physical file metadata
+    if (nextCourtDate || updatedCaseStatus) {
+      const updatedFiles = files.map(f => {
+        if (f.id === newCorumEntry.fileId || f.internalFileNumber === newCorumEntry.fileNumber) {
+          return {
+            ...f,
+            nextCourtDate: nextCourtDate || f.nextCourtDate,
+            currentStatus: updatedCaseStatus || f.currentStatus
+          };
+        }
+        return f;
+      });
+      setFilesState(updatedFiles);
+      saveFiles(updatedFiles);
+    }
+
+    if (currentUser) {
+      addAuditLog(
+        currentUser.fullName,
+        currentUser.role,
+        'Recorded CORUM Court Proceedings',
+        'Court',
+        `Recorded CORUM for ${newCorumEntry.fileNumber} (Coram: ${newCorumEntry.coram}, Def: ${newCorumEntry.defendantAdvocate}, Orders: "${newCorumEntry.orders.substring(0, 60)}...")`
+      );
+      setAuditLogsState(getStoredAuditLogs());
+    }
+  };
+
   const handleToggleBringUpRetrieved = (id: string) => {
     const updated = bringUpItems.map(item => {
       if (item.id === id) {
@@ -1277,6 +1386,10 @@ export default function App() {
             <RegistryModule
               files={activeFirmFiles}
               movements={activeFirmMovements}
+              corumEntries={activeFirmCorumEntries}
+              courtOutcomes={activeFirmCourtOutcomes}
+              onAddCorumEntry={handleAddCorumEntry}
+              onAddCourtOutcome={handleAddCourtOutcome}
               onAddFile={handleAddFile}
               onUpdateFile={file => {
                 const updated = files.map(f => f.id === file.id ? file : f);

@@ -7,7 +7,9 @@ import {
   PartyCapacity,
   UnprocessedClientRecord,
   User,
-  LawFirmProfile
+  LawFirmProfile,
+  CorumEntry,
+  CourtOutcome
 } from '../types';
 import { DEFAULT_CASE_CATEGORIES, CaseCategoryConfig } from '../data/caseCategories';
 import { 
@@ -18,6 +20,7 @@ import {
   getNextPreliminarySequence
 } from '../utils/fileNumberUtils';
 import { generateSystemInternalFileNumber } from '../utils/fileNumberGenerator';
+import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { UnprocessedSourcingModule } from './UnprocessedSourcingModule';
 import { CourtStationPicker } from './CourtStationPicker';
 import { 
@@ -52,7 +55,12 @@ import {
   Check,
   Filter,
   Inbox,
-  Sparkles
+  Sparkles,
+  Calendar,
+  FileText,
+  MessageSquare,
+  ScrollText,
+  Edit3
 } from 'lucide-react';
 
 export const CLIENT_TYPES: ClientType[] = [
@@ -117,6 +125,10 @@ interface RegistryModuleProps {
   users?: User[];
   currentFirm?: LawFirmProfile | null;
   onUpdateFirm?: (firm: LawFirmProfile) => void;
+  corumEntries?: CorumEntry[];
+  courtOutcomes?: CourtOutcome[];
+  onAddCorumEntry?: (entry: CorumEntry, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
+  onAddCourtOutcome?: (outcome: CourtOutcome, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
 }
 
 export type RegistryCategoryTab = 'ACTIVE' | 'CLOSED' | 'INCOMPLETE' | 'ALL';
@@ -135,7 +147,11 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   fileNumberPrefix = 'NGA',
   users = [],
   currentFirm = null,
-  onUpdateFirm
+  onUpdateFirm,
+  corumEntries = [],
+  courtOutcomes = [],
+  onAddCorumEntry,
+  onAddCourtOutcome
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourtStation, setSelectedCourtStation] = useState<string>('ALL');
@@ -145,6 +161,34 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   const [selectedFile, setSelectedFile] = useState<RegistryFile | null>(null);
   const [showAddModal, setShowAddModal] = useState(openNewModalInitially);
   const [showUnprocessedBucketModal, setShowUnprocessedBucketModal] = useState(false);
+
+  // Record CORUM modal state
+  const [showRecordCorumModal, setShowRecordCorumModal] = useState(false);
+  const [corumTargetFile, setCorumTargetFile] = useState<RegistryFile | null>(null);
+  const [corumValidationError, setCorumValidationError] = useState<string | null>(null);
+  const [corumSearchQuery, setCorumSearchQuery] = useState('');
+
+  const todayStr = getTodayStr();
+
+  const [corumFormData, setCorumFormData] = useState({
+    date: todayStr,
+    time: '09:00 AM',
+    coram: '',
+    courtStation: '',
+    courtNumber: 'Court 1',
+    advocatePresent: '',
+    defendantAdvocate: '',
+    comingUpFor: 'Mention',
+    customComingUpFor: '',
+    orders: '',
+    remarks: '',
+    officeAction: '',
+    nextCourtDate: '',
+    nextCourtTime: '09:00 AM',
+    nextComingUpFor: 'Mention',
+    caseStatusAfter: 'Active' as RegistryFile['currentStatus'],
+    recordedBy: ''
+  });
 
   // Direct File Registration manual inputs: File Number (e.g. 08) and Year (e.g. 2026)
   const [directFileNumber, setDirectFileNumber] = useState('');
@@ -203,6 +247,46 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   const filteredStationsWithFiles = stationsWithFiles.filter((st: string) => 
     st.toLowerCase().includes(stationSearchTerm.toLowerCase())
   );
+
+  // Filtered and merged CORUM proceedings list for the currently selected file in Record Details
+  const fileCorumList: CorumEntry[] = React.useMemo(() => {
+    if (!selectedFile) return [];
+
+    const directEntries = corumEntries.filter(
+      c => c.fileId === selectedFile.id || c.fileNumber === selectedFile.internalFileNumber
+    );
+
+    const outcomeMappedEntries: CorumEntry[] = courtOutcomes
+      .filter(o => o.fileId === selectedFile.id || o.fileNumber === selectedFile.internalFileNumber)
+      .filter(o => !directEntries.some(d => d.id === o.id || d.id === `corum-${o.id}` || `co-${d.id}` === o.id))
+      .map(o => ({
+        id: o.id,
+        firmCode: o.firmCode,
+        fileId: o.fileId,
+        fileNumber: o.fileNumber,
+        date: o.appearanceDate,
+        time: o.nextHearingTime || '09:00 AM',
+        courtStation: o.courtStation || selectedFile.courtStation,
+        courtNumber: o.courtNumber || selectedFile.courtNumber,
+        coram: o.coram || o.magistrate || selectedFile.magistrate || 'Hon. Presiding Magistrate/Judge',
+        advocatePresent: o.advocatePresent || selectedFile.advocateName || 'Advocate on Record',
+        defendantAdvocate: o.defendantAdvocate || 'Opposing Counsel on Record',
+        comingUpFor: o.comingUpFor || o.outcomeDetails?.split(':')[0] || 'Mention',
+        orders: o.ordersIssued || 'Orders issued in court.',
+        remarks: o.remarks || o.outcomeDetails || 'Attended court proceedings.',
+        officeAction: o.officeAction || 'Diary for compliance and next court date.',
+        nextCourtDate: o.nextHearingDate,
+        nextCourtTime: o.nextHearingTime,
+        nextComingUpFor: 'Mention',
+        caseStatusAfter: o.caseStatusAfter,
+        recordedBy: o.recordedBy || 'Advocate',
+        recordedAt: o.recordedAt || o.appearanceDate
+      }));
+
+    return [...directEntries, ...outcomeMappedEntries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [selectedFile, corumEntries, courtOutcomes]);
 
   // Dual-mode Registration State: 'unprocessed' (from bucket) vs 'direct' (walk-in/outside)
   const [registrationMode, setRegistrationMode] = useState<'unprocessed' | 'direct'>('direct');
@@ -307,6 +391,126 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       notes: rec.briefDescription ? `[Preliminary Intake Note]: ${rec.briefDescription}` : prev.notes,
       dateOpened: rec.dateCaptured || new Date().toISOString().split('T')[0]
     }));
+  };
+
+  // Open Record CORUM Modal for a given file
+  const openRecordCorumModal = (file: RegistryFile) => {
+    setCorumTargetFile(file);
+    setCorumValidationError(null);
+    setCorumFormData({
+      date: todayStr,
+      time: '09:00 AM',
+      coram: file.magistrate || '',
+      courtStation: file.courtStation || '',
+      courtNumber: file.courtNumber || 'Court 1',
+      advocatePresent: file.advocateName || users?.find(u => u.role === 'Advocate' || u.role === 'Proprietor')?.fullName || '',
+      defendantAdvocate: '',
+      comingUpFor: 'Mention',
+      customComingUpFor: '',
+      orders: '',
+      remarks: '',
+      officeAction: '',
+      nextCourtDate: '',
+      nextCourtTime: '09:00 AM',
+      nextComingUpFor: 'Mention',
+      caseStatusAfter: file.currentStatus || 'Active',
+      recordedBy: users?.find(u => u.role === 'Advocate' || u.role === 'Clerk')?.fullName || 'Advocate on Record'
+    });
+    setShowRecordCorumModal(true);
+  };
+
+  // Save CORUM Entry
+  const handleSaveCorum = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!corumTargetFile) return;
+
+    if (!corumFormData.defendantAdvocate.trim()) {
+      setCorumValidationError('Please enter the Defendant Advocate / Opposing Counsel (e.g. "M/s Kamau & Co. Advocates for Defendant" or "Self-Represented").');
+      return;
+    }
+
+    if (!corumFormData.orders.trim()) {
+      setCorumValidationError('Please provide the Court Orders Issued.');
+      return;
+    }
+
+    const finalComingUpFor = corumFormData.comingUpFor === 'Other' && corumFormData.customComingUpFor.trim()
+      ? corumFormData.customComingUpFor.trim()
+      : corumFormData.comingUpFor;
+
+    // Validate Next Court Date if provided
+    if (corumFormData.nextCourtDate) {
+      const val = validateCourtDate(corumFormData.nextCourtDate, corumFormData.nextCourtTime);
+      if (!val.isValid) {
+        setCorumValidationError(val.errorMessage || 'Invalid Next Court Date.');
+        return;
+      }
+    }
+
+    const newCorumEntry: CorumEntry = {
+      id: `corum-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      firmCode: currentFirm?.firmCode,
+      fileId: corumTargetFile.id,
+      fileNumber: corumTargetFile.internalFileNumber,
+      courtCaseNumber: corumTargetFile.courtCaseNumber,
+      date: corumFormData.date,
+      time: corumFormData.time,
+      courtStation: corumFormData.courtStation || corumTargetFile.courtStation,
+      courtNumber: corumFormData.courtNumber || corumTargetFile.courtNumber,
+      coram: corumFormData.coram.trim() || corumTargetFile.magistrate || 'Hon. Presiding Magistrate/Judge',
+      advocatePresent: corumFormData.advocatePresent.trim() || corumTargetFile.advocateName || 'Plaintiff Advocate',
+      defendantAdvocate: corumFormData.defendantAdvocate.trim(),
+      comingUpFor: finalComingUpFor,
+      orders: corumFormData.orders.trim(),
+      remarks: corumFormData.remarks.trim() || 'Attended court. Proceedings recorded.',
+      officeAction: corumFormData.officeAction.trim() || 'Extract order and diary for compliance.',
+      nextCourtDate: corumFormData.nextCourtDate || undefined,
+      nextCourtTime: corumFormData.nextCourtDate ? corumFormData.nextCourtTime : undefined,
+      nextComingUpFor: corumFormData.nextCourtDate ? corumFormData.nextComingUpFor : undefined,
+      caseStatusAfter: corumFormData.caseStatusAfter,
+      recordedBy: corumFormData.recordedBy || 'Advocate',
+      recordedAt: new Date().toISOString()
+    };
+
+    if (onAddCorumEntry) {
+      onAddCorumEntry(newCorumEntry, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
+    } else if (onAddCourtOutcome) {
+      const outcomeBridge: CourtOutcome = {
+        id: `co-${newCorumEntry.id}`,
+        firmCode: currentFirm?.firmCode,
+        fileId: corumTargetFile.id,
+        fileNumber: corumTargetFile.internalFileNumber,
+        appearanceDate: newCorumEntry.date,
+        courtStation: newCorumEntry.courtStation,
+        courtNumber: newCorumEntry.courtNumber,
+        coram: newCorumEntry.coram,
+        magistrate: newCorumEntry.coram,
+        advocatePresent: newCorumEntry.advocatePresent,
+        defendantAdvocate: newCorumEntry.defendantAdvocate,
+        comingUpFor: newCorumEntry.comingUpFor,
+        outcomeDetails: `${newCorumEntry.comingUpFor}: ${newCorumEntry.remarks}`,
+        ordersIssued: newCorumEntry.orders,
+        remarks: newCorumEntry.remarks,
+        officeAction: newCorumEntry.officeAction,
+        nextHearingDate: newCorumEntry.nextCourtDate,
+        nextHearingTime: newCorumEntry.nextCourtTime,
+        caseStatusAfter: newCorumEntry.caseStatusAfter || 'Active',
+        recordedBy: newCorumEntry.recordedBy,
+        recordedAt: newCorumEntry.recordedAt
+      };
+      onAddCourtOutcome(outcomeBridge, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
+    }
+
+    if (selectedFile && selectedFile.id === corumTargetFile.id) {
+      setSelectedFile({
+        ...selectedFile,
+        nextCourtDate: corumFormData.nextCourtDate || selectedFile.nextCourtDate,
+        currentStatus: corumFormData.caseStatusAfter || selectedFile.currentStatus
+      });
+    }
+
+    setShowRecordCorumModal(false);
+    setCorumTargetFile(null);
   };
 
   // Step 1 Overall Category Totals
@@ -1259,6 +1463,164 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               </div>
             </div>
 
+            {/* CORUM & COURT PROCEEDINGS REGISTER */}
+            <div className="space-y-3 pt-3 border-t border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-[#C9A227]/20 border border-[#C9A227]/40 rounded-lg text-[#C9A227]">
+                    <Scale className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-sm text-white flex items-center gap-2">
+                      CORUM & COURT PROCEEDINGS
+                      <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-[#C9A227] border border-[#C9A227]/30 rounded-full font-mono font-bold">
+                        {fileCorumList.length} {fileCorumList.length === 1 ? 'Record' : 'Records'}
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      Court proceedings history recorded by attending advocate
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openRecordCorumModal(selectedFile)}
+                  className="px-3 py-1.5 bg-gradient-to-r from-[#C9A227] to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black rounded-lg shadow-lg flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  Record CORUM
+                </button>
+              </div>
+
+              {/* CORUM Entries List or Empty State */}
+              <div className="space-y-3">
+                {fileCorumList.length === 0 ? (
+                  <div className="p-5 bg-slate-900/60 border border-dashed border-slate-700/70 rounded-xl text-center space-y-2">
+                    <Scale className="w-7 h-7 text-slate-500 mx-auto" />
+                    <div className="text-xs font-bold text-slate-300">No CORUM Proceedings Recorded Yet</div>
+                    <p className="text-[11px] text-slate-400 max-w-md mx-auto">
+                      Log proceedings for this file including <strong>Defendant Advocate</strong>, <strong>Coming Up For</strong>, <strong>Court Orders</strong>, <strong>Advocate Remarks</strong>, <strong>Office Action</strong>, and <strong>Date</strong>.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => openRecordCorumModal(selectedFile)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-[#C9A227] text-xs font-bold rounded-lg border border-[#C9A227]/40 transition cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Record First CORUM Entry
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    {fileCorumList.map((corum, idx) => (
+                      <div
+                        key={corum.id || idx}
+                        className="p-4 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl space-y-3 transition"
+                      >
+                        {/* Top Bar: Date, Coram, Court Station */}
+                        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2 py-0.5 bg-amber-500/15 text-[#C9A227] border border-[#C9A227]/30 text-xs font-mono font-bold rounded-md flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {corum.date} {corum.time ? `• ${corum.time}` : ''}
+                            </span>
+                            <span className="text-xs font-bold text-slate-200">
+                              Coram: <span className="text-amber-200">{corum.coram || selectedFile.magistrate || 'Hon. Presiding Magistrate/Judge'}</span>
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                            <Landmark className="w-3 h-3 text-slate-500" />
+                            {corum.courtStation || selectedFile.courtStation} ({corum.courtNumber || selectedFile.courtNumber})
+                          </div>
+                        </div>
+
+                        {/* Counsel Row: Plaintiff / Attending Advocate & Defendant Advocate */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div className="p-2.5 bg-slate-950/60 rounded-lg border border-slate-800 space-y-0.5">
+                            <div className="text-[10px] uppercase font-semibold text-slate-400 flex items-center gap-1">
+                              <UserCheck className="w-3 h-3 text-emerald-400" />
+                              Firm / Plaintiff Advocate
+                            </div>
+                            <div className="font-bold text-slate-200">{corum.advocatePresent || selectedFile.advocateName || 'Advocate on Record'}</div>
+                          </div>
+
+                          <div className="p-2.5 bg-slate-950/60 rounded-lg border border-slate-800 space-y-0.5">
+                            <div className="text-[10px] uppercase font-semibold text-slate-400 flex items-center gap-1">
+                              <UserCheck className="w-3 h-3 text-rose-400" />
+                              Defendant Advocate
+                            </div>
+                            <div className="font-bold text-rose-300">{corum.defendantAdvocate || 'Opposing Counsel on Record'}</div>
+                          </div>
+                        </div>
+
+                        {/* Coming Up For */}
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-slate-400 text-[11px] font-semibold">Coming Up For:</span>
+                          <span className="px-2.5 py-0.5 bg-indigo-950/80 text-indigo-300 border border-indigo-700/50 rounded text-xs font-bold">
+                            {corum.comingUpFor}
+                          </span>
+                        </div>
+
+                        {/* Court Orders Issued */}
+                        <div className="p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg space-y-1">
+                          <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                            <Gavel className="w-3.5 h-3.5 text-[#C9A227]" />
+                            Court Orders Issued
+                          </div>
+                          <p className="text-xs text-amber-100/90 whitespace-pre-wrap leading-relaxed">
+                            {corum.orders}
+                          </p>
+                        </div>
+
+                        {/* Remarks / Proceedings Recorded by Advocate */}
+                        <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-lg space-y-1">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                            <ScrollText className="w-3.5 h-3.5 text-slate-400" />
+                            Advocate Remarks & Proceedings
+                          </div>
+                          <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed italic">
+                            "{corum.remarks}"
+                          </p>
+                        </div>
+
+                        {/* Office Action Required */}
+                        <div className="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-lg space-y-1">
+                          <div className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            Office Action Required
+                          </div>
+                          <p className="text-xs text-emerald-200 whitespace-pre-wrap leading-relaxed font-medium">
+                            {corum.officeAction}
+                          </p>
+                        </div>
+
+                        {/* Next Court Appearance & Attribution Footer */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60 text-[11px] text-slate-400">
+                          {corum.nextCourtDate ? (
+                            <div className="flex items-center gap-1 text-amber-300 font-bold">
+                              <Clock className="w-3 h-3 text-[#C9A227]" />
+                              Next Court Appearance: <span className="underline font-mono">{corum.nextCourtDate} {corum.nextCourtTime || ''}</span>
+                              {corum.nextComingUpFor && (
+                                <span className="text-slate-300 font-normal">({corum.nextComingUpFor})</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 italic">No future court date fixed</span>
+                          )}
+
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            Recorded by: <span className="text-slate-400 font-medium">{corum.recordedBy || 'Advocate'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* File Movement History */}
             <div className="space-y-3 pt-2 border-t border-slate-800">
               <h4 className="font-serif font-bold text-sm text-white flex items-center gap-2">
@@ -1967,6 +2329,335 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
           isModal={true}
           onCloseModal={() => setShowUnprocessedBucketModal(false)}
         />
+      )}
+
+      {/* RECORD CORUM MODAL */}
+      {showRecordCorumModal && corumTargetFile && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#081729] rounded-2xl max-w-2xl w-full p-6 space-y-4 border border-[#C9A227]/60 shadow-2xl overflow-y-auto max-h-[92vh] text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-[#C9A227]/20 border border-[#C9A227]/40 rounded-lg text-[#C9A227]">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-white">Record CORUM & Court Proceedings</h3>
+                  <p className="text-xs text-slate-400">
+                    Log court appearance details, orders, remarks, opposing counsel & office actions
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRecordCorumModal(false);
+                  setCorumTargetFile(null);
+                }}
+                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target File Info Summary Banner */}
+            <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">File Number:</span>
+                <div className="font-mono font-bold text-amber-300 text-sm">{corumTargetFile.internalFileNumber}</div>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">Court Case No:</span>
+                <div className="font-bold text-slate-200">{corumTargetFile.courtCaseNumber || 'Pending Filing'}</div>
+              </div>
+              <div className="w-full sm:w-auto">
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">Parties:</span>
+                <div className="font-medium text-slate-300">{corumTargetFile.clientName} <span className="text-amber-400 font-bold">vs</span> {corumTargetFile.opposingParty}</div>
+              </div>
+            </div>
+
+            {corumValidationError && (
+              <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-lg text-rose-200 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>{corumValidationError}</div>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveCorum} className="space-y-4 text-xs">
+              
+              {/* Date & Time Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-200 mb-1">
+                    Date of Appearance <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={corumFormData.date}
+                    onChange={e => {
+                      const sel = e.target.value;
+                      if (sel && isWeekend(sel)) {
+                        const valid = ensureWeekday(sel);
+                        setCorumFormData({ ...corumFormData, date: valid });
+                        setCorumValidationError(`Weekend court date prohibited. Auto-adjusted to weekday (${valid}).`);
+                      } else {
+                        setCorumFormData({ ...corumFormData, date: sel });
+                        setCorumValidationError(null);
+                      }
+                    }}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227] font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-200 mb-1">
+                    Time of Session
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 09:00 AM"
+                    value={corumFormData.time}
+                    onChange={e => setCorumFormData({ ...corumFormData, time: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227] font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Coram & Court Station */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-200 mb-1">
+                    Presiding Coram (Magistrate / Judge / Bench)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Hon. E. C. Cherono, Principal Magistrate"
+                    value={corumFormData.coram}
+                    onChange={e => setCorumFormData({ ...corumFormData, coram: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-200 mb-1">
+                    Court Station & Room
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Station"
+                      value={corumFormData.courtStation}
+                      onChange={e => setCorumFormData({ ...corumFormData, courtStation: e.target.value })}
+                      className="p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Court Room"
+                      value={corumFormData.courtNumber}
+                      onChange={e => setCorumFormData({ ...corumFormData, courtNumber: e.target.value })}
+                      className="p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Counsel Row: Plaintiff Advocate & Defendant Advocate */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-200 mb-1">
+                    Firm / Attending Advocate (Plaintiff Counsel)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Adv. Anthony Omollo"
+                    value={corumFormData.advocatePresent}
+                    onChange={e => setCorumFormData({ ...corumFormData, advocatePresent: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-200 mb-1">
+                    Defendant Advocate (Opposing Counsel) <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. M/s Kamau, Ndung'u & Co. Advocates (for Defendant)"
+                    value={corumFormData.defendantAdvocate}
+                    onChange={e => setCorumFormData({ ...corumFormData, defendantAdvocate: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border border-[#C9A227]/70 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                  />
+                </div>
+              </div>
+
+              {/* Coming Up For */}
+              <div>
+                <label className="block font-bold text-slate-200 mb-1">
+                  Coming Up For (Purpose of Appearance) <span className="text-rose-400">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <select
+                    value={corumFormData.comingUpFor}
+                    onChange={e => setCorumFormData({ ...corumFormData, comingUpFor: e.target.value })}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold focus:border-[#C9A227]"
+                  >
+                    <option value="Mention">Mention</option>
+                    <option value="Mention for Pre-Trial Directions">Mention for Pre-Trial Directions</option>
+                    <option value="Mention to Confirm Compliance">Mention to Confirm Compliance</option>
+                    <option value="Hearing of Main Suit">Hearing of Main Suit</option>
+                    <option value="Hearing of Preliminary Objection">Hearing of Preliminary Objection</option>
+                    <option value="Hearing of Notice of Motion">Hearing of Notice of Motion</option>
+                    <option value="Hearing of Application for Injunction">Hearing of Application for Injunction</option>
+                    <option value="Ruling">Ruling</option>
+                    <option value="Judgment">Judgment</option>
+                    <option value="Formal Proof">Formal Proof</option>
+                    <option value="Cross-Examination">Cross-Examination</option>
+                    <option value="Taxing of Bill of Costs">Taxing of Bill of Costs</option>
+                    <option value="Pre-Trial Conference">Pre-Trial Conference</option>
+                    <option value="Other">Other (Custom Purpose)</option>
+                  </select>
+
+                  {corumFormData.comingUpFor === 'Other' && (
+                    <input
+                      type="text"
+                      placeholder="Specify exact court purpose..."
+                      value={corumFormData.customComingUpFor}
+                      onChange={e => setCorumFormData({ ...corumFormData, customComingUpFor: e.target.value })}
+                      className="p-2.5 bg-slate-950 border border-[#C9A227] rounded-xl text-slate-100"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Court Orders Issued */}
+              <div>
+                <label className="block font-bold text-amber-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Gavel className="w-3.5 h-3.5 text-[#C9A227]" />
+                  Court Orders Issued <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  placeholder="e.g. 1. Application dated 14/05/2026 is allowed as prayed. 2. Plaintiff given 14 days to file and serve amended plaint. 3. Costs in the cause."
+                  value={corumFormData.orders}
+                  onChange={e => setCorumFormData({ ...corumFormData, orders: e.target.value })}
+                  className="w-full p-2.5 bg-slate-950 border border-amber-500/50 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                />
+              </div>
+
+              {/* Advocate Remarks & Proceedings */}
+              <div>
+                <label className="block font-bold text-slate-200 mb-1 flex items-center gap-1">
+                  <ScrollText className="w-3.5 h-3.5 text-slate-400" />
+                  Advocate Remarks & Proceedings Notes
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Both counsel appeared before Hon. Magistrate. Argued preliminary objection on limitation of time. Court stood matter over to 2:30 PM for brief ruling."
+                  value={corumFormData.remarks}
+                  onChange={e => setCorumFormData({ ...corumFormData, remarks: e.target.value })}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                />
+              </div>
+
+              {/* Office Action Required */}
+              <div>
+                <label className="block font-bold text-emerald-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Office Action Required (Law Firm Directive)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Extract formal court order before Friday; serve Defendant's Advocate with hearing notice and file Affidavit of Service."
+                  value={corumFormData.officeAction}
+                  onChange={e => setCorumFormData({ ...corumFormData, officeAction: e.target.value })}
+                  className="w-full p-2.5 bg-slate-950 border border-emerald-500/50 rounded-xl text-emerald-100 focus:border-emerald-400"
+                />
+              </div>
+
+              {/* Next Court Date & Case Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-900 border border-slate-800 rounded-xl">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">
+                    Next Court Date (If fixed)
+                  </label>
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={corumFormData.nextCourtDate}
+                    onChange={e => {
+                      const sel = e.target.value;
+                      if (sel && isWeekend(sel)) {
+                        const valid = ensureWeekday(sel);
+                        setCorumFormData({ ...corumFormData, nextCourtDate: valid });
+                        setCorumValidationError(`Weekend next court date prohibited. Adjusted to (${valid}).`);
+                      } else {
+                        setCorumFormData({ ...corumFormData, nextCourtDate: sel });
+                        setCorumValidationError(null);
+                      }
+                    }}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-amber-300 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">
+                    Next Purpose (Coming up for)
+                  </label>
+                  <select
+                    value={corumFormData.nextComingUpFor}
+                    onChange={e => setCorumFormData({ ...corumFormData, nextComingUpFor: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100"
+                  >
+                    <option value="Mention">Mention</option>
+                    <option value="Hearing">Hearing</option>
+                    <option value="Ruling">Ruling</option>
+                    <option value="Judgment">Judgment</option>
+                    <option value="Pre-Trial Conference">Pre-Trial Conference</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">
+                    Update File Status
+                  </label>
+                  <select
+                    value={corumFormData.caseStatusAfter}
+                    onChange={e => setCorumFormData({ ...corumFormData, caseStatusAfter: e.target.value as RegistryFile['currentStatus'] })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-bold"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Pending Court">Pending Court</option>
+                    <option value="Out with Advocate">Out with Advocate</option>
+                    <option value="Closed">Closed / Judgment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRecordCorumModal(false);
+                    setCorumTargetFile(null);
+                  }}
+                  className="px-4 py-2 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-[#C9A227] text-slate-950 font-black rounded-lg hover:bg-amber-400 uppercase tracking-wider shadow-lg flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Scale className="w-4 h-4" />
+                  Save CORUM Record
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
       )}
 
     </div>
