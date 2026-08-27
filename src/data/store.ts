@@ -175,7 +175,16 @@ export function saveUsers(users: User[]): void {
 }
 
 export function getStoredFiles(): RegistryFile[] {
-  return loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, []);
+  const stored = loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, []);
+  if (Array.isArray(stored) && stored.length > 0) {
+    return stored;
+  }
+  const legacy = loadItem<RegistryFile[]>('lfr_physical_files_v1', []);
+  if (Array.isArray(legacy) && legacy.length > 0) {
+    saveFiles(legacy);
+    return legacy;
+  }
+  return [];
 }
 
 export function saveFiles(files: RegistryFile[]): void {

@@ -103,7 +103,7 @@ function isQuotaError(err: unknown): boolean {
 }
 
 // Helper function to seed or sync initial collection to Firebase if empty with fast timeout fallback
-export async function syncCollectionToFirebase<T extends { id: string }>(
+export async function syncCollectionToFirebase<T extends { id?: string }>(
   collectionName: string, 
   initialItems: T[]
 ): Promise<T[]> {
@@ -121,7 +121,7 @@ export async function syncCollectionToFirebase<T extends { id: string }>(
     });
 
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Firestore connection timeout')), 2500)
+      setTimeout(() => reject(new Error('Firestore connection timeout')), 3000)
     );
 
     const snapshot = await Promise.race([
@@ -131,17 +131,60 @@ export async function syncCollectionToFirebase<T extends { id: string }>(
 
     if (snapshot.empty) {
       // Seed Firebase with initialItems asynchronously without blocking
-      for (const item of initialItems) {
+      for (const item of (initialItems || [])) {
         if (isQuotaExceeded) break;
         saveDocumentToFirebase(collectionName, item);
       }
       return initialItems;
     } else {
-      const items: T[] = [];
+      const remoteItems: T[] = [];
+      const remoteKeySet = new Set<string>();
+
       snapshot.forEach(docSnap => {
-        items.push(docSnap.data() as T);
+        const data = docSnap.data() as T;
+        const key = String(data.id || (data as any).firmCode || (data as any).internalFileNumber || (data as any).username || docSnap.id);
+        if (key) {
+          remoteKeySet.add(key);
+        }
+        remoteItems.push(data);
       });
-      return items;
+
+      // Merge local items with remote items to guarantee NO locally added items are ever lost!
+      const mergedMap = new Map<string, T>();
+
+      // 1. Seed with local items
+      (initialItems || []).forEach(localItem => {
+        if (!localItem) return;
+        const key = String(localItem.id || (localItem as any).firmCode || (localItem as any).internalFileNumber || (localItem as any).username || '');
+        if (key) {
+          mergedMap.set(key, localItem);
+        }
+      });
+
+      // 2. Put / merge remote items, preferring the most recent or combining missing fields
+      remoteItems.forEach(remoteItem => {
+        if (!remoteItem) return;
+        const key = String(remoteItem.id || (remoteItem as any).firmCode || (remoteItem as any).internalFileNumber || (remoteItem as any).username || '');
+        if (key) {
+          if (mergedMap.has(key)) {
+            const existingLocal = mergedMap.get(key);
+            mergedMap.set(key, { ...remoteItem, ...existingLocal });
+          } else {
+            mergedMap.set(key, remoteItem);
+          }
+        }
+      });
+
+      // 3. For any local item that wasn't in remote Firestore, upload it in the background
+      (initialItems || []).forEach(localItem => {
+        if (!localItem) return;
+        const key = String(localItem.id || (localItem as any).firmCode || (localItem as any).internalFileNumber || (localItem as any).username || '');
+        if (key && !remoteKeySet.has(key)) {
+          saveDocumentToFirebase(collectionName, localItem);
+        }
+      });
+
+      return Array.from(mergedMap.values());
     }
   } catch (err) {
     if (isQuotaError(err)) {
@@ -331,20 +374,22 @@ export async function triggerLocalStorageFirebaseSnapshot(firmCode = 'GLOBAL') {
       return val ? JSON.parse(val) : [];
     };
 
-    const physicalFiles = parse('lfr_physical_files_v1');
-    const fileMovements = parse('lfr_file_movements_v1');
-    const auditLogs = parse('lfr_audit_logs_v1');
-    const courtSessions = parse('lfr_court_sessions_v1');
-    const courtOutcomes = parse('lfr_court_outcomes_v1');
-    const bringUps = parse('lfr_bring_ups_v1');
-    const insuranceClaims = parse('lfr_insurance_claims_v1');
-    const cheques = parse('lfr_cheques_v1');
-    const registeredFirms = parse('lfr_registered_firms_v1');
-    const chaserLogs = parse('lfr_chaser_logs_v1');
-    const chaserResponsibilities = parse('lfr_chaser_responsibilities_v1');
-    const chaserTasks = parse('lfr_chaser_tasks_v1');
-    const unprocessedRecords = parse('lfr_unprocessed_records_v1');
-    const urgentAlerts = parse('lfr_urgent_alerts_v1');
+    const physicalFiles = parse('lfr_files_v2');
+    const fileMovements = parse('lfr_movements_v2');
+    const auditLogs = parse('lfr_audit_logs_v2');
+    const courtSessions = parse('lfr_court_sessions_v2');
+    const courtOutcomes = parse('lfr_court_outcomes_v2');
+    const corumEntries = parse('lfr_corum_entries_v2');
+    const bringUps = parse('lfr_bring_up_items_v2');
+    const insuranceClaims = parse('lfr_insurance_claims_v2');
+    const cheques = parse('lfr_pending_cheques_v2');
+    const commissions = parse('lfr_commissions_v2');
+    const registeredFirms = parse('lfr_firms_v2');
+    const chaserLogs = parse('lfr_chaser_logs_v2');
+    const chaserResponsibilities = parse('lfr_chaser_responsibilities_v2');
+    const chaserTasks = parse('lfr_chaser_tasks_v2');
+    const unprocessedRecords = parse('lfr_unprocessed_records_v2');
+    const urgentAlerts = parse('lfr_urgent_alerts_v2');
 
     const now = new Date();
     const timestamp = now.toISOString();
@@ -360,9 +405,11 @@ export async function triggerLocalStorageFirebaseSnapshot(firmCode = 'GLOBAL') {
         auditLogs: auditLogs.length,
         courtSessions: courtSessions.length,
         courtOutcomes: courtOutcomes.length,
+        corumEntries: corumEntries.length,
         bringUps: bringUps.length,
         insuranceClaims: insuranceClaims.length,
         cheques: cheques.length,
+        commissions: commissions.length,
         registeredFirms: registeredFirms.length,
         chaserTasks: chaserTasks.length,
         unprocessedRecords: unprocessedRecords.length,
@@ -374,9 +421,11 @@ export async function triggerLocalStorageFirebaseSnapshot(firmCode = 'GLOBAL') {
         auditLogs,
         courtSessions,
         courtOutcomes,
+        corumEntries,
         bringUps,
         insuranceClaims,
         cheques,
+        commissions,
         registeredFirms,
         chaserLogs,
         chaserResponsibilities,

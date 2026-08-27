@@ -48,6 +48,7 @@ import {
 
 import { 
   saveDocumentToFirebase, 
+  deleteDocumentFromFirebase,
   triggerLocalStorageFirebaseSnapshot, 
   saveFirmToFirebase, 
   saveUserToFirebase, 
@@ -114,63 +115,70 @@ export default function App() {
   const [unprocessedRecords, setUnprocessedRecordsState] = useState<UnprocessedClientRecord[]>(getStoredUnprocessedRecords());
 
   // Firm Multi-Tenancy Scoping
-  const currentFirmCode = currentUser?.firmCode || settings.firmCode || 'LFR-001';
+  const currentFirmCode = (currentUser?.firmCode || settings.firmCode || 'LFR-001').trim();
+  const currentFirmCodeUpper = currentFirmCode.toUpperCase();
   const isSuperAdminView = currentUser?.role === 'Super Admin' && activeTab === 'super-admin';
+
+  const matchesFirm = (itemFirmCode?: string) => {
+    if (isSuperAdminView) return true;
+    const code = (itemFirmCode || 'LFR-001').trim().toUpperCase();
+    return code === currentFirmCodeUpper || (!itemFirmCode && currentFirmCodeUpper === 'LFR-001');
+  };
 
   const activeFirmFiles = useMemo(() => {
     if (isSuperAdminView) return files;
-    return files.filter(f => (f.firmCode || 'LFR-001') === currentFirmCode);
-  }, [files, currentFirmCode, isSuperAdminView]);
+    return files.filter(f => matchesFirm(f.firmCode));
+  }, [files, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmCourtSessions = useMemo(() => {
     if (isSuperAdminView) return courtSessions;
-    return courtSessions.filter(s => (s.firmCode || 'LFR-001') === currentFirmCode);
-  }, [courtSessions, currentFirmCode, isSuperAdminView]);
+    return courtSessions.filter(s => matchesFirm(s.firmCode));
+  }, [courtSessions, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmCourtOutcomes = useMemo(() => {
     if (isSuperAdminView) return courtOutcomes;
-    return courtOutcomes.filter(o => (o.firmCode || 'LFR-001') === currentFirmCode);
-  }, [courtOutcomes, currentFirmCode, isSuperAdminView]);
+    return courtOutcomes.filter(o => matchesFirm(o.firmCode));
+  }, [courtOutcomes, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmCorumEntries = useMemo(() => {
     if (isSuperAdminView) return corumEntries;
-    return corumEntries.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
-  }, [corumEntries, currentFirmCode, isSuperAdminView]);
+    return corumEntries.filter(c => matchesFirm(c.firmCode));
+  }, [corumEntries, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmMovements = useMemo(() => {
     if (isSuperAdminView) return movements;
-    return movements.filter(m => (m.firmCode || 'LFR-001') === currentFirmCode);
-  }, [movements, currentFirmCode, isSuperAdminView]);
+    return movements.filter(m => matchesFirm(m.firmCode));
+  }, [movements, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmClaims = useMemo(() => {
     if (isSuperAdminView) return claims;
-    return claims.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
-  }, [claims, currentFirmCode, isSuperAdminView]);
+    return claims.filter(c => matchesFirm(c.firmCode));
+  }, [claims, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmCheques = useMemo(() => {
     if (isSuperAdminView) return cheques;
-    return cheques.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
-  }, [cheques, currentFirmCode, isSuperAdminView]);
+    return cheques.filter(c => matchesFirm(c.firmCode));
+  }, [cheques, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmCommissions = useMemo(() => {
     if (isSuperAdminView) return commissions;
-    return commissions.filter(c => (c.firmCode || 'LFR-001') === currentFirmCode);
-  }, [commissions, currentFirmCode, isSuperAdminView]);
+    return commissions.filter(c => matchesFirm(c.firmCode));
+  }, [commissions, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmBringUpItems = useMemo(() => {
     if (isSuperAdminView) return bringUpItems;
-    return bringUpItems.filter(b => (b.firmCode || 'LFR-001') === currentFirmCode);
-  }, [bringUpItems, currentFirmCode, isSuperAdminView]);
+    return bringUpItems.filter(b => matchesFirm(b.firmCode));
+  }, [bringUpItems, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmTasks = useMemo(() => {
     if (isSuperAdminView) return tasks;
-    return tasks.filter(t => (t.firmCode || 'LFR-001') === currentFirmCode);
-  }, [tasks, currentFirmCode, isSuperAdminView]);
+    return tasks.filter(t => matchesFirm(t.firmCode));
+  }, [tasks, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmUnprocessedRecords = useMemo(() => {
     if (isSuperAdminView) return unprocessedRecords;
-    return unprocessedRecords.filter(r => (r.firmCode || 'LFR-001') === currentFirmCode);
-  }, [unprocessedRecords, currentFirmCode, isSuperAdminView]);
+    return unprocessedRecords.filter(r => matchesFirm(r.firmCode));
+  }, [unprocessedRecords, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmUsers = useMemo(() => {
     if (isSuperAdminView) return users;
@@ -316,6 +324,7 @@ export default function App() {
     const updated = [recordWithFirm, ...unprocessedRecords];
     setUnprocessedRecordsState(updated);
     saveUnprocessedRecords(updated);
+    saveDocumentToFirebase('unprocessed_records', recordWithFirm);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Captured Client Intake Record', 'Registry', `Captured preliminary client info for ${newRecord.clientFullName} (${newRecord.caseType}) into Unprocessed Bucket`);
@@ -327,14 +336,15 @@ export default function App() {
     const updated = unprocessedRecords.map(r => r.id === updatedRecord.id ? updatedRecord : r);
     setUnprocessedRecordsState(updated);
     saveUnprocessedRecords(updated);
+    saveDocumentToFirebase('unprocessed_records', updatedRecord);
   };
 
   const handleAddFollowUpLog = (newLog: ChaserFollowUpLog) => {
-
     const logWithFirm = { ...newLog, firmCode: newLog.firmCode || currentFirmCode };
     const updated = [logWithFirm, ...followUpLogs];
     setFollowUpLogsState(updated);
     saveFollowUpLogs(updated);
+    saveDocumentToFirebase('follow_up_logs', logWithFirm);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Logged Client Follow-Up', 'Registry', `Recorded interaction for file ${newLog.fileNumber}: "${newLog.outcome}"`);
@@ -345,14 +355,16 @@ export default function App() {
   const handleUpdateResponsibility = (resp: ChaserFileResponsibility) => {
     const index = responsibilities.findIndex(r => r.fileId === resp.fileId || r.fileNumber === resp.fileNumber);
     let updated: ChaserFileResponsibility[];
+    const respWithFirm = { ...resp, firmCode: resp.firmCode || currentFirmCode };
     if (index >= 0) {
       updated = [...responsibilities];
-      updated[index] = resp;
+      updated[index] = respWithFirm;
     } else {
-      updated = [{ ...resp, firmCode: resp.firmCode || currentFirmCode }, ...responsibilities];
+      updated = [respWithFirm, ...responsibilities];
     }
     setResponsibilitiesState(updated);
     saveResponsibilities(updated);
+    saveDocumentToFirebase('responsibilities', respWithFirm);
   };
 
   const handleAddTask = (newTask: ChaserTask) => {
@@ -360,6 +372,7 @@ export default function App() {
     const updated = [taskWithFirm, ...tasks];
     setTasksState(updated);
     saveTasks(updated);
+    saveDocumentToFirebase('tasks', taskWithFirm);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Assigned Case Chaser Task', 'Registry', `Assigned task "${newTask.taskTitle}" to ${newTask.assignedToChaserName} due ${newTask.dueDate}`);
@@ -371,6 +384,7 @@ export default function App() {
     const updated = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
     setTasksState(updated);
     saveTasks(updated);
+    saveDocumentToFirebase('tasks', updatedTask);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Updated Task Status', 'Registry', `Updated task "${updatedTask.taskTitle}" status to ${updatedTask.status}`);
@@ -382,6 +396,7 @@ export default function App() {
     const updated = tasks.filter(t => t.id !== taskId);
     setTasksState(updated);
     saveTasks(updated);
+    deleteDocumentFromFirebase('tasks', taskId);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Deleted Task', 'Registry', `Deleted task ${taskId} from system`);
@@ -480,23 +495,107 @@ export default function App() {
     }
 
     // Async sync with Firebase Firestore
-    import('./lib/firebase').then(({ syncCollectionToFirebase, saveDocumentToFirebase }) => {
+    import('./lib/firebase').then(({ syncCollectionToFirebase }) => {
+      // 1. Files
       const activeFiles = loadedFiles.length > 0 ? loadedFiles : getStoredFiles();
-      syncCollectionToFirebase('files', activeFiles).then(remoteFiles => {
-        if (remoteFiles && remoteFiles.length > 0) {
-          setFilesState(remoteFiles);
-        } else {
+      syncCollectionToFirebase('files', activeFiles).then(mergedFiles => {
+        if (mergedFiles && mergedFiles.length > 0) {
+          setFilesState(mergedFiles);
+          saveFiles(mergedFiles);
+        } else if (activeFiles.length > 0) {
           saveFiles(activeFiles);
         }
-      });
-      syncCollectionToFirebase('court_sessions', getStoredCourtSessions()).then(remote => {
-        if (remote && remote.length > 0) setCourtSessionsState(remote);
-      });
-      syncCollectionToFirebase('claims', getStoredInsuranceClaims()).then(remote => {
-        if (remote && remote.length > 0) setClaimsState(remote);
-      });
+      }).catch(err => console.warn('Files sync error:', err));
 
-      // Sync registered Law Firms from both 'firms' and 'law_firms' collections in Firestore
+      // 2. Movements
+      syncCollectionToFirebase('movements', getStoredMovements()).then(merged => {
+        if (merged && merged.length > 0) {
+          setMovementsState(merged);
+          saveMovements(merged);
+        }
+      }).catch(err => console.warn('Movements sync error:', err));
+
+      // 3. Court Sessions
+      syncCollectionToFirebase('court_sessions', getStoredCourtSessions()).then(merged => {
+        if (merged && merged.length > 0) {
+          setCourtSessionsState(merged);
+          saveCourtSessions(merged);
+        }
+      }).catch(err => console.warn('Court sessions sync error:', err));
+
+      // 4. Court Outcomes
+      syncCollectionToFirebase('court_outcomes', getStoredCourtOutcomes()).then(merged => {
+        if (merged && merged.length > 0) {
+          setCourtOutcomesState(merged);
+          saveCourtOutcomes(merged);
+        }
+      }).catch(err => console.warn('Court outcomes sync error:', err));
+
+      // 5. Corum Entries
+      syncCollectionToFirebase('corum_entries', getStoredCorumEntries()).then(merged => {
+        if (merged && merged.length > 0) {
+          setCorumEntriesState(merged);
+          saveCorumEntries(merged);
+        }
+      }).catch(err => console.warn('Corum entries sync error:', err));
+
+      // 6. Bring Up Items
+      syncCollectionToFirebase('bring_up_items', getStoredBringUpItems()).then(merged => {
+        if (merged && merged.length > 0) {
+          setBringUpItemsState(merged);
+          saveBringUpItems(merged);
+        }
+      }).catch(err => console.warn('Bring up sync error:', err));
+
+      // 7. Insurance Claims
+      syncCollectionToFirebase('claims', getStoredInsuranceClaims()).then(merged => {
+        if (merged && merged.length > 0) {
+          setClaimsState(merged);
+          saveInsuranceClaims(merged);
+        }
+      }).catch(err => console.warn('Claims sync error:', err));
+
+      // 8. Cheques
+      syncCollectionToFirebase('cheques', getStoredPendingCheques()).then(merged => {
+        if (merged && merged.length > 0) {
+          setChequesState(merged);
+          savePendingCheques(merged);
+        }
+      }).catch(err => console.warn('Cheques sync error:', err));
+
+      // 9. Commissions
+      syncCollectionToFirebase('commissions', getStoredCommissions()).then(merged => {
+        if (merged && merged.length > 0) {
+          setCommissionsState(merged);
+          saveCommissions(merged);
+        }
+      }).catch(err => console.warn('Commissions sync error:', err));
+
+      // 10. Tasks
+      syncCollectionToFirebase('tasks', getStoredTasks()).then(merged => {
+        if (merged && merged.length > 0) {
+          setTasksState(merged);
+          saveTasks(merged);
+        }
+      }).catch(err => console.warn('Tasks sync error:', err));
+
+      // 11. Unprocessed Records
+      syncCollectionToFirebase('unprocessed_records', getStoredUnprocessedRecords()).then(merged => {
+        if (merged && merged.length > 0) {
+          setUnprocessedRecordsState(merged);
+          saveUnprocessedRecords(merged);
+        }
+      }).catch(err => console.warn('Unprocessed records sync error:', err));
+
+      // 12. Urgent Alerts
+      syncCollectionToFirebase('urgent_alerts', getStoredUrgentAlerts()).then(merged => {
+        if (merged && merged.length > 0) {
+          setUrgentAlertsState(merged);
+          saveUrgentAlerts(merged);
+        }
+      }).catch(err => console.warn('Urgent alerts sync error:', err));
+
+      // 13. Sync registered Law Firms from both 'firms' and 'law_firms' collections in Firestore
       const localFirms = getStoredFirms();
       Promise.all([
         syncCollectionToFirebase('firms', localFirms),
@@ -517,7 +616,7 @@ export default function App() {
         }
       }).catch(err => console.warn('Law firms sync error:', err));
 
-      // Sync Users from 'users' collection in Firestore
+      // 14. Sync Users from 'users' collection in Firestore
       const localUsers = getStoredUsers();
       syncCollectionToFirebase('users', localUsers).then(remoteUsers => {
         if (remoteUsers && remoteUsers.length > 0) {
@@ -754,6 +853,7 @@ export default function App() {
     const updated = [fileWithFirm, ...files];
     setFilesState(updated);
     saveFiles(updated);
+    saveDocumentToFirebase('files', fileWithFirm);
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Registered Physical File', 'Registry', `Opened physical file ${newFile.internalFileNumber} (${newFile.clientName})`);
@@ -771,21 +871,28 @@ export default function App() {
     const updatedMovements = [movementWithFirm, ...movements];
     setMovementsState(updatedMovements);
     saveMovements(updatedMovements);
+    saveDocumentToFirebase('movements', movementWithFirm);
 
     // Update physical location of target file
+    let targetUpdatedFile: RegistryFile | null = null;
     const updatedFiles = files.map(f => {
       if (f.id === newMovement.fileId || f.internalFileNumber === newMovement.fileNumber) {
-        return {
+        const mod: RegistryFile = {
           ...f,
           physicalLocation: updatedLocation,
           currentStatus: newStatus || f.currentStatus
         };
+        targetUpdatedFile = mod;
+        return mod;
       }
       return f;
     });
 
     setFilesState(updatedFiles);
     saveFiles(updatedFiles);
+    if (targetUpdatedFile) {
+      saveDocumentToFirebase('files', targetUpdatedFile);
+    }
 
     if (currentUser) {
       addAuditLog(
@@ -807,6 +914,7 @@ export default function App() {
     const updated = [sessionWithFirm, ...courtSessions];
     setCourtSessionsState(updated);
     saveCourtSessions(updated);
+    saveDocumentToFirebase('court_sessions', sessionWithFirm);
 
     if (sameDayAlert) {
       const newAlert: UrgentAlert = {
@@ -819,6 +927,7 @@ export default function App() {
         createdAt: new Date().toISOString()
       };
       saveAlerts([newAlert, ...urgentAlerts]);
+      saveDocumentToFirebase('urgent_alerts', newAlert);
     }
 
     if (currentUser) {
@@ -843,6 +952,7 @@ export default function App() {
     const updatedOutcomes = [outcomeWithFirm, ...courtOutcomes];
     setCourtOutcomesState(updatedOutcomes);
     saveCourtOutcomes(updatedOutcomes);
+    saveDocumentToFirebase('court_outcomes', outcomeWithFirm);
 
     if (sameDayAlert) {
       const newAlert: UrgentAlert = {
@@ -855,22 +965,29 @@ export default function App() {
         createdAt: new Date().toISOString()
       };
       saveAlerts([newAlert, ...urgentAlerts]);
+      saveDocumentToFirebase('urgent_alerts', newAlert);
     }
 
     // Update file's next court date and status
     if (nextCourtDate || updatedCaseStatus) {
+      let targetFileUpdated: RegistryFile | null = null;
       const updatedFiles = files.map(f => {
         if (f.id === newOutcome.fileId || f.internalFileNumber === newOutcome.fileNumber) {
-          return {
+          const mod = {
             ...f,
             nextCourtDate: nextCourtDate || f.nextCourtDate,
             currentStatus: updatedCaseStatus || f.currentStatus
           };
+          targetFileUpdated = mod;
+          return mod;
         }
         return f;
       });
       setFilesState(updatedFiles);
       saveFiles(updatedFiles);
+      if (targetFileUpdated) {
+        saveDocumentToFirebase('files', targetFileUpdated);
+      }
     }
 
     if (currentUser) {
@@ -894,6 +1011,7 @@ export default function App() {
     const updatedCorum = [corumWithFirm, ...corumEntries];
     setCorumEntriesState(updatedCorum);
     saveCorumEntries(updatedCorum);
+    saveDocumentToFirebase('corum_entries', corumWithFirm);
 
     // Also bridge as CourtOutcome for unified reporting across views
     const outcomeBridge: CourtOutcome = {
@@ -922,6 +1040,7 @@ export default function App() {
     const updatedOutcomes = [outcomeBridge, ...courtOutcomes.filter(o => o.id !== outcomeBridge.id)];
     setCourtOutcomesState(updatedOutcomes);
     saveCourtOutcomes(updatedOutcomes);
+    saveDocumentToFirebase('court_outcomes', outcomeBridge);
 
     // If next court date is fixed, schedule diary entry
     if (nextCourtDate) {
@@ -951,22 +1070,29 @@ export default function App() {
       const updatedSessions = [newSession, ...courtSessions];
       setCourtSessionsState(updatedSessions);
       saveCourtSessions(updatedSessions);
+      saveDocumentToFirebase('court_sessions', newSession);
     }
 
     // Update physical file metadata
     if (nextCourtDate || updatedCaseStatus) {
+      let targetFileUpdated: RegistryFile | null = null;
       const updatedFiles = files.map(f => {
         if (f.id === newCorumEntry.fileId || f.internalFileNumber === newCorumEntry.fileNumber) {
-          return {
+          const mod = {
             ...f,
             nextCourtDate: nextCourtDate || f.nextCourtDate,
             currentStatus: updatedCaseStatus || f.currentStatus
           };
+          targetFileUpdated = mod;
+          return mod;
         }
         return f;
       });
       setFilesState(updatedFiles);
       saveFiles(updatedFiles);
+      if (targetFileUpdated) {
+        saveDocumentToFirebase('files', targetFileUpdated);
+      }
     }
 
     if (currentUser) {
@@ -982,26 +1108,33 @@ export default function App() {
   };
 
   const handleToggleBringUpRetrieved = (id: string) => {
+    let targetItemUpdated: BringUpItem | null = null;
     const updated = bringUpItems.map(item => {
       if (item.id === id) {
-        return {
+        const mod: BringUpItem = {
           ...item,
           retrieved: !item.retrieved,
           retrievedBy: !item.retrieved ? (currentUser?.fullName || 'Registry Clerk') : undefined,
           retrievedAt: !item.retrieved ? new Date().toISOString() : undefined
         };
+        targetItemUpdated = mod;
+        return mod;
       }
       return item;
     });
 
     setBringUpItemsState(updated);
     saveBringUpItems(updated);
+    if (targetItemUpdated) {
+      saveDocumentToFirebase('bring_up_items', targetItemUpdated);
+    }
   };
 
   const handleUpdateInsuranceClaim = (claim: InsuranceClaim) => {
     const updated = claims.map(c => c.id === claim.id ? claim : c);
     setClaimsState(updated);
     saveInsuranceClaims(updated);
+    saveDocumentToFirebase('claims', claim);
   };
 
   const handleAddInsuranceClaim = (claim: InsuranceClaim) => {
@@ -1009,12 +1142,14 @@ export default function App() {
     const updated = [claimWithFirm, ...claims];
     setClaimsState(updated);
     saveInsuranceClaims(updated);
+    saveDocumentToFirebase('claims', claimWithFirm);
   };
 
   const handleUpdatePendingCheque = (cheque: PendingCheque) => {
     const updated = cheques.map(c => c.id === cheque.id ? cheque : c);
     setChequesState(updated);
     savePendingCheques(updated);
+    saveDocumentToFirebase('cheques', cheque);
   };
 
   const handleAddPendingCheque = (cheque: PendingCheque) => {
@@ -1022,25 +1157,32 @@ export default function App() {
     const updated = [chequeWithFirm, ...cheques];
     setChequesState(updated);
     savePendingCheques(updated);
+    saveDocumentToFirebase('cheques', chequeWithFirm);
   };
 
   const handleCommissionPayout = (commissionId: string, payoutAmount: number) => {
+    let targetPayoutCommission: CommissionRecord | null = null;
     const updated = commissions.map(c => {
       if (c.id === commissionId) {
         const newPaid = c.amountPaid + payoutAmount;
         const newBalance = Math.max(0, c.commissionDue - newPaid);
-        return {
+        const mod = {
           ...c,
           amountPaid: newPaid,
           outstandingBalance: newBalance,
           lastPaymentDate: new Date().toISOString().split('T')[0]
         };
+        targetPayoutCommission = mod;
+        return mod;
       }
       return c;
     });
 
     setCommissionsState(updated);
     saveCommissions(updated);
+    if (targetPayoutCommission) {
+      saveDocumentToFirebase('commissions', targetPayoutCommission);
+    }
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Disbursed Commission', 'Commission', `Paid KSh ${payoutAmount.toLocaleString()} towards commission ID ${commissionId}`);
@@ -1053,6 +1195,7 @@ export default function App() {
     const updated = [recordWithFirm, ...commissions];
     setCommissionsState(updated);
     saveCommissions(updated);
+    saveDocumentToFirebase('commissions', recordWithFirm);
   };
 
   const handleAddUser = (user: User) => {
