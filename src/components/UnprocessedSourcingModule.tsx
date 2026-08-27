@@ -14,6 +14,7 @@ import {
   getNextPreliminarySequence 
 } from '../utils/fileNumberUtils';
 import { DEFAULT_CASE_CATEGORIES } from '../data/caseCategories';
+import { CourtStationPicker } from './CourtStationPicker';
 import { 
   Inbox, 
   Search, 
@@ -843,15 +844,12 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
 
                       <div>
                         <label className="block text-slate-400 font-bold mb-1">Court Station</label>
-                        <select
+                        <CourtStationPicker
                           value={conversionData.courtStation}
-                          onChange={e => setConversionData({ ...conversionData, courtStation: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-amber-500"
-                        >
-                          {courtStations.map(cs => (
-                            <option key={cs} value={cs}>{cs}</option>
-                          ))}
-                        </select>
+                          onChange={val => setConversionData({ ...conversionData, courtStation: val })}
+                          availableStations={courtStations}
+                          placeholder="Select court station..."
+                        />
                       </div>
 
                       <div>

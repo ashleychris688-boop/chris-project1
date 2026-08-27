@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SystemSettings, User, LawFirmProfile } from '../types';
 import { 
   Settings as SettingsIcon, 
@@ -18,7 +18,11 @@ import {
   Copy,
   Check,
   Tag,
-  RefreshCw
+  RefreshCw,
+  Scale,
+  Search,
+  Landmark,
+  X
 } from 'lucide-react';
 import { validatePassword } from '../utils/passwordValidator';
 import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
@@ -26,6 +30,12 @@ import {
   FILE_NUMBER_FORMAT_PRESETS,
   buildFormattedFileNumber
 } from '../utils/fileNumberUtils';
+import {
+  DEFAULT_KENYA_COURT_STATIONS,
+  KENYA_COURT_CATEGORIES,
+  CourtCategory,
+  getCourtCategoryByName
+} from '../data/kenyaCourts';
 
 interface SettingsModuleProps {
   settings: SystemSettings;
@@ -80,6 +90,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [newStation, setNewStation] = useState('');
   const [newCabinet, setNewCabinet] = useState('');
   const [savedMsg, setSavedMsg] = useState(false);
+  const [stationSearchQuery, setStationSearchQuery] = useState('');
+  const [stationCategoryFilter, setStationCategoryFilter] = useState<CourtCategory | 'ALL'>('ALL');
+
+  // Filtered court stations for management view
+  const filteredCourtStations = useMemo(() => {
+    return formData.courtStations.filter(st => {
+      const matchesSearch = !stationSearchQuery.trim() || st.toLowerCase().includes(stationSearchQuery.toLowerCase());
+      if (!matchesSearch) return false;
+      if (stationCategoryFilter === 'ALL') return true;
+      const cat = getCourtCategoryByName(st);
+      return cat === stationCategoryFilter;
+    });
+  }, [formData.courtStations, stationSearchQuery, stationCategoryFilter]);
+
+  const handleResetToKenyaCourts = () => {
+    if (window.confirm('Reset court stations to the full official Kenya Judiciary directory (~250 courts organized by type)?')) {
+      setFormData({
+        ...formData,
+        courtStations: DEFAULT_KENYA_COURT_STATIONS
+      });
+    }
+  };
 
   // Interactive Live Example Sandbox States
   const [sampleCaseType, setSampleCaseType] = useState('Succession & Probate');
@@ -638,41 +670,129 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         </div>
 
         {/* Court Stations Directory */}
-        <div className="bg-[#081729] rounded-2xl border border-[#C9A227]/30 p-5 shadow-xl space-y-3">
-          <h3 className="font-serif font-bold text-sm text-white border-b border-slate-800 pb-2">
-            Court Stations
-          </h3>
+        <div className="bg-[#081729] rounded-2xl border border-[#C9A227]/30 p-5 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Landmark className="w-5 h-5 text-[#C9A227]" />
+              <h3 className="font-serif font-bold text-sm text-white">
+                Kenya Court Stations Directory ({formData.courtStations.length} Active Stations)
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetToKenyaCourts}
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-[#C9A227]/40 rounded-lg text-xs font-medium transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset to Official Kenya Directory</span>
+            </button>
+          </div>
 
+          {/* Add custom station */}
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Add court station..."
+              placeholder="Add new court station or sub-registry..."
               value={newStation}
               onChange={e => setNewStation(e.target.value)}
-              className="flex-1 p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded text-xs focus:border-[#C9A227]"
+              className="flex-1 p-2.5 bg-slate-950 border border-slate-700 text-slate-100 rounded-xl text-xs focus:border-[#C9A227]"
             />
             <button
               type="button"
               onClick={handleAddStation}
-              className="px-4 py-2 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-bold rounded cursor-pointer text-xs"
+              className="px-5 py-2.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-bold rounded-xl cursor-pointer text-xs transition"
             >
-              Add
+              Add Station
             </button>
           </div>
 
-          <div className="divide-y divide-slate-800 max-h-40 overflow-y-auto border border-slate-800 rounded-xl bg-slate-950/40">
-            {formData.courtStations.map((cs, idx) => (
-              <div key={idx} className="p-2 flex items-center justify-between text-xs hover:bg-slate-900/60">
-                <span className="text-slate-200">{cs}</span>
+          {/* Search and Category Filter Tabs */}
+          <div className="space-y-2 pt-1">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={stationSearchQuery}
+                onChange={e => setStationSearchQuery(e.target.value)}
+                placeholder="Filter stations by name, town or county..."
+                className="w-full pl-8 pr-7 py-2 bg-slate-950/80 border border-slate-800 text-slate-100 rounded-xl text-xs focus:outline-none focus:border-[#C9A227]"
+              />
+              {stationSearchQuery && (
                 <button
                   type="button"
-                  onClick={() => handleRemoveStation(idx)}
-                  className="p-1 text-red-400 hover:bg-red-950/60 rounded"
+                  onClick={() => setStationSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <X className="w-3 h-3" />
                 </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-[10px]">
+              <button
+                type="button"
+                onClick={() => setStationCategoryFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition cursor-pointer ${
+                  stationCategoryFilter === 'ALL'
+                    ? 'bg-[#C9A227] text-slate-950 font-bold'
+                    : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                }`}
+              >
+                All ({formData.courtStations.length})
+              </button>
+              {KENYA_COURT_CATEGORIES.map(cat => {
+                const countInFirm = formData.courtStations.filter(s => getCourtCategoryByName(s) === cat.category).length;
+                return (
+                  <button
+                    key={cat.category}
+                    type="button"
+                    onClick={() => setStationCategoryFilter(cat.category)}
+                    className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition cursor-pointer ${
+                      stationCategoryFilter === cat.category
+                        ? 'bg-[#C9A227] text-slate-950 font-bold'
+                        : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    }`}
+                  >
+                    {cat.shortLabel} ({countInFirm})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* List of Court Stations */}
+          <div className="divide-y divide-slate-800/80 max-h-56 overflow-y-auto border border-slate-800 rounded-xl bg-slate-950/60 p-1">
+            {filteredCourtStations.length > 0 ? (
+              filteredCourtStations.map((cs, idx) => {
+                const cat = getCourtCategoryByName(cs);
+                const catMeta = KENYA_COURT_CATEGORIES.find(c => c.category === cat);
+                const originalIdx = formData.courtStations.indexOf(cs);
+                return (
+                  <div key={idx} className="p-2 flex items-center justify-between text-xs hover:bg-slate-900/70 rounded-lg group">
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <span className="text-slate-200 font-medium truncate">{cs}</span>
+                      {catMeta && (
+                        <span className={`px-1.5 py-0.5 text-[9px] font-mono font-bold rounded border shrink-0 ${catMeta.badgeColor}`}>
+                          {catMeta.shortLabel}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveStation(originalIdx)}
+                      className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-950/60 rounded transition cursor-pointer"
+                      title="Remove station"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-4 text-center text-slate-400 text-xs">
+                No court stations match filter "{stationSearchQuery || stationCategoryFilter}"
               </div>
-            ))}
+            )}
           </div>
         </div>
 

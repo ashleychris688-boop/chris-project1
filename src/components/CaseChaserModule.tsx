@@ -17,6 +17,7 @@ import {
   getNextPreliminarySequence 
 } from '../utils/fileNumberUtils';
 import { STANDARD_MISSING_REQUIREMENTS_CHECKLIST } from '../data/chaserData';
+import { CourtStationPicker } from './CourtStationPicker';
 import { 
   Handshake, 
   Search, 
@@ -1458,12 +1459,10 @@ export const CaseChaserModule: React.FC<CaseChaserModuleProps> = ({
                       <label className="block font-bold text-slate-300 mb-1">
                         Court Station <span className="text-slate-500">(If known)</span>
                       </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Milimani Law Courts"
+                      <CourtStationPicker
                         value={newIntakeData.courtStation}
-                        onChange={e => setNewIntakeData({ ...newIntakeData, courtStation: e.target.value })}
-                        className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227] focus:outline-none"
+                        onChange={val => setNewIntakeData({ ...newIntakeData, courtStation: val })}
+                        placeholder="Search court station..."
                       />
                     </div>
 

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { exportTableToPdf } from '../utils/pdfExport';
+import { CourtStationPicker } from './CourtStationPicker';
 
 interface CourtDiaryModuleProps {
   sessions: CourtSession[];
@@ -434,15 +435,12 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Court Station</label>
-                <select
+                <CourtStationPicker
                   value={formData.courtStation}
-                  onChange={e => setFormData({ ...formData, courtStation: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded text-xs focus:border-[#C9A227]"
-                >
-                  {courtStations.map(cs => (
-                    <option key={cs} value={cs} className="bg-slate-900">{cs}</option>
-                  ))}
-                </select>
+                  onChange={val => setFormData({ ...formData, courtStation: val })}
+                  availableStations={courtStations}
+                  placeholder="Select or search court station..."
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

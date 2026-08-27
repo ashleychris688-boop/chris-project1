@@ -19,6 +19,7 @@ import {
 } from '../utils/fileNumberUtils';
 import { generateSystemInternalFileNumber } from '../utils/fileNumberGenerator';
 import { UnprocessedSourcingModule } from './UnprocessedSourcingModule';
+import { CourtStationPicker } from './CourtStationPicker';
 import { 
   FolderArchive, 
   Search, 
@@ -1822,15 +1823,12 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-[#C9A227] mb-1">Court Station</label>
-                  <select
+                  <CourtStationPicker
                     value={formData.courtStation}
-                    onChange={e => setFormData({ ...formData, courtStation: e.target.value })}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
-                  >
-                    {courtStations.map(cs => (
-                      <option key={cs} value={cs}>{cs}</option>
-                    ))}
-                  </select>
+                    onChange={val => setFormData({ ...formData, courtStation: val })}
+                    availableStations={courtStations}
+                    placeholder="Search or select court station..."
+                  />
                 </div>
 
                 <div>

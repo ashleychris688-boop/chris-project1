@@ -12,6 +12,7 @@ import {
   SystemSettings,
   LawFirmProfile
 } from '../types';
+import { DEFAULT_KENYA_COURT_STATIONS } from './kenyaCourts';
 
 export const INITIAL_FIRMS: LawFirmProfile[] = [];
 
@@ -26,16 +27,7 @@ export const INITIAL_SETTINGS: SystemSettings = {
   email: "admin@lawfirmregistry.co.ke",
   sessionTimeoutMinutes: 30,
   requireTwoFactor: false,
-  courtStations: [
-    "Milimani Law Courts - Commercial Division",
-    "Milimani Law Courts - Civil Division",
-    "Mombasa Law Courts",
-    "Kisumu Law Courts",
-    "Nakuru Law Courts",
-    "Eldoret Law Courts",
-    "Nyeri High Court",
-    "Machakos High Court"
-  ],
+  courtStations: DEFAULT_KENYA_COURT_STATIONS,
   cabinets: [
     "Cabinet A - Commercial Division",
     "Cabinet B - Civil Division",
