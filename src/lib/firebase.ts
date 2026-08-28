@@ -196,10 +196,10 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
   }
 }
 
-export async function saveDocumentToFirebase<T extends { id?: string }>(collectionName: string, item: T) {
+export async function saveDocumentToFirebase(collectionName: string, item: any) {
   if (isQuotaExceeded || !item) return;
 
-  const docId = item.id || (item as any).firmCode || (item as any).username;
+  const docId = item.id || item.firmCode || item.internalFileNumber || item.fileId || item.fileNumber || item.username;
   if (!docId) return;
 
   try {

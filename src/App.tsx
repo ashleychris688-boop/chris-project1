@@ -777,12 +777,32 @@ export default function App() {
   };
 
   const handleUpdatePassword = (userId: string, newPassword: string) => {
-    const updatedUsers = users.map(u => u.id === userId ? { ...u, password: newPassword } : u);
+    let updatedTargetUser: User | null = null;
+    const updatedUsers = users.map(u => {
+      if (u.id === userId || u.username === userId || u.email === userId) {
+        const mod: User = { 
+          ...u, 
+          password: newPassword, 
+          passwordLastChanged: new Date().toISOString().split('T')[0] 
+        };
+        updatedTargetUser = mod;
+        return mod;
+      }
+      return u;
+    });
     setUsersState(updatedUsers);
     saveUsers(updatedUsers);
 
-    if (currentUser && currentUser.id === userId) {
-      const updatedCurrent = { ...currentUser, password: newPassword };
+    if (updatedTargetUser) {
+      saveUserToFirebase(updatedTargetUser);
+    }
+
+    if (currentUser && (currentUser.id === userId || currentUser.username === userId || currentUser.email === userId)) {
+      const updatedCurrent = { 
+        ...currentUser, 
+        password: newPassword, 
+        passwordLastChanged: new Date().toISOString().split('T')[0] 
+      };
       setUser(updatedCurrent);
       setCurrentUser(updatedCurrent);
     }
