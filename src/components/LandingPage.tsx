@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Sparkles
 } from 'lucide-react';
+import { HeaderThemeToggle } from '../context/ThemeContext';
 
 interface LandingPageProps {
   onGoToLogin: () => void;
@@ -48,6 +49,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <HeaderThemeToggle />
+
             <button
               onClick={onOpenRegisterFirm}
               className="px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-[#C9A227] to-[#9B7B12] hover:from-[#B08D1E] hover:to-[#84680F] text-slate-950 font-extrabold text-[11px] sm:text-xs tracking-wider uppercase transition shadow-lg flex items-center gap-1 sm:gap-1.5 cursor-pointer"

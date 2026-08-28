@@ -18,6 +18,7 @@ import {
   Menu
 } from 'lucide-react';
 import { getTimeBasedGreeting } from '../utils/dateUtils';
+import { HeaderThemeToggle } from '../context/ThemeContext';
 
 interface HeaderProps {
   currentUser: User | null;
@@ -171,6 +172,9 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
           
+          {/* Theme Mode Toggle (Dark Mode vs High-Contrast Light Mode) */}
+          <HeaderThemeToggle />
+
           {/* Notifications Dropdown */}
           <div className="relative">
             <button

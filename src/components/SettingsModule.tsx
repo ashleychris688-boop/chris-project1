@@ -22,10 +22,14 @@ import {
   Scale,
   Search,
   Landmark,
-  X
+  X,
+  Palette,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { validatePassword } from '../utils/passwordValidator';
 import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
+import { SettingsThemeSelector } from '../context/ThemeContext';
 import {
   FILE_NUMBER_FORMAT_PRESETS,
   buildFormattedFileNumber
@@ -287,6 +291,23 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
       <form onSubmit={handleSave} className="space-y-6 text-xs">
         
+        {/* Workspace Theme & Display Appearance */}
+        <div className="bg-[#081729] rounded-2xl border border-[#C9A227]/30 p-5 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h3 className="font-serif font-bold text-sm text-white flex items-center gap-2">
+              <Palette className="w-4 h-4 text-[#C9A227]" />
+              Display Theme & Accessibility
+            </h3>
+            <span className="text-[11px] text-amber-300 font-mono">Daylight / Low-Light Support</span>
+          </div>
+
+          <p className="text-xs text-slate-300">
+            Switch between the deep dark theme and high-contrast light mode to optimize readability in brightly lit court offices or client conference rooms.
+          </p>
+
+          <SettingsThemeSelector />
+        </div>
+
         {/* Brand Identity Card */}
         <div className="bg-[#081729] rounded-2xl border border-[#C9A227]/30 p-5 shadow-xl space-y-4">
           <h3 className="font-serif font-bold text-sm text-white border-b border-slate-800 pb-2 flex items-center gap-2">

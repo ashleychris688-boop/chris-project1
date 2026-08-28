@@ -24,6 +24,7 @@ import {
 import { saveDocumentToFirebase } from '../lib/firebase';
 import { validatePassword } from '../utils/passwordValidator';
 import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
+import { HeaderThemeToggle } from '../context/ThemeContext';
 
 interface LoginPageProps {
   users: User[];
@@ -369,10 +370,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <span>Back to Landing</span>
         </button>
 
-        <div className="flex items-center gap-1.5 text-xs font-mono text-[#C9A227]">
-          <Building2 className="w-4 h-4 shrink-0" />
-          <span className="hidden xs:inline">LAW FIRM REGISTRY</span>
-          <span className="xs:hidden">REGISTRY</span>
+        <div className="flex items-center gap-2">
+          <HeaderThemeToggle />
+          <div className="flex items-center gap-1.5 text-xs font-mono text-[#C9A227]">
+            <Building2 className="w-4 h-4 shrink-0" />
+            <span className="hidden xs:inline">LAW FIRM REGISTRY</span>
+            <span className="xs:hidden">REGISTRY</span>
+          </div>
         </div>
       </div>
 
