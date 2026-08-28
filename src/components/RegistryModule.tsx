@@ -2267,10 +2267,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </div>
               )}
 
-              {/* COURT CASE NUMBER & LITIGATION PARTIES SECTION */}
+              {/* COURT CASE NUMBER */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-amber-300 flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                     <Scale className="w-4 h-4 text-[#C9A227]" />
                     Court Case Number *
                   </label>
@@ -2284,285 +2284,192 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   placeholder="e.g. Milimani HCCC No. 892 of 2026 or CMCC/1042/2026"
                   value={formData.courtCaseNumber}
                   onChange={e => setFormData({ ...formData, courtCaseNumber: e.target.value })}
-                  className="w-full p-2.5 bg-slate-950 border-2 border-amber-400 rounded-xl text-slate-100 font-bold focus:border-[#C9A227] shadow-inner"
+                  className="w-full p-2.5 bg-slate-950 border border-amber-500/70 rounded-xl text-slate-100 font-bold focus:border-[#C9A227] shadow-inner text-sm"
                 />
               </div>
 
-              {/* PARTIES TO THE SUIT / MATTER (Multi-Party Support) */}
-              <div className="p-4 bg-slate-950/90 border border-[#C9A227]/40 rounded-2xl space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                  <div>
-                    <div className="font-serif font-bold text-base text-white flex items-center gap-2">
-                      <Users className="w-5 h-5 text-[#C9A227]" />
-                      Parties to the Matter / Suit
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Primary litigants and additional co-parties (co-plaintiffs, co-defendants, interested parties)
-                    </p>
+              {/* LITIGATION PARTIES (PLAINTIFFS & DEFENDANTS) - SIMPLIFIED */}
+              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="font-serif font-bold text-sm text-white flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[#C9A227]" />
+                    Parties to the Suit
                   </div>
-                  
-                  {/* Add Party Button Options */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleAddParty('client_side')}
-                      className="px-2.5 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
-                    >
-                      <UserPlus className="w-3.5 h-3.5 text-indigo-400" />
-                      + Co-Plaintiff / Client
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleAddParty('opposing_side')}
-                      className="px-2.5 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
-                    >
-                      <UserPlus className="w-3.5 h-3.5 text-rose-400" />
-                      + Co-Defendant / Adverse
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleAddParty('interested_party')}
-                      className="px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
-                    >
-                      <UserPlus className="w-3.5 h-3.5 text-[#C9A227]" />
-                      + Interested / 3rd Party
-                    </button>
-                  </div>
+                  <span className="text-[11px] text-slate-400">Plaintiffs (Our Client) vs Defendants</span>
                 </div>
 
-                {/* Primary Client & Opposing Party */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Primary Client (Our Side) */}
-                  <div className="p-3.5 bg-slate-900/90 border border-indigo-900/60 rounded-xl space-y-3">
+                  {/* CLIENT / PLAINTIFF SIDE */}
+                  <div className="p-3 bg-slate-950/80 border border-indigo-900/40 rounded-xl space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                        1st Litigant / Client (Our Side) *
+                      <span className="text-xs font-bold text-indigo-300">
+                        1. Client / Plaintiff (Our Side) *
                       </span>
-                      <span className="text-[10px] text-slate-400 font-mono">Primary Litigant</span>
+                      <select
+                        value={formData.clientType}
+                        onChange={e => setFormData({ ...formData, clientType: e.target.value as ClientType })}
+                        className="p-1 bg-slate-900 border border-slate-700 rounded text-[11px] text-amber-300 font-medium"
+                      >
+                        {CLIENT_TYPES.map(ct => (
+                          <option key={ct} value={ct}>{ct}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Client Full Name * {registrationMode === 'unprocessed' && '(Pre-filled from Bucket)'}
-                      </label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Acme Enterprises Ltd or Jane Wanjiku"
+                        placeholder="Client / Plaintiff Full Name *"
                         value={formData.clientName}
                         onChange={e => setFormData({ ...formData, clientName: e.target.value })}
-                        className={`w-full p-2.5 bg-slate-950 border rounded-xl text-slate-100 focus:border-[#C9A227] ${
-                          registrationMode === 'unprocessed' ? 'border-amber-500/60 font-semibold' : 'border-slate-700'
-                        }`}
+                        className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-100 font-semibold focus:border-[#C9A227]"
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Entity Type</label>
-                        <select
-                          value={formData.clientType}
-                          onChange={e => setFormData({ ...formData, clientType: e.target.value as ClientType })}
-                          className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100"
-                        >
-                          {CLIENT_TYPES.map(ct => (
-                            <option key={ct} value={ct}>{ct}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Legal Capacity</label>
-                        <select
-                          value={formData.partyCapacity}
-                          onChange={e => setFormData({ ...formData, partyCapacity: e.target.value as PartyCapacity })}
-                          className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-indigo-300 font-bold"
-                        >
-                          {ALL_PARTY_CAPACITIES.map(pc => (
-                            <option key={pc} value={pc}>{pc}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] text-slate-400">Role in Suit:</label>
+                      <select
+                        value={formData.partyCapacity}
+                        onChange={e => setFormData({ ...formData, partyCapacity: e.target.value as PartyCapacity })}
+                        className="p-1 bg-slate-900 border border-slate-700 rounded text-xs text-indigo-300 font-bold"
+                      >
+                        {ALL_PARTY_CAPACITIES.map(pc => (
+                          <option key={pc} value={pc}>{pc}</option>
+                        ))}
+                      </select>
                     </div>
 
-                    {/* Quick Capacity Recommendation Pills */}
-                    <div className="pt-1">
-                      <div className="text-[10px] text-slate-400 mb-1 flex items-center justify-between font-mono">
-                        <span>Role for {formData.caseCategory || 'Case'}:</span>
+                    {/* Additional Co-Plaintiffs */}
+                    {formData.additionalParties && formData.additionalParties.filter(p => p.partyType === 'client_side').length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-slate-800">
+                        <div className="text-[11px] font-bold text-indigo-300">Co-Plaintiffs / Joint Clients:</div>
+                        {formData.additionalParties
+                          .filter(p => p.partyType === 'client_side')
+                          .map((party) => (
+                            <div key={party.id} className="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-indigo-950">
+                              <input
+                                type="text"
+                                required
+                                placeholder="Co-Plaintiff Full Name"
+                                value={party.name}
+                                onChange={e => handleUpdateParty(party.id, { name: e.target.value })}
+                                className="flex-1 p-1.5 bg-slate-950 border border-slate-700 rounded text-xs text-white"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Role (e.g. 2nd Plaintiff)"
+                                value={party.role}
+                                onChange={e => handleUpdateParty(party.id, { role: e.target.value })}
+                                className="w-28 p-1.5 bg-slate-950 border border-slate-700 rounded text-xs text-indigo-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveParty(party.id)}
+                                className="p-1 text-rose-400 hover:text-rose-200 cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(RECOMMENDED_CAPACITIES_BY_CASE_TYPE[formData.caseCategory || 'Civil Litigation'] || ALL_PARTY_CAPACITIES).slice(0, 4).map(cap => {
-                          const isSelected = formData.partyCapacity === cap;
-                          return (
-                            <button
-                              key={cap}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, partyCapacity: cap })}
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
-                                isSelected
-                                  ? 'bg-indigo-600 text-white border-indigo-400'
-                                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-indigo-500/50 hover:text-white'
-                              }`}
-                            >
-                              {cap}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddParty('client_side')}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 cursor-pointer pt-1"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      + Add Another Plaintiff / Client
+                    </button>
                   </div>
 
-                  {/* Primary Opposing Party (Adverse Side) */}
-                  <div className="p-3.5 bg-slate-900/90 border border-rose-900/60 rounded-xl space-y-3">
+                  {/* OPPOSING PARTY / DEFENDANT SIDE */}
+                  <div className="p-3 bg-slate-950/80 border border-rose-900/40 rounded-xl space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                        1st Defendant / Opposing Party (Adverse Side)
+                      <span className="text-xs font-bold text-rose-300">
+                        2. Defendant / Opposing Party *
                       </span>
-                      <span className="text-[10px] text-slate-400 font-mono">Opposing Side</span>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Opposing Party Name</label>
                       <input
                         type="text"
-                        placeholder="e.g. Jubilee Insurance Co. / John Doe"
+                        placeholder="Defendant / Opposing Party Name"
                         value={formData.opposingParty}
                         onChange={e => setFormData({ ...formData, opposingParty: e.target.value })}
-                        className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                        className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-100 font-semibold focus:border-[#C9A227]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Insurance Company (if applicable)</label>
                       <input
                         type="text"
-                        placeholder="e.g. Directline, CIC, APA Insurance (or None)"
+                        placeholder="Insurance Company (if applicable, or None)"
                         value={formData.insuranceCompanyName}
                         onChange={e => setFormData({ ...formData, insuranceCompanyName: e.target.value })}
-                        className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                        className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 focus:border-[#C9A227]"
                       />
                     </div>
-                  </div>
-                </div>
 
-                {/* Additional Parties List (When parties > 1) */}
-                {formData.additionalParties && formData.additionalParties.length > 0 && (
-                  <div className="space-y-3 pt-2 border-t border-slate-800/80">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-bold text-amber-300 flex items-center gap-2">
-                        <Users className="w-3.5 h-3.5 text-[#C9A227]" />
-                        <span>Additional Parties to Suit ({formData.additionalParties.length})</span>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-[#C9A227] rounded font-mono">
-                        {formData.additionalParties.filter(p => p.partyType === 'client_side').length} Co-Litigants • {formData.additionalParties.filter(p => p.partyType === 'opposing_side').length} Co-Defendants • {formData.additionalParties.filter(p => p.partyType === 'interested_party' || p.partyType === 'other').length} Interested
-                      </span>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      {formData.additionalParties.map((party, idx) => {
-                        const isClientSide = party.partyType === 'client_side';
-                        const isOpposing = party.partyType === 'opposing_side';
-
-                        return (
-                          <div
-                            key={party.id || idx}
-                            className={`p-3 rounded-xl border transition ${
-                              isClientSide
-                                ? 'bg-indigo-950/40 border-indigo-800/60'
-                                : isOpposing
-                                ? 'bg-rose-950/40 border-rose-800/60'
-                                : 'bg-amber-950/40 border-amber-800/60'
-                            }`}
-                          >
-                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                              {/* Party Side Picker */}
-                              <div className="sm:col-span-3">
-                                <label className="block text-[10px] font-semibold text-slate-400 mb-1">Party Side / Category</label>
-                                <select
-                                  value={party.partyType}
-                                  onChange={e => handleUpdateParty(party.id, { partyType: e.target.value as PartySide })}
-                                  className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs font-semibold text-slate-200"
-                                >
-                                  <option value="client_side">👤 Co-Plaintiff / Our Client</option>
-                                  <option value="opposing_side">⚔️ Co-Defendant / Adverse</option>
-                                  <option value="interested_party">🏛️ Interested Party / 3rd Party</option>
-                                  <option value="other">⚖️ Amicus / Objector / Other</option>
-                                </select>
-                              </div>
-
-                              {/* Party Full Name */}
-                              <div className="sm:col-span-3">
-                                <label className="block text-[10px] font-semibold text-slate-400 mb-1">Party Full Name *</label>
-                                <input
-                                  type="text"
-                                  required
-                                  placeholder="Full legal name"
-                                  value={party.name}
-                                  onChange={e => handleUpdateParty(party.id, { name: e.target.value })}
-                                  className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-medium focus:border-amber-400"
-                                />
-                              </div>
-
-                              {/* Role / Title in Case (e.g. 2nd Plaintiff, 2nd Defendant, etc.) */}
-                              <div className="sm:col-span-3">
-                                <label className="block text-[10px] font-semibold text-slate-400 mb-1">Role in Suit</label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. 2nd Plaintiff, 2nd Defendant"
-                                  value={party.role}
-                                  onChange={e => handleUpdateParty(party.id, { role: e.target.value })}
-                                  className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-amber-200 font-semibold focus:border-amber-400"
-                                />
-                              </div>
-
-                              {/* Representation / Advocate */}
-                              <div className="sm:col-span-2">
-                                <label className="block text-[10px] font-semibold text-slate-400 mb-1">Advocate</label>
-                                <input
-                                  type="text"
-                                  placeholder="Counsel on record"
-                                  value={party.advocate || ''}
-                                  onChange={e => handleUpdateParty(party.id, { advocate: e.target.value })}
-                                  className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 focus:border-amber-400"
-                                />
-                              </div>
-
-                              {/* Remove Button */}
-                              <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-0">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveParty(party.id)}
-                                  className="p-2 text-rose-400 hover:text-rose-200 hover:bg-rose-900/60 rounded-lg transition cursor-pointer"
-                                  title="Remove Party"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
+                    {/* Additional Co-Defendants or Interested Parties */}
+                    {formData.additionalParties && formData.additionalParties.filter(p => p.partyType !== 'client_side').length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-slate-800">
+                        <div className="text-[11px] font-bold text-rose-300">Co-Defendants / Interested Parties:</div>
+                        {formData.additionalParties
+                          .filter(p => p.partyType !== 'client_side')
+                          .map((party) => (
+                            <div key={party.id} className="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-rose-950">
+                              <input
+                                type="text"
+                                required
+                                placeholder="Party Full Name"
+                                value={party.name}
+                                onChange={e => handleUpdateParty(party.id, { name: e.target.value })}
+                                className="flex-1 p-1.5 bg-slate-950 border border-slate-700 rounded text-xs text-white"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Role (e.g. 2nd Defendant)"
+                                value={party.role}
+                                onChange={e => handleUpdateParty(party.id, { role: e.target.value })}
+                                className="w-28 p-1.5 bg-slate-950 border border-slate-700 rounded text-xs text-rose-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveParty(party.id)}
+                                className="p-1 text-rose-400 hover:text-rose-200 cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
-                          </div>
-                        );
-                      })}
+                          ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleAddParty('opposing_side')}
+                        className="text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        + Add Co-Defendant
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddParty('interested_party')}
+                        className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        + Add Interested Party
+                      </button>
                     </div>
                   </div>
-                )}
-
-                {/* Quick Add Party Footer Button */}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-slate-400">
-                    Need to add more plaintiffs, defendants, or interested parties?
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleAddParty('opposing_side')}
-                    className="text-xs text-[#C9A227] hover:text-amber-300 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-[#C9A227]/40 hover:border-[#C9A227] transition cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add Another Party
-                  </button>
                 </div>
               </div>
 
@@ -3076,210 +2983,172 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
             </div>
 
             <form onSubmit={handleSaveManagedParties} className="space-y-4">
-              {/* Primary Litigants Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 1st Litigant / Client */}
+                {/* CLIENT / PLAINTIFF SIDE */}
                 <div className="p-4 bg-slate-900 border border-indigo-900/60 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                      1st Litigant / Client (Our Side) *
+                    <span className="text-xs font-bold text-indigo-300">
+                      1. Client / Plaintiff (Our Side) *
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">Primary Client</span>
+                    <select
+                      value={managedPrimaryClientType}
+                      onChange={e => setManagedPrimaryClientType(e.target.value as ClientType)}
+                      className="p-1 bg-slate-950 border border-slate-700 rounded text-[11px] text-amber-300 font-medium"
+                    >
+                      {CLIENT_TYPES.map(ct => (
+                        <option key={ct} value={ct}>{ct}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Client Full Name *</label>
                     <input
                       type="text"
                       required
+                      placeholder="Client / Plaintiff Full Name *"
                       value={managedPrimaryClientName}
                       onChange={e => setManagedPrimaryClientName(e.target.value)}
-                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold focus:border-[#C9A227]"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-100 font-semibold focus:border-[#C9A227]"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Entity Type</label>
-                      <select
-                        value={managedPrimaryClientType}
-                        onChange={e => setManagedPrimaryClientType(e.target.value as ClientType)}
-                        className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100"
-                      >
-                        {CLIENT_TYPES.map(ct => (
-                          <option key={ct} value={ct}>{ct}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Legal Capacity</label>
-                      <select
-                        value={managedPrimaryPartyCapacity}
-                        onChange={e => setManagedPrimaryPartyCapacity(e.target.value as PartyCapacity)}
-                        className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-indigo-300 font-bold"
-                      >
-                        {ALL_PARTY_CAPACITIES.map(pc => (
-                          <option key={pc} value={pc}>{pc}</option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] text-slate-400">Role in Suit:</label>
+                    <select
+                      value={managedPrimaryPartyCapacity}
+                      onChange={e => setManagedPrimaryPartyCapacity(e.target.value as PartyCapacity)}
+                      className="p-1 bg-slate-950 border border-slate-700 rounded text-xs text-indigo-300 font-bold"
+                    >
+                      {ALL_PARTY_CAPACITIES.map(pc => (
+                        <option key={pc} value={pc}>{pc}</option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* Co-Plaintiffs */}
+                  {managedPartiesList.filter(p => p.partyType === 'client_side').length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                      <div className="text-[11px] font-bold text-indigo-300">Co-Plaintiffs / Joint Clients:</div>
+                      {managedPartiesList
+                        .filter(p => p.partyType === 'client_side')
+                        .map((party) => (
+                          <div key={party.id} className="flex items-center gap-2 bg-slate-950 p-2 rounded-lg border border-indigo-950">
+                            <input
+                              type="text"
+                              required
+                              placeholder="Co-Plaintiff Full Name"
+                              value={party.name}
+                              onChange={e => handleUpdateManagedParty(party.id, { name: e.target.value })}
+                              className="flex-1 p-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Role (e.g. 2nd Plaintiff)"
+                              value={party.role}
+                              onChange={e => handleUpdateManagedParty(party.id, { role: e.target.value })}
+                              className="w-28 p-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-indigo-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveManagedParty(party.id)}
+                              className="p-1 text-rose-400 hover:text-rose-200 cursor-pointer"
+                              title="Remove"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleAddManagedParty('client_side')}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 cursor-pointer pt-1"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    + Add Another Plaintiff / Client
+                  </button>
                 </div>
 
-                {/* 1st Opposing Party */}
+                {/* DEFENDANT / OPPOSING SIDE */}
                 <div className="p-4 bg-slate-900 border border-rose-900/60 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                      1st Defendant / Opposing Party (Adverse Side)
+                    <span className="text-xs font-bold text-rose-300">
+                      2. Defendant / Opposing Party *
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">Opposing Side</span>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Opposing Party Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Jubilee Insurance Co. / John Doe"
+                      placeholder="Defendant / Opposing Party Name"
                       value={managedPrimaryOpposingParty}
                       onChange={e => setManagedPrimaryOpposingParty(e.target.value)}
-                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-100 font-semibold focus:border-[#C9A227]"
                     />
                   </div>
 
-                  <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-400">
+                  <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-400">
                     Assigned Advocate: <strong className="text-slate-200">{showManagePartiesModalForFile.advocateName || 'Firm Advocate'}</strong>
                   </div>
-                </div>
-              </div>
 
-              {/* Additional Parties Dynamic List */}
-              <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-serif font-bold text-sm text-white">
-                      Additional Co-Parties to Suit ({managedPartiesList.length})
-                    </span>
-                  </div>
+                  {/* Co-Defendants or Interested Parties */}
+                  {managedPartiesList.filter(p => p.partyType !== 'client_side').length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                      <div className="text-[11px] font-bold text-rose-300">Co-Defendants / Interested Parties:</div>
+                      {managedPartiesList
+                        .filter(p => p.partyType !== 'client_side')
+                        .map((party) => (
+                          <div key={party.id} className="flex items-center gap-2 bg-slate-950 p-2 rounded-lg border border-rose-950">
+                            <input
+                              type="text"
+                              required
+                              placeholder="Party Full Name"
+                              value={party.name}
+                              onChange={e => handleUpdateManagedParty(party.id, { name: e.target.value })}
+                              className="flex-1 p-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Role (e.g. 2nd Defendant)"
+                              value={party.role}
+                              onChange={e => handleUpdateManagedParty(party.id, { role: e.target.value })}
+                              className="w-28 p-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-rose-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveManagedParty(party.id)}
+                              className="p-1 text-rose-400 hover:text-rose-200 cursor-pointer"
+                              title="Remove"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
 
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleAddManagedParty('client_side')}
-                      className="px-2.5 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      + Co-Plaintiff
-                    </button>
-
+                  <div className="flex items-center gap-3 pt-1">
                     <button
                       type="button"
                       onClick={() => handleAddManagedParty('opposing_side')}
-                      className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      className="text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
-                      + Co-Defendant
+                      + Add Co-Defendant
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleAddManagedParty('interested_party')}
-                      className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
-                      + Interested Party
+                      + Add Interested Party
                     </button>
                   </div>
                 </div>
-
-                {managedPartiesList.length === 0 ? (
-                  <div className="text-center py-6 text-slate-400 text-xs bg-slate-950/60 rounded-xl border border-slate-800/80">
-                    No additional co-parties recorded yet. Use the buttons above to add co-plaintiffs, co-defendants, or interested parties.
-                  </div>
-                ) : (
-                  <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
-                    {managedPartiesList.map((party, idx) => {
-                      const isClientSide = party.partyType === 'client_side';
-                      const isOpposing = party.partyType === 'opposing_side';
-
-                      return (
-                        <div
-                          key={party.id || idx}
-                          className={`p-3 rounded-xl border transition ${
-                            isClientSide
-                              ? 'bg-indigo-950/40 border-indigo-800/60'
-                              : isOpposing
-                              ? 'bg-rose-950/40 border-rose-800/60'
-                              : 'bg-amber-950/40 border-amber-800/60'
-                          }`}
-                        >
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                            <div className="sm:col-span-3">
-                              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Party Side / Category</label>
-                              <select
-                                value={party.partyType}
-                                onChange={e => handleUpdateManagedParty(party.id, { partyType: e.target.value as PartySide })}
-                                className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs font-semibold text-slate-200"
-                              >
-                                <option value="client_side">👤 Co-Plaintiff / Our Client</option>
-                                <option value="opposing_side">⚔️ Co-Defendant / Adverse</option>
-                                <option value="interested_party">🏛️ Interested Party / 3rd Party</option>
-                                <option value="other">⚖️ Amicus / Objector / Other</option>
-                              </select>
-                            </div>
-
-                            <div className="sm:col-span-3">
-                              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Party Full Name *</label>
-                              <input
-                                type="text"
-                                required
-                                placeholder="Full legal name"
-                                value={party.name}
-                                onChange={e => handleUpdateManagedParty(party.id, { name: e.target.value })}
-                                className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-medium focus:border-amber-400"
-                              />
-                            </div>
-
-                            <div className="sm:col-span-3">
-                              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Role in Suit</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 2nd Plaintiff, 2nd Defendant"
-                                value={party.role}
-                                onChange={e => handleUpdateManagedParty(party.id, { role: e.target.value })}
-                                className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-amber-200 font-semibold focus:border-amber-400"
-                              />
-                            </div>
-
-                            <div className="sm:col-span-2">
-                              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Advocate</label>
-                              <input
-                                type="text"
-                                placeholder="Counsel on record"
-                                value={party.advocate || ''}
-                                onChange={e => handleUpdateManagedParty(party.id, { advocate: e.target.value })}
-                                className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 focus:border-amber-400"
-                              />
-                            </div>
-
-                            <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-0">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveManagedParty(party.id)}
-                                className="p-2 text-rose-400 hover:text-rose-200 hover:bg-rose-900/60 rounded-lg transition cursor-pointer"
-                                title="Remove Party"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
               {/* Action Buttons */}
