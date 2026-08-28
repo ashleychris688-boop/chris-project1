@@ -18,7 +18,9 @@ import {
   ChaserFileResponsibility,
   ChaserTask,
   UnprocessedClientRecord,
-  UrgentAlert
+  UrgentAlert,
+  ToastNotification,
+  ToastType
 } from './types';
 
 import {
@@ -81,6 +83,7 @@ import { CaseChaserModule } from './components/CaseChaserModule';
 import { UnprocessedSourcingModule } from './components/UnprocessedSourcingModule';
 import { CommissionModule } from './components/CommissionModule';
 import { TaskManagementModule } from './components/TaskManagementModule';
+import { ToastContainer } from './components/Toast';
 
 
 export default function App() {
@@ -92,6 +95,32 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
   });
+
+  // Interactive Toast Notification System
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  const showToast = (
+    type: ToastType, 
+    title: string, 
+    message?: string, 
+    duration: number = 4500,
+    action?: { label: string; onClick: () => void }
+  ) => {
+    const newToast: ToastNotification = {
+      id: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type,
+      title,
+      message,
+      timestamp: Date.now(),
+      duration,
+      action
+    };
+    setToasts(prev => [newToast, ...prev.slice(0, 4)]);
+  };
+
+  const handleDismissToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Application Data States
   const [firms, setFirmsState] = useState<LawFirmProfile[]>(getStoredFirms());
@@ -326,6 +355,12 @@ export default function App() {
     saveUnprocessedRecords(updated);
     saveDocumentToFirebase('unprocessed_records', recordWithFirm);
 
+    showToast(
+      'success',
+      'Client Intake Captured',
+      `Client record for ${newRecord.clientFullName} (${newRecord.caseType}) captured into Unprocessed Bucket.`
+    );
+
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Captured Client Intake Record', 'Registry', `Captured preliminary client info for ${newRecord.clientFullName} (${newRecord.caseType}) into Unprocessed Bucket`);
       setAuditLogsState(getStoredAuditLogs());
@@ -337,6 +372,12 @@ export default function App() {
     setUnprocessedRecordsState(updated);
     saveUnprocessedRecords(updated);
     saveDocumentToFirebase('unprocessed_records', updatedRecord);
+
+    showToast(
+      'info',
+      'Client Record Updated',
+      `Intake status for ${updatedRecord.clientFullName} updated to "${updatedRecord.status}".`
+    );
   };
 
   const handleAddFollowUpLog = (newLog: ChaserFollowUpLog) => {
@@ -345,6 +386,12 @@ export default function App() {
     setFollowUpLogsState(updated);
     saveFollowUpLogs(updated);
     saveDocumentToFirebase('follow_up_logs', logWithFirm);
+
+    showToast(
+      'success',
+      'Follow-Up Logged',
+      `Follow-up record for file ${newLog.fileNumber} saved (${newLog.outcome}).`
+    );
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Logged Client Follow-Up', 'Registry', `Recorded interaction for file ${newLog.fileNumber}: "${newLog.outcome}"`);
@@ -365,6 +412,12 @@ export default function App() {
     setResponsibilitiesState(updated);
     saveResponsibilities(updated);
     saveDocumentToFirebase('responsibilities', respWithFirm);
+
+    showToast(
+      'info',
+      'Chaser Responsibility Assigned',
+      `File ${resp.fileNumber} case chaser follow-up checklist updated.`
+    );
   };
 
   const handleAddTask = (newTask: ChaserTask) => {
@@ -373,6 +426,12 @@ export default function App() {
     setTasksState(updated);
     saveTasks(updated);
     saveDocumentToFirebase('tasks', taskWithFirm);
+
+    showToast(
+      'success',
+      'Task Assigned',
+      `Task "${newTask.taskTitle}" assigned to ${newTask.assignedToChaserName} (Due: ${newTask.dueDate}).`
+    );
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Assigned Case Chaser Task', 'Registry', `Assigned task "${newTask.taskTitle}" to ${newTask.assignedToChaserName} due ${newTask.dueDate}`);
@@ -385,6 +444,12 @@ export default function App() {
     setTasksState(updated);
     saveTasks(updated);
     saveDocumentToFirebase('tasks', updatedTask);
+
+    showToast(
+      'info',
+      'Task Updated',
+      `Task "${updatedTask.taskTitle}" status changed to ${updatedTask.status}.`
+    );
 
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Updated Task Status', 'Registry', `Updated task "${updatedTask.taskTitle}" status to ${updatedTask.status}`);
@@ -875,8 +940,32 @@ export default function App() {
     saveFiles(updated);
     saveDocumentToFirebase('files', fileWithFirm);
 
+    showToast(
+      'success',
+      'Physical File Saved',
+      `File ${newFile.internalFileNumber} (${newFile.clientName}) has been opened and assigned to Cabinet ${newFile.physicalLocation?.cabinet || 'Central Registry'}.`
+    );
+
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Registered Physical File', 'Registry', `Opened physical file ${newFile.internalFileNumber} (${newFile.clientName})`);
+      setAuditLogsState(getStoredAuditLogs());
+    }
+  };
+
+  const handleUpdateFile = (file: RegistryFile) => {
+    const updated = files.map(f => f.id === file.id ? file : f);
+    setFilesState(updated);
+    saveFiles(updated);
+    saveDocumentToFirebase('files', file);
+
+    showToast(
+      'success',
+      'File Record Updated',
+      `Physical file ${file.internalFileNumber} (${file.clientName}) records were successfully updated and saved.`
+    );
+
+    if (currentUser) {
+      addAuditLog(currentUser.fullName, currentUser.role, 'Updated File Record', 'Registry', `Updated physical file ${file.internalFileNumber} metadata`);
       setAuditLogsState(getStoredAuditLogs());
     }
   };
@@ -914,6 +1003,12 @@ export default function App() {
       saveDocumentToFirebase('files', targetUpdatedFile);
     }
 
+    showToast(
+      'info',
+      'File Movement Recorded',
+      `File ${newMovement.fileNumber} transferred to ${newMovement.toLocation} (${newMovement.reason || 'Relocation'}). Location: ${updatedLocation.room}, ${updatedLocation.cabinet}.`
+    );
+
     if (currentUser) {
       addAuditLog(
         currentUser.fullName, 
@@ -949,6 +1044,12 @@ export default function App() {
       saveAlerts([newAlert, ...urgentAlerts]);
       saveDocumentToFirebase('urgent_alerts', newAlert);
     }
+
+    showToast(
+      'success',
+      'Court Hearing Scheduled',
+      `Hearing for file ${newSession.fileNumber} scheduled for ${newSession.hearingDate} (${newSession.hearingTime}) at ${newSession.courtStation}.`
+    );
 
     if (currentUser) {
       addAuditLog(
@@ -1009,6 +1110,12 @@ export default function App() {
         saveDocumentToFirebase('files', targetFileUpdated);
       }
     }
+
+    showToast(
+      'success',
+      'Court Record Updated',
+      `Outcome recorded for ${newOutcome.fileNumber}. Orders: "${newOutcome.ordersIssued}"${nextCourtDate ? ` · Next court date: ${nextCourtDate}` : ''}.`
+    );
 
     if (currentUser) {
       addAuditLog(
@@ -1115,6 +1222,12 @@ export default function App() {
       }
     }
 
+    showToast(
+      'success',
+      'Court Proceedings Saved',
+      `Coram & proceedings for ${newCorumEntry.fileNumber} before ${newCorumEntry.coram} saved.${nextCourtDate ? ` Next date: ${nextCourtDate}` : ''}`
+    );
+
     if (currentUser) {
       addAuditLog(
         currentUser.fullName,
@@ -1147,6 +1260,11 @@ export default function App() {
     saveBringUpItems(updated);
     if (targetItemUpdated) {
       saveDocumentToFirebase('bring_up_items', targetItemUpdated);
+      showToast(
+        'info',
+        (targetItemUpdated as BringUpItem).retrieved ? 'File Marked as Retrieved' : 'Bring-Up Scheduled',
+        `File ${(targetItemUpdated as BringUpItem).fileNumber} (${(targetItemUpdated as BringUpItem).clientName}) bring-up status updated.`
+      );
     }
   };
 
@@ -1155,6 +1273,12 @@ export default function App() {
     setClaimsState(updated);
     saveInsuranceClaims(updated);
     saveDocumentToFirebase('claims', claim);
+
+    showToast(
+      'info',
+      'Insurance Claim Updated',
+      `Claim ${claim.claimRef} (${claim.insuranceCompany}) updated.`
+    );
   };
 
   const handleAddInsuranceClaim = (claim: InsuranceClaim) => {
@@ -1163,6 +1287,12 @@ export default function App() {
     setClaimsState(updated);
     saveInsuranceClaims(updated);
     saveDocumentToFirebase('claims', claimWithFirm);
+
+    showToast(
+      'success',
+      'Insurance Claim Saved',
+      `Claim ${claim.claimRef} for ${claim.clientName} registered with ${claim.insuranceCompany}.`
+    );
   };
 
   const handleUpdatePendingCheque = (cheque: PendingCheque) => {
@@ -1170,6 +1300,12 @@ export default function App() {
     setChequesState(updated);
     savePendingCheques(updated);
     saveDocumentToFirebase('cheques', cheque);
+
+    showToast(
+      'info',
+      'Cheque Status Updated',
+      `Cheque #${cheque.chequeNumber} status changed to ${cheque.status}.`
+    );
   };
 
   const handleAddPendingCheque = (cheque: PendingCheque) => {
@@ -1178,6 +1314,12 @@ export default function App() {
     setChequesState(updated);
     savePendingCheques(updated);
     saveDocumentToFirebase('cheques', chequeWithFirm);
+
+    showToast(
+      'success',
+      'Pending Cheque Logged',
+      `Cheque #${cheque.chequeNumber} (KSh ${cheque.amount.toLocaleString()}) logged for ${cheque.clientName}.`
+    );
   };
 
   const handleCommissionPayout = (commissionId: string, payoutAmount: number) => {
@@ -1202,6 +1344,11 @@ export default function App() {
     saveCommissions(updated);
     if (targetPayoutCommission) {
       saveDocumentToFirebase('commissions', targetPayoutCommission);
+      showToast(
+        'success',
+        'Commission Payout Recorded',
+        `Disbursed KSh ${payoutAmount.toLocaleString()} to ${(targetPayoutCommission as CommissionRecord).caseChaserName}. Remaining: KSh ${(targetPayoutCommission as CommissionRecord).outstandingBalance.toLocaleString()}`
+      );
     }
 
     if (currentUser) {
@@ -1216,6 +1363,12 @@ export default function App() {
     setCommissionsState(updated);
     saveCommissions(updated);
     saveDocumentToFirebase('commissions', recordWithFirm);
+
+    showToast(
+      'success',
+      'Commission Record Created',
+      `Commission of KSh ${record.commissionDue.toLocaleString()} calculated for ${record.caseChaserName}.`
+    );
   };
 
   const handleAddUser = (user: User) => {
@@ -1230,6 +1383,12 @@ export default function App() {
     saveUsers(updated);
     saveUserToFirebase(userWithFirm);
 
+    showToast(
+      'success',
+      'User Account Created',
+      `Account for ${user.fullName} (${user.role}) was created and credentials persisted.`
+    );
+
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Created User Account', 'User', `Created ${user.role} account for ${user.fullName} (${user.username})`);
       setAuditLogsState(getStoredAuditLogs());
@@ -1242,6 +1401,12 @@ export default function App() {
     saveUsers(updated);
     saveUserToFirebase(user);
 
+    showToast(
+      'info',
+      'User Account Updated',
+      `Updated profile and settings for ${user.fullName}.`
+    );
+
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'Updated User Account', 'User', `Modified account status for ${user.fullName} to ${user.status}`);
       setAuditLogsState(getStoredAuditLogs());
@@ -1251,6 +1416,12 @@ export default function App() {
   const handleSaveSettings = (newSettings: SystemSettings) => {
     setSettingsState(newSettings);
     saveSettings(newSettings);
+
+    showToast(
+      'success',
+      'System Settings Saved',
+      'Firm configuration and registry defaults updated and synchronized.'
+    );
 
     // Update matching firm profile in firms state and sync immediately to Firebase
     const targetFirm = firms.find(f => f.firmCode === newSettings.firmCode || f.id === newSettings.firmCode || f.firmCode === currentUser?.firmCode);
@@ -1329,6 +1500,8 @@ export default function App() {
           onClose={() => setIsRegisterModalOpen(false)}
           onSuccess={handleRegisterFirmSuccess}
         />
+
+        <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
       </>
     );
   }
@@ -1351,6 +1524,8 @@ export default function App() {
           onClose={() => setIsRegisterModalOpen(false)}
           onSuccess={handleRegisterFirmSuccess}
         />
+
+        <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
       </>
     );
   }
@@ -1554,11 +1729,7 @@ export default function App() {
               onAddCorumEntry={handleAddCorumEntry}
               onAddCourtOutcome={handleAddCourtOutcome}
               onAddFile={handleAddFile}
-              onUpdateFile={file => {
-                const updated = files.map(f => f.id === file.id ? file : f);
-                setFilesState(updated);
-                saveFiles(updated);
-              }}
+              onUpdateFile={handleUpdateFile}
               onOpenMoveModal={file => {
                 setSelectedFileToMove(file);
                 setActiveTab('file-tracker');
@@ -1747,6 +1918,8 @@ export default function App() {
         onClose={() => setIsRegisterModalOpen(false)}
         onSuccess={handleRegisterFirmSuccess}
       />
+
+      <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
 
     </div>
   );

@@ -236,6 +236,7 @@ export const UnprocessedSourcingModule: React.FC<UnprocessedSourcingModuleProps>
         caseCategory: conversionData.caseCategory,
         caseType: conversionData.caseType,
         subCaseType: conversionData.subCaseType,
+        additionalParties: selectedRecord.additionalParties || [],
         notes: `[Converted from Case Chaser Preliminary Intake - ${selectedRecord.caseChaserName}]\nCaptured: ${selectedRecord.dateCaptured}\nDescription: ${selectedRecord.briefDescription}`
       };
 

@@ -87,6 +87,21 @@ export type PartyCapacity =
   | 'Guardian'
   | 'Legal Representative';
 
+export type PartySide = 'client_side' | 'opposing_side' | 'interested_party' | 'other';
+
+export interface MatterParty {
+  id: string;
+  name: string;
+  role: string; // e.g. '1st Plaintiff', '2nd Plaintiff', '1st Defendant', '2nd Defendant', 'Interested Party', 'Applicant', 'Respondent', 'Third Party', 'Amicus Curiae', 'Objector'
+  partyType: PartySide; // 'client_side' | 'opposing_side' | 'interested_party' | 'other'
+  capacity?: PartyCapacity;
+  advocate?: string; // Counsel representing this party (e.g. Firm name or In Person)
+  phone?: string;
+  email?: string;
+  idNumber?: string;
+  notes?: string;
+}
+
 export interface RegistryFile {
   id: string;
   firmCode?: string;
@@ -96,6 +111,7 @@ export interface RegistryFile {
   clientType?: ClientType;
   partyCapacity?: PartyCapacity;
   opposingParty: string;
+  additionalParties?: MatterParty[];
   courtStation: string;       // e.g. Milimani Law Courts, Mombasa Law Courts
   courtNumber: string;        // e.g. Court 4, Court 12
   magistrate: string;         // e.g. Hon. J. K. Mwangi
@@ -475,6 +491,7 @@ export interface UnprocessedClientRecord {
   status: UnprocessedStatus;
   notes?: string;
   documentsChecklist?: Record<string, boolean>;
+  additionalParties?: MatterParty[];
 
   // Audit & Review Tracking
   reviewedBy?: string;
@@ -493,6 +510,21 @@ export interface UrgentAlert {
   createdAt?: string;
   acknowledgedBy?: string[];
   dismissed?: boolean;
+}
+
+export type ToastType = 'success' | 'info' | 'warning' | 'error';
+
+export interface ToastNotification {
+  id: string;
+  type: ToastType;
+  title: string;
+  message?: string;
+  timestamp?: number;
+  duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 
