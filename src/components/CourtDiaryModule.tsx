@@ -16,7 +16,17 @@ import {
   AlertTriangle,
   Bell,
   FileType,
-  Download
+  Eye,
+  FileText,
+  Copy,
+  Check,
+  Folder,
+  Building2,
+  UserCheck,
+  Briefcase,
+  Layers,
+  Shield,
+  ExternalLink
 } from 'lucide-react';
 import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { exportTableToPdf } from '../utils/pdfExport';
@@ -46,7 +56,33 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // File Quick Glance Pop Pane State
+  const [selectedFileForSummary, setSelectedFileForSummary] = useState<{
+    file: RegistryFile | null;
+    session?: CourtSession;
+    fallbackNumber?: string;
+  } | null>(null);
+  const [copiedFileNum, setCopiedFileNum] = useState(false);
+
   const todayStr = getTodayStr();
+
+  const handleOpenGlance = (session: CourtSession) => {
+    const matched = files.find(
+      f => f.id === session.fileId || 
+           f.internalFileNumber.trim().toLowerCase() === session.fileNumber.trim().toLowerCase()
+    );
+    setSelectedFileForSummary({
+      file: matched || null,
+      session: session,
+      fallbackNumber: session.fileNumber
+    });
+  };
+
+  const handleCopyFileNumber = (fileNumber: string) => {
+    navigator.clipboard.writeText(fileNumber);
+    setCopiedFileNum(true);
+    setTimeout(() => setCopiedFileNum(false), 2000);
+  };
 
   // New Court Session form state
   const [formData, setFormData] = useState<Partial<CourtSession>>({
@@ -277,12 +313,29 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
           >
             <div className="space-y-2">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-mono font-extrabold text-[#C9A227] text-sm">
-                  {session.fileNumber}
-                </span>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800">
-                  {session.purpose}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleOpenGlance(session)}
+                    className="font-mono font-extrabold text-[#C9A227] hover:text-amber-300 text-sm flex items-center gap-1.5 group cursor-pointer"
+                    title="Tap to view file summary at a glance"
+                  >
+                    <span>{session.fileNumber}</span>
+                    <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#C9A227] transition" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleOpenGlance(session)}
+                    className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-[#C9A227] hover:text-amber-300 border border-[#C9A227]/40 hover:border-[#C9A227] rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-sm"
+                    title="Tap for quick file overview"
+                  >
+                    <FileText className="w-3 h-3" />
+                    File Glance
+                  </button>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800">
+                    {session.purpose}
+                  </span>
+                </div>
               </div>
 
               <div className="font-bold text-white text-sm">
@@ -314,10 +367,15 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
             </div>
 
             {/* Action Bar */}
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                Status: {session.status}
-              </span>
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+              <button
+                onClick={() => handleOpenGlance(session)}
+                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-semibold rounded-lg border border-slate-700 hover:border-[#C9A227]/60 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-[#C9A227]" />
+                <span>Summary</span>
+              </button>
+
               <button
                 onClick={() => onNavigateToOutcome(session)}
                 className="px-3 py-1.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 text-xs font-bold rounded-lg shadow transition flex items-center gap-1 cursor-pointer"
@@ -505,6 +563,362 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* File Quick Glance Pop Pane */}
+      {selectedFileForSummary && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedFileForSummary(null);
+            }
+          }}
+        >
+          <div className="bg-[#081729] rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col border border-[#C9A227]/50 shadow-2xl overflow-hidden text-slate-100 animate-in zoom-in-95 duration-150">
+            
+            {/* Pop Pane Header */}
+            <div className="p-4 sm:p-5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#C9A227]/20 border border-[#C9A227]/40 flex items-center justify-center text-[#C9A227] shadow-inner">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif font-bold text-base sm:text-lg text-white">Physical File Summary</h3>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#C9A227]/10 text-[#C9A227] border border-[#C9A227]/30">
+                      At a Glance
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Quick registry overview & court docket information
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedFileForSummary(null)}
+                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 transition cursor-pointer"
+                title="Close summary"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Pop Pane Body (Scrollable) */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
+              
+              {/* Primary File Identity Card */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-[#C9A227]/30 shadow-lg space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base sm:text-lg font-mono font-extrabold text-[#C9A227] tracking-wide">
+                      {selectedFileForSummary.file?.internalFileNumber || selectedFileForSummary.fallbackNumber || 'File Record'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyFileNumber(selectedFileForSummary.file?.internalFileNumber || selectedFileForSummary.fallbackNumber || '')}
+                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 text-[10px] font-mono flex items-center gap-1 transition cursor-pointer"
+                      title="Copy file number"
+                    >
+                      {copiedFileNum ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-400" />}
+                      <span>{copiedFileNum ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
+                      selectedFileForSummary.file?.currentStatus === 'Active'
+                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                        : selectedFileForSummary.file?.currentStatus === 'Out in Court'
+                        ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                        : selectedFileForSummary.file?.currentStatus === 'Out with Advocate'
+                        ? 'bg-blue-950/80 text-blue-300 border-blue-800'
+                        : selectedFileForSummary.file?.currentStatus === 'Closed' || selectedFileForSummary.file?.currentStatus === 'Archived'
+                        ? 'bg-slate-800 text-slate-300 border-slate-700'
+                        : 'bg-indigo-950/80 text-indigo-300 border-indigo-800'
+                    }`}>
+                      {selectedFileForSummary.file?.currentStatus || selectedFileForSummary.session?.status || 'Active'}
+                    </span>
+
+                    {selectedFileForSummary.file?.isEdited && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                        1-Time Lock
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-300 text-xs">
+                  <div>
+                    Court Case No: <strong className="text-white font-mono">{selectedFileForSummary.file?.courtCaseNumber || 'Pending Filing'}</strong>
+                  </div>
+                  {selectedFileForSummary.file?.dateOpened && (
+                    <div className="text-slate-400">
+                      Date Opened: <span className="font-mono text-slate-200">{selectedFileForSummary.file.dateOpened}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2-Column Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                
+                {/* Litigants & Parties */}
+                <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[#C9A227] font-bold text-xs border-b border-slate-800 pb-1.5">
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Litigants & Capacity</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Client / Main Litigant</div>
+                      <div className="font-bold text-slate-100 flex flex-wrap items-center gap-1.5">
+                        <span>{selectedFileForSummary.file?.clientName || selectedFileForSummary.session?.clientName || 'N/A'}</span>
+                        {selectedFileForSummary.file?.partyCapacity && (
+                          <span className="px-1.5 py-0.2 bg-blue-950/70 text-blue-300 border border-blue-800/80 rounded text-[10px]">
+                            {selectedFileForSummary.file.partyCapacity}
+                          </span>
+                        )}
+                        {selectedFileForSummary.file?.clientType && (
+                          <span className="px-1.5 py-0.2 bg-slate-800 text-slate-300 rounded text-[10px]">
+                            {selectedFileForSummary.file.clientType}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Opposing Party</div>
+                      <div className="font-semibold text-slate-200">
+                        {selectedFileForSummary.file?.opposingParty || selectedFileForSummary.session?.opposingParty || 'N/A'}
+                      </div>
+                    </div>
+
+                    {selectedFileForSummary.file?.insuranceCompanyName && (
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Insurance Co.</div>
+                        <div className="font-medium text-amber-300/90">
+                          {selectedFileForSummary.file.insuranceCompanyName}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedFileForSummary.file?.additionalParties && selectedFileForSummary.file.additionalParties.length > 0 && (
+                      <div className="pt-1">
+                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Other Parties ({selectedFileForSummary.file.additionalParties.length})</div>
+                        <div className="text-[11px] text-slate-300">
+                          {selectedFileForSummary.file.additionalParties.map(p => `${p.name} (${p.role})`).join(', ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Physical Location in Registry */}
+                <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[#C9A227] font-bold text-xs border-b border-slate-800 pb-1.5">
+                    <Folder className="w-3.5 h-3.5" />
+                    <span>Physical Registry Location</span>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1.5">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-1.5 bg-slate-900 rounded border border-slate-800">
+                        <div className="text-[9px] uppercase font-bold text-slate-400">Room</div>
+                        <div className="font-bold text-amber-300 text-xs">
+                          {selectedFileForSummary.file?.physicalLocation?.room || 'Registry'}
+                        </div>
+                      </div>
+                      <div className="p-1.5 bg-slate-900 rounded border border-slate-800">
+                        <div className="text-[9px] uppercase font-bold text-slate-400">Cabinet</div>
+                        <div className="font-bold text-amber-300 text-xs">
+                          {selectedFileForSummary.file?.physicalLocation?.cabinet || 'Cab 1'}
+                        </div>
+                      </div>
+                      <div className="p-1.5 bg-slate-900 rounded border border-slate-800">
+                        <div className="text-[9px] uppercase font-bold text-slate-400">Shelf</div>
+                        <div className="font-bold text-amber-300 text-xs">
+                          {selectedFileForSummary.file?.physicalLocation?.shelf || 'Shelf A'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedFileForSummary.file?.physicalLocation?.detail && (
+                      <div className="text-[10px] text-slate-400 text-center italic">
+                        {selectedFileForSummary.file.physicalLocation.detail}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Case Category & Type */}
+                  <div className="pt-1 space-y-1">
+                    <div className="text-[10px] text-slate-400 font-semibold uppercase">Category / Nature</div>
+                    <div className="text-slate-200 font-medium flex flex-wrap items-center gap-1">
+                      <span>{selectedFileForSummary.file?.caseCategory || 'Civil Litigation'}</span>
+                      {selectedFileForSummary.file?.caseType && (
+                        <span className="text-slate-400">• {selectedFileForSummary.file.caseType}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Court Station & Bench */}
+                <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[#C9A227] font-bold text-xs border-b border-slate-800 pb-1.5">
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Court Bench & Hearing</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Court Station</div>
+                      <div className="font-bold text-slate-100">
+                        {selectedFileForSummary.file?.courtStation || selectedFileForSummary.session?.courtStation || 'Not Assigned'}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Court / Div</div>
+                        <div className="font-semibold text-slate-200">
+                          {selectedFileForSummary.file?.courtNumber || selectedFileForSummary.session?.courtNumber || 'Court 1'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Magistrate/Judge</div>
+                        <div className="font-semibold text-slate-200">
+                          {selectedFileForSummary.file?.magistrate || selectedFileForSummary.session?.magistrate || 'Hon. Magistrate'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedFileForSummary.session && (
+                      <div className="p-2 bg-amber-950/30 rounded border border-amber-800/40 text-amber-200 space-y-0.5">
+                        <div className="text-[10px] font-bold uppercase flex items-center gap-1 text-[#C9A227]">
+                          <Clock className="w-3 h-3" />
+                          <span>Session in Diary</span>
+                        </div>
+                        <div className="text-xs font-mono font-bold">
+                          {selectedFileForSummary.session.hearingDate} @ {selectedFileForSummary.session.hearingTime}
+                        </div>
+                        <div className="text-[11px] text-slate-300">
+                          Purpose: <strong>{selectedFileForSummary.session.purpose}</strong>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assigned Legal Staff */}
+                <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[#C9A227] font-bold text-xs border-b border-slate-800 pb-1.5">
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Assigned Firm Staff</span>
+                  </div>
+
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between py-0.5 border-b border-slate-800/50">
+                      <span className="text-slate-400">Assigned Advocate:</span>
+                      <span className="font-bold text-slate-100">
+                        {selectedFileForSummary.file?.advocateName || selectedFileForSummary.session?.advocateName || 'Not Assigned'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-0.5 border-b border-slate-800/50">
+                      <span className="text-slate-400">Registry Clerk:</span>
+                      <span className="font-medium text-slate-200">
+                        {selectedFileForSummary.file?.clerkName || 'Registry Desk'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-0.5 border-b border-slate-800/50">
+                      <span className="text-slate-400">Secretary:</span>
+                      <span className="font-medium text-slate-200">
+                        {selectedFileForSummary.file?.secretaryName || 'General Secretarial'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-slate-400">Case Chaser:</span>
+                      <span className="font-medium text-slate-200">
+                        {selectedFileForSummary.file?.caseChaserName || 'Assigned Clerk'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Notes & Special Remarks (if any) */}
+              {(selectedFileForSummary.file?.notes || (selectedFileForSummary.file?.missingRequirements && selectedFileForSummary.file.missingRequirements.length > 0)) && (
+                <div className="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2">
+                  {selectedFileForSummary.file?.notes && (
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5">Case Notes / Directives</div>
+                      <p className="text-slate-300 italic text-[11px] bg-slate-950 p-2.5 rounded-lg border border-slate-800 leading-relaxed">
+                        "{selectedFileForSummary.file.notes}"
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedFileForSummary.file?.missingRequirements && selectedFileForSummary.file.missingRequirements.length > 0 && (
+                    <div className="pt-1">
+                      <div className="text-[10px] text-rose-400 font-semibold uppercase mb-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Pending / Missing Requirements</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedFileForSummary.file.missingRequirements.map((req, idx) => (
+                          <span key={idx} className="px-2 py-0.5 rounded bg-rose-950/60 text-rose-300 border border-rose-800/80 text-[10px]">
+                            {req}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+
+            {/* Pop Pane Footer Actions */}
+            <div className="p-4 bg-slate-900/90 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => handleCopyFileNumber(selectedFileForSummary.file?.internalFileNumber || selectedFileForSummary.fallbackNumber || '')}
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                {copiedFileNum ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                <span>{copiedFileNum ? 'File Number Copied' : 'Copy File Number'}</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                {selectedFileForSummary.session && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sess = selectedFileForSummary.session!;
+                      setSelectedFileForSummary(null);
+                      onNavigateToOutcome(sess);
+                    }}
+                    className="px-4 py-2 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <FileCheck2 className="w-3.5 h-3.5" />
+                    <span>Record Outcome</span>
+                  </button>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => setSelectedFileForSummary(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 transition cursor-pointer"
+                >
+                  Close Pane
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
