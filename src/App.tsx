@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   User, 
   RegistryFile, 
@@ -45,6 +45,10 @@ import {
   getStoredUrgentAlerts, saveUrgentAlerts,
   getCurrentUser, setCurrentUser,
   getIsAuthenticated, setIsAuthenticated,
+  getLastActiveTime, setLastActiveTime,
+  isSessionExpired,
+  getStoredActiveTab, saveStoredActiveTab,
+  getStoredViewState, saveStoredViewState,
   resetToDefaults, clearAllDataForProduction
 } from './data/store';
 
@@ -84,17 +88,60 @@ import { UnprocessedSourcingModule } from './components/UnprocessedSourcingModul
 import { CommissionModule } from './components/CommissionModule';
 import { TaskManagementModule } from './components/TaskManagementModule';
 import { ToastContainer } from './components/Toast';
+import { ShortcutsModal } from './components/ShortcutsModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 
 export default function App() {
-  // Navigation & Authentication state
-  const [viewState, setViewState] = useState<'landing' | 'login' | 'app'>('landing');
-  const [isAuthenticated, setAuth] = useState<boolean>(false);
-  const [currentUser, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // Navigation & Authentication state with session persistence on page refresh & 1-hour timeout
+  const [currentUser, setUser] = useState<User | null>(() => {
+    const user = getCurrentUser();
+    const isAuth = getIsAuthenticated();
+    if (user && isAuth && !isSessionExpired(3600000)) {
+      return user;
+    }
+    return null;
+  });
+
+  const [isAuthenticated, setAuth] = useState<boolean>(() => {
+    const user = getCurrentUser();
+    const isAuth = getIsAuthenticated();
+    return Boolean(user && isAuth && !isSessionExpired(3600000));
+  });
+
+  const [viewState, setViewState] = useState<'landing' | 'login' | 'app'>(() => {
+    const user = getCurrentUser();
+    const isAuth = getIsAuthenticated();
+    if (user && isAuth && !isSessionExpired(3600000)) {
+      return 'app';
+    }
+    const savedView = getStoredViewState();
+    if (savedView === 'login') return 'login';
+    return 'landing';
+  });
+
+  const [activeTab, setActiveTabState] = useState<string>(() => {
+    const user = getCurrentUser();
+    if (user?.role === 'Super Admin') return 'super-admin';
+    return getStoredActiveTab() || 'dashboard';
+  });
+
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
   });
+
+  const setActiveTab = (tab: string, pushHistory: boolean = true) => {
+    setActiveTabState(tab);
+    saveStoredActiveTab(tab);
+    if (pushHistory && typeof window !== 'undefined') {
+      try {
+        window.history.pushState({ tab, view: 'app' }, '', `?tab=${tab}`);
+      } catch {
+        // Safe fallback in restricted iframes
+      }
+    }
+  };
 
   // Interactive Toast Notification System
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -547,12 +594,286 @@ export default function App() {
     };
   }, [currentUser?.firmCode]);
 
+  // 1-Hour Inactivity Auto-Logout Handler
+  const handleInactivityLogout = useCallback(() => {
+    if (!isAuthenticated && !currentUser) return;
+    
+    setIsAuthenticated(false);
+    setAuth(false);
+    setUser(null);
+    setCurrentUser(null);
+    setLastActiveTime(0);
+    setViewState('login');
+    saveStoredViewState('login');
+    setIsShortcutsModalOpen(false);
+    setIsRegisterModalOpen(false);
+
+    showToast(
+      'warning',
+      'Session Expired (1-Hour Inactivity)',
+      'You were inactive for more than 1 hour. For physical file security and litigation confidentiality, please log in again.',
+      8000
+    );
+
+    if (currentUser) {
+      addAuditLog(
+        currentUser.fullName, 
+        currentUser.role, 
+        'Auto Logout (Inactivity)', 
+        'Auth', 
+        'System automatically locked session after 1 hour without user interaction.'
+      );
+      setAuditLogsState(getStoredAuditLogs());
+    }
+  }, [isAuthenticated, currentUser]);
+
+  // Activity Tracking & 1-Hour Auto-Logout Monitor
+  useEffect(() => {
+    if (!isAuthenticated || viewState !== 'app') return;
+
+    // Refresh last active timestamp on mount
+    const currentTimestamp = Date.now();
+    const storedLastActive = getLastActiveTime();
+    
+    if (storedLastActive && (currentTimestamp - storedLastActive > 3600000)) {
+      handleInactivityLogout();
+      return;
+    }
+
+    setLastActiveTime(currentTimestamp);
+
+    let lastRecorded = currentTimestamp;
+    const handleUserInteraction = () => {
+      const now = Date.now();
+      const lastActive = getLastActiveTime();
+      if (lastActive && (now - lastActive > 3600000)) {
+        handleInactivityLogout();
+        return;
+      }
+      // Throttle updating storage to once every 15 seconds
+      if (now - lastRecorded > 15000) {
+        lastRecorded = now;
+        setLastActiveTime(now);
+      }
+    };
+
+    const interactionEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click', 'focus'];
+    interactionEvents.forEach(evt => {
+      window.addEventListener(evt, handleUserInteraction, { passive: true });
+    });
+
+    // Periodic check every 30 seconds
+    const intervalTimer = setInterval(() => {
+      const now = Date.now();
+      const lastActive = getLastActiveTime();
+      if (lastActive && (now - lastActive > 3600000)) {
+        handleInactivityLogout();
+      }
+    }, 30000);
+
+    // Tab visibility change check
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        const lastActive = getLastActiveTime();
+        if (lastActive && (now - lastActive > 3600000)) {
+          handleInactivityLogout();
+        } else {
+          setLastActiveTime(now);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      interactionEvents.forEach(evt => {
+        window.removeEventListener(evt, handleUserInteraction);
+      });
+      clearInterval(intervalTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, viewState, handleInactivityLogout]);
+
+  // Phone Back Button & Browser History Handler
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Set initial history state if not set
+    if (!window.history.state) {
+      try {
+        window.history.replaceState({ tab: activeTab, view: viewState }, '', window.location.pathname);
+      } catch {
+        // Safe fallback in restricted environments
+      }
+    }
+
+    const handlePopState = () => {
+      // 1. If shortcuts modal is open, close it
+      if (isShortcutsModalOpen) {
+        setIsShortcutsModalOpen(false);
+        return;
+      }
+
+      // 2. If register modal is open, close it
+      if (isRegisterModalOpen) {
+        setIsRegisterModalOpen(false);
+        return;
+      }
+
+      // 3. If in main app view
+      if (viewState === 'app') {
+        if (activeTab !== 'dashboard') {
+          // Phone back button directly returns to Home Dashboard panel
+          setActiveTab('dashboard', false);
+          showToast('info', 'Home Panel', 'Phone back returned to Home Panel.', 2000);
+        } else {
+          // Already on dashboard, maintain state and prevent exiting
+          try {
+            window.history.pushState({ tab: 'dashboard', view: 'app' }, '', '?tab=dashboard');
+          } catch {
+            // fallback
+          }
+        }
+      } else if (viewState === 'login') {
+        // Phone back button on login screen returns to public landing page
+        setViewState('landing');
+        saveStoredViewState('landing');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [viewState, activeTab, isShortcutsModalOpen, isRegisterModalOpen]);
+
+  // Laptop Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInputField = target && (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.tagName === 'SELECT' || 
+        target.isContentEditable
+      );
+
+      // Escape key: close shortcuts modal, close register modal, or return to dashboard
+      if (e.key === 'Escape') {
+        if (isShortcutsModalOpen) {
+          setIsShortcutsModalOpen(false);
+          return;
+        }
+        if (isRegisterModalOpen) {
+          setIsRegisterModalOpen(false);
+          return;
+        }
+        if (viewState === 'app' && activeTab !== 'dashboard') {
+          setActiveTab('dashboard');
+          return;
+        }
+      }
+
+      // '?' key (when not inside typing inputs) -> toggle shortcuts modal
+      if (e.key === '?' && !isInputField) {
+        e.preventDefault();
+        setIsShortcutsModalOpen(prev => !prev);
+        return;
+      }
+
+      // Alt + Key combinations for laptop shortcuts
+      if (e.altKey && viewState === 'app') {
+        switch (e.key.toLowerCase()) {
+          case 'h': // Alt + H -> Home Panel (Dashboard)
+            e.preventDefault();
+            setActiveTab('dashboard');
+            showToast('info', 'Home Panel (Alt+H)', 'Navigated to Home Dashboard panel.', 1800);
+            break;
+          case 'r': // Alt + R -> Physical Registry
+            e.preventDefault();
+            setActiveTab('registry');
+            break;
+          case 'd': // Alt + D -> Court Diary
+            e.preventDefault();
+            setActiveTab('court-diary');
+            break;
+          case 't': // Alt + T -> Tasks
+            e.preventDefault();
+            setActiveTab('tasks');
+            break;
+          case 'f': // Alt + F -> Physical File Tracker
+            e.preventDefault();
+            setActiveTab('file-tracker');
+            break;
+          case 'o': // Alt + O -> Court Outcomes
+            e.preventDefault();
+            setActiveTab('court-outcomes');
+            break;
+          case 'u': // Alt + U -> Upcoming Lists (Bring Up)
+            e.preventDefault();
+            setActiveTab('bring-up');
+            break;
+          case 'p': // Alt + P -> Pending Cheques
+            e.preventDefault();
+            setActiveTab('pending-cheques');
+            break;
+          case 'c': // Alt + C -> Case Chasers
+            e.preventDefault();
+            setActiveTab('case-chasers');
+            break;
+          case 'l': // Alt + L -> Secure Logout
+            e.preventDefault();
+            handleLogout();
+            break;
+          case 's': // Alt + S -> Global Search
+          case 'k':
+            e.preventDefault();
+            const searchInput = document.querySelector('input[placeholder*="Search file number"]') as HTMLInputElement;
+            if (searchInput) {
+              searchInput.focus();
+              searchInput.select();
+            }
+            break;
+        }
+      }
+
+      // Ctrl + K / Cmd + K -> Focus Search
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && viewState === 'app') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="Search file number"]') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewState, activeTab, isShortcutsModalOpen, isRegisterModalOpen]);
+
   // Load user on startup and sync Firebase collections
   useEffect(() => {
-    // Always start on the public Landing Page when opening the application link
-    setUser(null);
-    setAuth(false);
-    setViewState('landing');
+    // Check if user has a valid active session (< 1 hour inactivity)
+    const storedUser = getCurrentUser();
+    const isAuth = getIsAuthenticated();
+    
+    if (storedUser && isAuth) {
+      if (isSessionExpired(3600000)) {
+        // Session expired after 1 hour of inactivity
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setUser(null);
+        setAuth(false);
+        setViewState('login');
+        saveStoredViewState('login');
+        showToast('warning', 'Session Expired', 'You were inactive for more than 1 hour. Please log in again to continue.');
+      } else {
+        // Active valid session - stay logged in on refresh
+        setUser(storedUser);
+        setAuth(true);
+        setViewState('app');
+        setLastActiveTime(Date.now());
+      }
+    }
 
     const loadedFiles = getStoredFiles();
     if (loadedFiles.length > 0) {
@@ -895,13 +1216,21 @@ export default function App() {
   // Sync helpers
   const handleLogout = (targetRoleTab?: SelectedRoleTab) => {
     setIsAuthenticated(false);
+    setCurrentUser(null);
+    setLastActiveTime(0);
     setAuth(false);
+    setUser(null);
+    setIsShortcutsModalOpen(false);
+    setIsRegisterModalOpen(false);
+
     if (targetRoleTab) {
       setPendingLoginRoleTab(targetRoleTab);
       setViewState('login');
+      saveStoredViewState('login');
     } else {
       setPendingLoginRoleTab(undefined);
       setViewState('landing');
+      saveStoredViewState('landing');
     }
     if (currentUser) {
       addAuditLog(currentUser.fullName, currentUser.role, 'User Logout', 'Auth', 'User logged out of session');
@@ -915,6 +1244,8 @@ export default function App() {
     setIsAuthenticated(true);
     setAuth(true);
     setViewState('app');
+    saveStoredViewState('app');
+    setLastActiveTime(Date.now());
     
     if (user.role === 'Super Admin' || user.id === '3TVRWijWagVJBVfuTcFXCDqDzR02') {
       setActiveTab('super-admin');
@@ -1634,6 +1965,7 @@ export default function App() {
         onNavigateTab={tab => setActiveTab(tab)}
         onGoToSuperAdmin={currentUser?.role === 'Super Admin' ? () => setActiveTab('super-admin') : undefined}
         onManualCloudSync={performFirebaseSnapshotSync}
+        onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
         lastSyncTime={lastSnapshotSyncTime}
         sessionsTodayCount={courtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length}
         filesOutCount={files.filter(f => f.currentStatus.startsWith('Out')).length}
@@ -1711,7 +2043,7 @@ export default function App() {
         )}
 
         {/* Main Content Workspace */}
-        <main className={`flex-1 overflow-y-auto ${activeTab === 'super-admin' ? 'p-0 max-w-full' : 'p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto'} w-full`}>
+        <main className={`flex-1 overflow-y-auto ${activeTab === 'super-admin' ? 'p-0 max-w-full pb-20 md:pb-6' : 'p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto pb-24 md:pb-8'} w-full`}>
           
           {activeTab === 'super-admin' && (
             currentUser?.role === 'Super Admin' ? (
@@ -2005,6 +2337,25 @@ export default function App() {
 
         </main>
       </div>
+
+      {/* Mobile-optimized quick navigation bar */}
+      {activeTab !== 'super-admin' && (
+        <MobileBottomNav
+          activeTab={activeTab}
+          onSelectTab={tab => setActiveTab(tab)}
+          onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
+          onToggleSidebar={() => setSidebarCollapsed(prev => !prev)}
+          pendingTasksCount={activeFirmTasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length}
+          courtSessionsTodayCount={activeFirmCourtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length}
+        />
+      )}
+
+      {/* Laptop & Phone Shortcuts Modal */}
+      <ShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+        onNavigateTab={tab => setActiveTab(tab)}
+      />
 
       <RegisterFirmModal
         isOpen={isRegisterModalOpen}

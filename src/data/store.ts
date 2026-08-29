@@ -70,7 +70,10 @@ const STORAGE_KEYS = {
   RESPONSIBILITIES: 'lfr_chaser_responsibilities_v2',
   TASKS: 'lfr_chaser_tasks_v2',
   UNPROCESSED: 'lfr_unprocessed_records_v2',
-  URGENT_ALERTS: 'lfr_urgent_alerts_v2'
+  URGENT_ALERTS: 'lfr_urgent_alerts_v2',
+  LAST_ACTIVE_TIME: 'lfr_last_active_time_v2',
+  CURRENT_TAB: 'lfr_current_tab_v2',
+  VIEW_STATE: 'lfr_view_state_v2'
 };
 
 
@@ -348,6 +351,36 @@ export function getIsAuthenticated(): boolean {
 
 export function setIsAuthenticated(auth: boolean): void {
   saveItem(STORAGE_KEYS.IS_AUTHENTICATED, auth);
+}
+
+export function getLastActiveTime(): number {
+  return loadItem(STORAGE_KEYS.LAST_ACTIVE_TIME, 0);
+}
+
+export function setLastActiveTime(timestamp: number = Date.now()): void {
+  saveItem(STORAGE_KEYS.LAST_ACTIVE_TIME, timestamp);
+}
+
+export function isSessionExpired(maxInactiveMs: number = 3600000): boolean {
+  const lastActive = getLastActiveTime();
+  if (!lastActive) return false;
+  return (Date.now() - lastActive) > maxInactiveMs;
+}
+
+export function getStoredActiveTab(): string {
+  return loadItem(STORAGE_KEYS.CURRENT_TAB, 'dashboard');
+}
+
+export function saveStoredActiveTab(tab: string): void {
+  saveItem(STORAGE_KEYS.CURRENT_TAB, tab);
+}
+
+export function getStoredViewState(): 'landing' | 'login' | 'app' | null {
+  return loadItem(STORAGE_KEYS.VIEW_STATE, null);
+}
+
+export function saveStoredViewState(state: 'landing' | 'login' | 'app'): void {
+  saveItem(STORAGE_KEYS.VIEW_STATE, state);
 }
 
 export function resetToDefaults(): void {

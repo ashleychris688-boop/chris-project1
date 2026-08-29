@@ -15,7 +15,8 @@ import {
   Mail,
   Phone,
   MapPin,
-  Menu
+  Menu,
+  Keyboard
 } from 'lucide-react';
 import { getTimeBasedGreeting } from '../utils/dateUtils';
 import { HeaderThemeToggle } from '../context/ThemeContext';
@@ -31,6 +32,7 @@ interface HeaderProps {
   onNavigateTab: (tab: string) => void;
   onGoToSuperAdmin?: () => void;
   onManualCloudSync?: () => void;
+  onOpenShortcuts?: () => void;
   lastSyncTime?: string;
   sessionsTodayCount?: number;
   filesOutCount?: number;
@@ -49,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateTab,
   onGoToSuperAdmin,
   onManualCloudSync,
+  onOpenShortcuts,
   lastSyncTime,
   sessionsTodayCount = 0,
   filesOutCount = 0,
@@ -174,6 +177,17 @@ export const Header: React.FC<HeaderProps> = ({
           
           {/* Theme Mode Toggle (Dark Mode vs High-Contrast Light Mode) */}
           <HeaderThemeToggle />
+
+          {/* Laptop & Phone Shortcuts Button */}
+          {onOpenShortcuts && (
+            <button
+              onClick={onOpenShortcuts}
+              className="p-2 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-slate-800/80 transition cursor-pointer"
+              title="Keyboard & Mobile Shortcuts (Press ? or Alt+H)"
+            >
+              <Keyboard className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Notifications Dropdown */}
           <div className="relative">
