@@ -1240,6 +1240,95 @@ export default function App() {
     }
   };
 
+  const handleUpdateCorumEntry = (
+    updatedCorumEntry: CorumEntry,
+    nextCourtDate?: string,
+    updatedCaseStatus?: RegistryFile['currentStatus']
+  ) => {
+    const corumWithFirm: CorumEntry = {
+      ...updatedCorumEntry,
+      firmCode: updatedCorumEntry.firmCode || currentFirmCode,
+      isEdited: true,
+      editedAt: new Date().toISOString(),
+      editedBy: currentUser?.fullName || updatedCorumEntry.recordedBy || 'Advocate on Record',
+      editCount: (updatedCorumEntry.editCount || 0) + 1
+    };
+
+    const updatedCorum = corumEntries.map(c => c.id === corumWithFirm.id ? corumWithFirm : c);
+    setCorumEntriesState(updatedCorum);
+    saveCorumEntries(updatedCorum);
+    saveDocumentToFirebase('corum_entries', corumWithFirm);
+
+    // Update bridged CourtOutcome
+    const outcomeId = `co-${corumWithFirm.id}`;
+    const outcomeBridge: CourtOutcome = {
+      id: outcomeId,
+      firmCode: corumWithFirm.firmCode,
+      fileId: corumWithFirm.fileId,
+      fileNumber: corumWithFirm.fileNumber,
+      appearanceDate: corumWithFirm.date,
+      courtStation: corumWithFirm.courtStation,
+      courtNumber: corumWithFirm.courtNumber,
+      coram: corumWithFirm.coram,
+      magistrate: corumWithFirm.coram,
+      advocatePresent: corumWithFirm.advocatePresent,
+      defendantAdvocate: corumWithFirm.defendantAdvocate,
+      comingUpFor: corumWithFirm.comingUpFor,
+      outcomeDetails: `${corumWithFirm.comingUpFor}: ${corumWithFirm.remarks}`,
+      ordersIssued: corumWithFirm.orders,
+      remarks: corumWithFirm.remarks,
+      officeAction: corumWithFirm.officeAction,
+      nextHearingDate: corumWithFirm.nextCourtDate,
+      nextHearingTime: corumWithFirm.nextCourtTime,
+      caseStatusAfter: corumWithFirm.caseStatusAfter || updatedCaseStatus || 'Active',
+      recordedBy: corumWithFirm.recordedBy,
+      recordedAt: corumWithFirm.recordedAt
+    };
+    const updatedOutcomes = courtOutcomes.map(o => (o.id === outcomeId || o.id === corumWithFirm.id) ? outcomeBridge : o);
+    setCourtOutcomesState(updatedOutcomes);
+    saveCourtOutcomes(updatedOutcomes);
+    saveDocumentToFirebase('court_outcomes', outcomeBridge);
+
+    // Update physical file metadata if changed
+    if (nextCourtDate || updatedCaseStatus) {
+      let targetFileUpdated: RegistryFile | null = null;
+      const updatedFiles = files.map(f => {
+        if (f.id === corumWithFirm.fileId || f.internalFileNumber === corumWithFirm.fileNumber) {
+          const mod = {
+            ...f,
+            nextCourtDate: nextCourtDate || f.nextCourtDate,
+            currentStatus: updatedCaseStatus || f.currentStatus
+          };
+          targetFileUpdated = mod;
+          return mod;
+        }
+        return f;
+      });
+      setFilesState(updatedFiles);
+      saveFiles(updatedFiles);
+      if (targetFileUpdated) {
+        saveDocumentToFirebase('files', targetFileUpdated);
+      }
+    }
+
+    showToast(
+      'success',
+      'CORUM Record Updated',
+      `Updated CORUM proceedings for ${corumWithFirm.fileNumber}. Edit has been recorded and finalized.`
+    );
+
+    if (currentUser) {
+      addAuditLog(
+        currentUser.fullName,
+        currentUser.role,
+        'Updated CORUM Court Record',
+        'Court',
+        `Edited CORUM record for ${corumWithFirm.fileNumber} (Coram: ${corumWithFirm.coram}, Def: ${corumWithFirm.defendantAdvocate})`
+      );
+      setAuditLogsState(getStoredAuditLogs());
+    }
+  };
+
   const handleToggleBringUpRetrieved = (id: string) => {
     let targetItemUpdated: BringUpItem | null = null;
     const updated = bringUpItems.map(item => {
@@ -1727,6 +1816,7 @@ export default function App() {
               corumEntries={activeFirmCorumEntries}
               courtOutcomes={activeFirmCourtOutcomes}
               onAddCorumEntry={handleAddCorumEntry}
+              onUpdateCorumEntry={handleUpdateCorumEntry}
               onAddCourtOutcome={handleAddCourtOutcome}
               onAddFile={handleAddFile}
               onUpdateFile={handleUpdateFile}
@@ -1751,6 +1841,7 @@ export default function App() {
               files={activeFirmFiles}
               movements={activeFirmMovements}
               currentUser={currentUser}
+              users={activeFirmUsers}
               onRecordMovement={handleRecordMovement}
               selectedFileToMove={selectedFileToMove}
               onClearSelectedFileToMove={() => setSelectedFileToMove(null)}
@@ -1767,6 +1858,7 @@ export default function App() {
                 setActiveTab('court-outcomes');
               }}
               courtStations={settings.courtStations}
+              users={activeFirmUsers}
             />
           )}
 
@@ -1776,6 +1868,7 @@ export default function App() {
               files={activeFirmFiles}
               onAddOutcome={handleAddCourtOutcome}
               preselectedSession={preselectedSessionForOutcome}
+              users={activeFirmUsers}
             />
           )}
 

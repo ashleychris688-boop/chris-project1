@@ -320,3 +320,46 @@ html[data-theme="light"] .bg-slate-900.border-slate-700 {
   }
 }
 
+/* ----------------------------------------------------
+   LAPTOP & DESKTOP CALENDAR / DATE PICKER OPTIMIZATIONS
+------------------------------------------------------- */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+html[data-theme="light"] input[type="date"],
+html[data-theme="light"] input[type="time"],
+html[data-theme="light"] input[type="datetime-local"] {
+  color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.85) sepia(60%) saturate(800%) hue-rotate(5deg) brightness(1.2);
+  opacity: 0.95;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1) sepia(100%) saturate(1000%) hue-rotate(5deg) brightness(1.4);
+  background-color: rgba(201, 162, 39, 0.25);
+  transform: scale(1.1);
+}
+
+html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator,
+html[data-theme="light"] input[type="time"]::-webkit-calendar-picker-indicator,
+html[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: sepia(100%) saturate(600%) hue-rotate(5deg) brightness(0.6);
+  opacity: 0.85;
+}
+
+

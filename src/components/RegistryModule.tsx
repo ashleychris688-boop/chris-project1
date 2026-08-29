@@ -25,6 +25,7 @@ import { generateSystemInternalFileNumber } from '../utils/fileNumberGenerator';
 import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { UnprocessedSourcingModule } from './UnprocessedSourcingModule';
 import { CourtStationPicker } from './CourtStationPicker';
+import { LaptopDatePicker } from './LaptopDatePicker';
 import { 
   FolderArchive, 
   Search, 
@@ -133,6 +134,7 @@ interface RegistryModuleProps {
   corumEntries?: CorumEntry[];
   courtOutcomes?: CourtOutcome[];
   onAddCorumEntry?: (entry: CorumEntry, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
+  onUpdateCorumEntry?: (entry: CorumEntry, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
   onAddCourtOutcome?: (outcome: CourtOutcome, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
 }
 
@@ -156,6 +158,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   corumEntries = [],
   courtOutcomes = [],
   onAddCorumEntry,
+  onUpdateCorumEntry,
   onAddCourtOutcome
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -167,8 +170,9 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   const [showAddModal, setShowAddModal] = useState(openNewModalInitially);
   const [showUnprocessedBucketModal, setShowUnprocessedBucketModal] = useState(false);
 
-  // Record CORUM modal state
+  // Record / Edit CORUM modal state
   const [showRecordCorumModal, setShowRecordCorumModal] = useState(false);
+  const [editingCorumEntry, setEditingCorumEntry] = useState<CorumEntry | null>(null);
   const [corumTargetFile, setCorumTargetFile] = useState<RegistryFile | null>(null);
   const [corumValidationError, setCorumValidationError] = useState<string | null>(null);
   const [corumSearchQuery, setCorumSearchQuery] = useState('');
@@ -531,9 +535,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     }));
   };
 
-  // Open Record CORUM Modal for a given file
+  // Open Record CORUM Modal for a given file (New Entry)
   const openRecordCorumModal = (file: RegistryFile) => {
     setCorumTargetFile(file);
+    setEditingCorumEntry(null);
     setCorumValidationError(null);
     setCorumFormData({
       date: todayStr,
@@ -557,7 +562,56 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     setShowRecordCorumModal(true);
   };
 
-  // Save CORUM Entry
+  // Open Edit CORUM Modal for an existing record (Allowed 1 Time Only)
+  const openEditCorumModal = (corum: CorumEntry, file: RegistryFile) => {
+    if (corum.isEdited) {
+      alert('This CORUM record has already been edited once. Subsequent edits are restricted to preserve court proceedings integrity.');
+      return;
+    }
+    setCorumTargetFile(file);
+    setEditingCorumEntry(corum);
+    setCorumValidationError(null);
+
+    const standardPurposes = [
+      'Mention',
+      'Mention for Pre-Trial Directions',
+      'Mention to Confirm Compliance',
+      'Hearing of Main Suit',
+      'Hearing of Preliminary Objection',
+      'Hearing of Notice of Motion',
+      'Hearing of Application for Injunction',
+      'Ruling',
+      'Judgment',
+      'Formal Proof',
+      'Cross-Examination',
+      'Taxing of Bill of Costs',
+      'Pre-Trial Conference'
+    ];
+    const isCustom = corum.comingUpFor ? !standardPurposes.includes(corum.comingUpFor) : false;
+
+    setCorumFormData({
+      date: corum.date || todayStr,
+      time: corum.time || '09:00 AM',
+      coram: corum.coram || file.magistrate || '',
+      courtStation: corum.courtStation || file.courtStation || '',
+      courtNumber: corum.courtNumber || file.courtNumber || 'Court 1',
+      advocatePresent: corum.advocatePresent || file.advocateName || '',
+      defendantAdvocate: corum.defendantAdvocate || '',
+      comingUpFor: isCustom ? 'Other' : (corum.comingUpFor || 'Mention'),
+      customComingUpFor: isCustom ? (corum.comingUpFor || '') : '',
+      orders: corum.orders || '',
+      remarks: corum.remarks || '',
+      officeAction: corum.officeAction || '',
+      nextCourtDate: corum.nextCourtDate || '',
+      nextCourtTime: corum.nextCourtTime || '09:00 AM',
+      nextComingUpFor: corum.nextComingUpFor || 'Mention',
+      caseStatusAfter: corum.caseStatusAfter || file.currentStatus || 'Active',
+      recordedBy: corum.recordedBy || 'Advocate on Record'
+    });
+    setShowRecordCorumModal(true);
+  };
+
+  // Save or Update CORUM Entry
   const handleSaveCorum = (e: React.FormEvent) => {
     e.preventDefault();
     if (!corumTargetFile) return;
@@ -585,58 +639,91 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       }
     }
 
-    const newCorumEntry: CorumEntry = {
-      id: `corum-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      firmCode: currentFirm?.firmCode,
-      fileId: corumTargetFile.id,
-      fileNumber: corumTargetFile.internalFileNumber,
-      courtCaseNumber: corumTargetFile.courtCaseNumber,
-      date: corumFormData.date,
-      time: corumFormData.time,
-      courtStation: corumFormData.courtStation || corumTargetFile.courtStation,
-      courtNumber: corumFormData.courtNumber || corumTargetFile.courtNumber,
-      coram: corumFormData.coram.trim() || corumTargetFile.magistrate || 'Hon. Presiding Magistrate/Judge',
-      advocatePresent: corumFormData.advocatePresent.trim() || corumTargetFile.advocateName || 'Plaintiff Advocate',
-      defendantAdvocate: corumFormData.defendantAdvocate.trim(),
-      comingUpFor: finalComingUpFor,
-      orders: corumFormData.orders.trim(),
-      remarks: corumFormData.remarks.trim() || 'Attended court. Proceedings recorded.',
-      officeAction: corumFormData.officeAction.trim() || 'Extract order and diary for compliance.',
-      nextCourtDate: corumFormData.nextCourtDate || undefined,
-      nextCourtTime: corumFormData.nextCourtDate ? corumFormData.nextCourtTime : undefined,
-      nextComingUpFor: corumFormData.nextCourtDate ? corumFormData.nextComingUpFor : undefined,
-      caseStatusAfter: corumFormData.caseStatusAfter,
-      recordedBy: corumFormData.recordedBy || 'Advocate',
-      recordedAt: new Date().toISOString()
-    };
+    if (editingCorumEntry) {
+      // 1-Time Edit Execution
+      const updatedCorumEntry: CorumEntry = {
+        ...editingCorumEntry,
+        date: corumFormData.date,
+        time: corumFormData.time,
+        courtStation: corumFormData.courtStation || corumTargetFile.courtStation,
+        courtNumber: corumFormData.courtNumber || corumTargetFile.courtNumber,
+        coram: corumFormData.coram.trim() || corumTargetFile.magistrate || 'Hon. Presiding Magistrate/Judge',
+        advocatePresent: corumFormData.advocatePresent.trim() || corumTargetFile.advocateName || 'Plaintiff Advocate',
+        defendantAdvocate: corumFormData.defendantAdvocate.trim(),
+        comingUpFor: finalComingUpFor,
+        orders: corumFormData.orders.trim(),
+        remarks: corumFormData.remarks.trim() || 'Attended court. Proceedings recorded.',
+        officeAction: corumFormData.officeAction.trim() || 'Extract order and diary for compliance.',
+        nextCourtDate: corumFormData.nextCourtDate || undefined,
+        nextCourtTime: corumFormData.nextCourtDate ? corumFormData.nextCourtTime : undefined,
+        nextComingUpFor: corumFormData.nextCourtDate ? corumFormData.nextComingUpFor : undefined,
+        caseStatusAfter: corumFormData.caseStatusAfter,
+        isEdited: true,
+        editedAt: new Date().toISOString(),
+        editedBy: corumFormData.recordedBy || 'Advocate on Record',
+        editCount: (editingCorumEntry.editCount || 0) + 1
+      };
 
-    if (onAddCorumEntry) {
-      onAddCorumEntry(newCorumEntry, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
-    } else if (onAddCourtOutcome) {
-      const outcomeBridge: CourtOutcome = {
-        id: `co-${newCorumEntry.id}`,
+      if (onUpdateCorumEntry) {
+        onUpdateCorumEntry(updatedCorumEntry, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
+      } else if (onAddCorumEntry) {
+        onAddCorumEntry(updatedCorumEntry, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
+      }
+    } else {
+      // New CORUM Entry Creation
+      const newCorumEntry: CorumEntry = {
+        id: `corum-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         firmCode: currentFirm?.firmCode,
         fileId: corumTargetFile.id,
         fileNumber: corumTargetFile.internalFileNumber,
-        appearanceDate: newCorumEntry.date,
-        courtStation: newCorumEntry.courtStation,
-        courtNumber: newCorumEntry.courtNumber,
-        coram: newCorumEntry.coram,
-        magistrate: newCorumEntry.coram,
-        advocatePresent: newCorumEntry.advocatePresent,
-        defendantAdvocate: newCorumEntry.defendantAdvocate,
-        comingUpFor: newCorumEntry.comingUpFor,
-        outcomeDetails: `${newCorumEntry.comingUpFor}: ${newCorumEntry.remarks}`,
-        ordersIssued: newCorumEntry.orders,
-        remarks: newCorumEntry.remarks,
-        officeAction: newCorumEntry.officeAction,
-        nextHearingDate: newCorumEntry.nextCourtDate,
-        nextHearingTime: newCorumEntry.nextCourtTime,
-        caseStatusAfter: newCorumEntry.caseStatusAfter || 'Active',
-        recordedBy: newCorumEntry.recordedBy,
-        recordedAt: newCorumEntry.recordedAt
+        courtCaseNumber: corumTargetFile.courtCaseNumber,
+        date: corumFormData.date,
+        time: corumFormData.time,
+        courtStation: corumFormData.courtStation || corumTargetFile.courtStation,
+        courtNumber: corumFormData.courtNumber || corumTargetFile.courtNumber,
+        coram: corumFormData.coram.trim() || corumTargetFile.magistrate || 'Hon. Presiding Magistrate/Judge',
+        advocatePresent: corumFormData.advocatePresent.trim() || corumTargetFile.advocateName || 'Plaintiff Advocate',
+        defendantAdvocate: corumFormData.defendantAdvocate.trim(),
+        comingUpFor: finalComingUpFor,
+        orders: corumFormData.orders.trim(),
+        remarks: corumFormData.remarks.trim() || 'Attended court. Proceedings recorded.',
+        officeAction: corumFormData.officeAction.trim() || 'Extract order and diary for compliance.',
+        nextCourtDate: corumFormData.nextCourtDate || undefined,
+        nextCourtTime: corumFormData.nextCourtDate ? corumFormData.nextCourtTime : undefined,
+        nextComingUpFor: corumFormData.nextCourtDate ? corumFormData.nextComingUpFor : undefined,
+        caseStatusAfter: corumFormData.caseStatusAfter,
+        recordedBy: corumFormData.recordedBy || 'Advocate',
+        recordedAt: new Date().toISOString()
       };
-      onAddCourtOutcome(outcomeBridge, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
+
+      if (onAddCorumEntry) {
+        onAddCorumEntry(newCorumEntry, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
+      } else if (onAddCourtOutcome) {
+        const outcomeBridge: CourtOutcome = {
+          id: `co-${newCorumEntry.id}`,
+          firmCode: currentFirm?.firmCode,
+          fileId: corumTargetFile.id,
+          fileNumber: corumTargetFile.internalFileNumber,
+          appearanceDate: newCorumEntry.date,
+          courtStation: newCorumEntry.courtStation,
+          courtNumber: newCorumEntry.courtNumber,
+          coram: newCorumEntry.coram,
+          magistrate: newCorumEntry.coram,
+          advocatePresent: newCorumEntry.advocatePresent,
+          defendantAdvocate: newCorumEntry.defendantAdvocate,
+          comingUpFor: newCorumEntry.comingUpFor,
+          outcomeDetails: `${newCorumEntry.comingUpFor}: ${newCorumEntry.remarks}`,
+          ordersIssued: newCorumEntry.orders,
+          remarks: newCorumEntry.remarks,
+          officeAction: newCorumEntry.officeAction,
+          nextHearingDate: newCorumEntry.nextCourtDate,
+          nextHearingTime: newCorumEntry.nextCourtTime,
+          caseStatusAfter: newCorumEntry.caseStatusAfter || 'Active',
+          recordedBy: newCorumEntry.recordedBy,
+          recordedAt: newCorumEntry.recordedAt
+        };
+        onAddCourtOutcome(outcomeBridge, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
+      }
     }
 
     if (selectedFile && selectedFile.id === corumTargetFile.id) {
@@ -649,6 +736,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
     setShowRecordCorumModal(false);
     setCorumTargetFile(null);
+    setEditingCorumEntry(null);
   };
 
   // Step 1 Overall Category Totals
@@ -1736,7 +1824,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                         key={corum.id || idx}
                         className="p-4 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl space-y-3 transition"
                       >
-                        {/* Top Bar: Date, Coram, Court Station */}
+                        {/* Top Bar: Date, Coram, Court Station & 1-Time Edit Action */}
                         <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800/80 pb-2.5">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="px-2 py-0.5 bg-amber-500/15 text-[#C9A227] border border-[#C9A227]/30 text-xs font-mono font-bold rounded-md flex items-center gap-1">
@@ -1748,9 +1836,31 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                             </span>
                           </div>
 
-                          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                            <Landmark className="w-3 h-3 text-slate-500" />
-                            {corum.courtStation || selectedFile.courtStation} ({corum.courtNumber || selectedFile.courtNumber})
+                          <div className="flex items-center gap-2">
+                            <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                              <Landmark className="w-3 h-3 text-slate-500" />
+                              {corum.courtStation || selectedFile.courtStation} ({corum.courtNumber || selectedFile.courtNumber})
+                            </div>
+
+                            {corum.isEdited ? (
+                              <span 
+                                className="px-2 py-0.5 bg-slate-800/90 text-slate-400 border border-slate-700 rounded text-[10px] font-mono flex items-center gap-1"
+                                title={`Edited once by ${corum.editedBy || 'Advocate'} on ${corum.editedAt ? new Date(corum.editedAt).toLocaleDateString() : ''}. Record is finalized.`}
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-amber-400/80" />
+                                Edited (Finalized)
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openEditCorumModal(corum, selectedFile)}
+                                className="px-2.5 py-1 bg-amber-500/10 hover:bg-[#C9A227]/20 text-[#C9A227] hover:text-amber-300 border border-[#C9A227]/40 hover:border-[#C9A227] rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                title="Edit this CORUM entry (1-time edit permitted)"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                Edit (1 Time)
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1828,8 +1938,13 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                             <span className="text-slate-500 italic">No future court date fixed</span>
                           )}
 
-                          <div className="text-[10px] text-slate-500 font-mono">
-                            Recorded by: <span className="text-slate-400 font-medium">{corum.recordedBy || 'Advocate'}</span>
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 font-mono">
+                            <span>Recorded by: <span className="text-slate-400 font-medium">{corum.recordedBy || 'Advocate'}</span></span>
+                            {corum.isEdited && corum.editedAt && (
+                              <span className="text-amber-400/90 font-medium">
+                                • (Edited by {corum.editedBy || 'Staff'} on {new Date(corum.editedAt).toLocaleDateString()})
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2521,23 +2636,52 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
                 <div>
                   <label className="block font-bold text-[#C9A227] mb-1">Assigned Advocate</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.advocateName}
                     onChange={e => setFormData({ ...formData, advocateName: e.target.value })}
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
-                  />
+                  >
+                    <option value="">-- Select Registered Advocate --</option>
+                    {users.filter(u => u.role === 'Advocate' || u.role === 'Proprietor').map(u => (
+                      <option key={u.id} value={u.fullName}>
+                        {u.fullName} ({u.role})
+                      </option>
+                    ))}
+                    {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').length > 0 && (
+                      <optgroup label="Other Registered Staff">
+                        {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').map(u => (
+                          <option key={u.id} value={u.fullName}>
+                            {u.fullName} ({u.role})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block font-bold text-[#C9A227] mb-1">Case Chaser</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.caseChaserName}
                     onChange={e => setFormData({ ...formData, caseChaserName: e.target.value })}
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
-                    placeholder={registrationMode === 'direct' ? 'Direct / Walk-in (No Chaser)' : 'Chaser Name'}
-                  />
+                  >
+                    <option value="Direct / Walk-in (No Chaser)">Direct / Walk-in (No Chaser)</option>
+                    {users.filter(u => u.role === 'Case Chaser').map(u => (
+                      <option key={u.id} value={u.fullName}>
+                        {u.fullName} ({u.role})
+                      </option>
+                    ))}
+                    {users.filter(u => u.role !== 'Case Chaser').length > 0 && (
+                      <optgroup label="Other Registered Staff">
+                        {users.filter(u => u.role !== 'Case Chaser').map(u => (
+                          <option key={u.id} value={u.fullName}>
+                            {u.fullName} ({u.role})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
                 </div>
               </div>
 
@@ -2622,19 +2766,23 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
         />
       )}
 
-      {/* RECORD CORUM MODAL */}
+      {/* RECORD / EDIT CORUM MODAL */}
       {showRecordCorumModal && corumTargetFile && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#081729] rounded-2xl max-w-2xl w-full p-6 space-y-4 border border-[#C9A227]/60 shadow-2xl overflow-y-auto max-h-[92vh] text-slate-100">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-[#C9A227]/20 border border-[#C9A227]/40 rounded-lg text-[#C9A227]">
-                  <Scale className="w-5 h-5" />
+                  {editingCorumEntry ? <Edit3 className="w-5 h-5" /> : <Scale className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-white">Record CORUM & Court Proceedings</h3>
+                  <h3 className="font-serif font-bold text-lg text-white">
+                    {editingCorumEntry ? 'Edit CORUM Record (1-Time Edit)' : 'Record CORUM & Court Proceedings'}
+                  </h3>
                   <p className="text-xs text-slate-400">
-                    Log court appearance details, orders, remarks, opposing counsel & office actions
+                    {editingCorumEntry
+                      ? 'Amend court proceedings record. Once submitted, this record will be sealed and finalized.'
+                      : 'Log court appearance details, orders, remarks, opposing counsel & office actions'}
                   </p>
                 </div>
               </div>
@@ -2643,6 +2791,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 onClick={() => {
                   setShowRecordCorumModal(false);
                   setCorumTargetFile(null);
+                  setEditingCorumEntry(null);
                 }}
                 className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white cursor-pointer"
               >
@@ -2666,6 +2815,15 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               </div>
             </div>
 
+            {editingCorumEntry && (
+              <div className="p-3 bg-amber-500/10 border border-[#C9A227]/40 rounded-xl text-amber-200 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-[#C9A227] shrink-0" />
+                <span>
+                  <strong>Single Edit Permitted:</strong> You are executing the one-time edit for this proceeding record. Saving will mark it finalized in the court audit log.
+                </span>
+              </div>
+            )}
+
             {corumValidationError && (
               <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-lg text-rose-200 text-xs flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -2675,28 +2833,18 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
             <form onSubmit={handleSaveCorum} className="space-y-4 text-xs">
               
-              {/* Date & Time Row */}
+              {/* Date & Time Row with LaptopDatePicker */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-200 mb-1">
-                    Date of Appearance <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="date"
+                  <LaptopDatePicker
+                    label="Date of Appearance"
                     required
                     value={corumFormData.date}
-                    onChange={e => {
-                      const sel = e.target.value;
-                      if (sel && isWeekend(sel)) {
-                        const valid = ensureWeekday(sel);
-                        setCorumFormData({ ...corumFormData, date: valid });
-                        setCorumValidationError(`Weekend court date prohibited. Auto-adjusted to weekday (${valid}).`);
-                      } else {
-                        setCorumFormData({ ...corumFormData, date: sel });
-                        setCorumValidationError(null);
-                      }
+                    onChange={val => {
+                      setCorumFormData({ ...corumFormData, date: val });
+                      setCorumValidationError(null);
                     }}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227] font-mono"
+                    allowFuture={true}
                   />
                 </div>
 
@@ -2758,13 +2906,27 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   <label className="block font-bold text-slate-200 mb-1">
                     Firm / Attending Advocate (Plaintiff Counsel)
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Adv. Anthony Omollo"
+                  <select
                     value={corumFormData.advocatePresent}
                     onChange={e => setCorumFormData({ ...corumFormData, advocatePresent: e.target.value })}
                     className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:border-[#C9A227]"
-                  />
+                  >
+                    <option value="">-- Select Attending Advocate --</option>
+                    {users.filter(u => u.role === 'Advocate' || u.role === 'Proprietor').map(u => (
+                      <option key={u.id} value={u.fullName}>
+                        {u.fullName} ({u.role})
+                      </option>
+                    ))}
+                    {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').length > 0 && (
+                      <optgroup label="Other Registered Staff">
+                        {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').map(u => (
+                          <option key={u.id} value={u.fullName}>
+                            {u.fullName} ({u.role})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
                 </div>
 
                 <div>
@@ -2870,25 +3032,16 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               {/* Next Court Date & Case Status */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-900 border border-slate-800 rounded-xl">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">
-                    Next Court Date (If fixed)
-                  </label>
-                  <input
-                    type="date"
-                    min={todayStr}
+                  <LaptopDatePicker
+                    label="Next Court Date (If fixed)"
                     value={corumFormData.nextCourtDate}
-                    onChange={e => {
-                      const sel = e.target.value;
-                      if (sel && isWeekend(sel)) {
-                        const valid = ensureWeekday(sel);
-                        setCorumFormData({ ...corumFormData, nextCourtDate: valid });
-                        setCorumValidationError(`Weekend next court date prohibited. Adjusted to (${valid}).`);
-                      } else {
-                        setCorumFormData({ ...corumFormData, nextCourtDate: sel });
-                        setCorumValidationError(null);
-                      }
+                    min={todayStr}
+                    allowFuture={true}
+                    placeholder="Select or leave blank"
+                    onChange={val => {
+                      setCorumFormData({ ...corumFormData, nextCourtDate: val });
+                      setCorumValidationError(null);
                     }}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-amber-300 font-bold"
                   />
                 </div>
 
@@ -2899,7 +3052,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   <select
                     value={corumFormData.nextComingUpFor}
                     onChange={e => setCorumFormData({ ...corumFormData, nextComingUpFor: e.target.value })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100"
                   >
                     <option value="Mention">Mention</option>
                     <option value="Hearing">Hearing</option>
@@ -2916,7 +3069,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   <select
                     value={corumFormData.caseStatusAfter}
                     onChange={e => setCorumFormData({ ...corumFormData, caseStatusAfter: e.target.value as RegistryFile['currentStatus'] })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-bold"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-bold"
                   >
                     <option value="Active">Active</option>
                     <option value="Pending Court">Pending Court</option>
@@ -2932,6 +3085,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   onClick={() => {
                     setShowRecordCorumModal(false);
                     setCorumTargetFile(null);
+                    setEditingCorumEntry(null);
                   }}
                   className="px-4 py-2 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 cursor-pointer"
                 >
@@ -2941,8 +3095,8 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   type="submit"
                   className="px-6 py-2 bg-[#C9A227] text-slate-950 font-black rounded-lg hover:bg-amber-400 uppercase tracking-wider shadow-lg flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Scale className="w-4 h-4" />
-                  Save CORUM Record
+                  {editingCorumEntry ? <Edit3 className="w-4 h-4" /> : <Scale className="w-4 h-4" />}
+                  {editingCorumEntry ? 'Update & Finalize Record' : 'Save CORUM Record'}
                 </button>
               </div>
 

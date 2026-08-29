@@ -32,6 +32,7 @@ interface FileTrackerModuleProps {
   files: RegistryFile[];
   movements: FileMovement[];
   currentUser: User | null;
+  users?: User[];
   onRecordMovement: (
     movement: FileMovement, 
     updatedLocation: { room: string; cabinet: string; shelf: string; detail?: string }, 
@@ -64,6 +65,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
   files,
   movements,
   currentUser,
+  users = [],
   onRecordMovement,
   selectedFileToMove,
   onClearSelectedFileToMove
@@ -81,6 +83,7 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
   // Modal State
   const [showMoveModal, setShowMoveModal] = useState(!!selectedFileToMove);
   const [activeFile, setActiveFile] = useState<RegistryFile | null>(selectedFileToMove || files[0] || null);
+  const [modalFileSearch, setModalFileSearch] = useState('');
 
   // Form state for movement transfer
   const [targetFileId, setTargetFileId] = useState<string>(selectedFileToMove?.id || files[0]?.id || '');
@@ -695,18 +698,57 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
 
             <form onSubmit={handleExecuteTransfer} className="space-y-4 text-xs">
               
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">Select Physical File</label>
+              {/* Registry File Selector */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-slate-300">Select Registry File ({files.length} available)</label>
+                  {files.length > 5 && (
+                    <span className="text-[10px] text-slate-400">Search to filter list</span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#C9A227]" />
+                  <input
+                    type="text"
+                    placeholder="Search by file #, client, court station, case #..."
+                    value={modalFileSearch}
+                    onChange={e => setModalFileSearch(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A227]"
+                  />
+                  {modalFileSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setModalFileSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
                 <select
                   value={targetFileId}
                   onChange={e => handleSelectTargetFile(e.target.value)}
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg font-mono font-bold text-slate-100 focus:border-[#C9A227]"
                 >
-                  {files.map(f => (
-                    <option key={f.id} value={f.id} className="bg-slate-900 text-slate-100">
-                      {f.internalFileNumber} — {f.clientName} ({f.courtStation || 'Registry'})
-                    </option>
-                  ))}
+                  {files
+                    .filter(f => {
+                      if (!modalFileSearch.trim()) return true;
+                      const q = modalFileSearch.toLowerCase();
+                      return (
+                        f.internalFileNumber.toLowerCase().includes(q) ||
+                        f.clientName.toLowerCase().includes(q) ||
+                        (f.courtCaseNumber && f.courtCaseNumber.toLowerCase().includes(q)) ||
+                        (f.courtStation && f.courtStation.toLowerCase().includes(q)) ||
+                        (f.advocateName && f.advocateName.toLowerCase().includes(q))
+                      );
+                    })
+                    .map(f => (
+                      <option key={f.id} value={f.id} className="bg-slate-900 text-slate-100">
+                        {f.internalFileNumber} — {f.clientName} v {f.opposingParty || 'N/A'} ({f.courtStation || 'Registry'})
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -735,7 +777,14 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
                     <label className="block text-[10px] font-bold text-slate-300 mb-1">Location / Holder Room</label>
                     <select
                       value={toRoom}
-                      onChange={e => setToRoom(e.target.value as PhysicalLocationCategory)}
+                      onChange={e => {
+                        const val = e.target.value as PhysicalLocationCategory;
+                        setToRoom(val);
+                        if (val === 'Central Registry') {
+                          setToCabinet('Cabinet A');
+                          setToShelf('Shelf 1');
+                        }
+                      }}
                       className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded text-xs focus:border-[#C9A227]"
                     >
                       <option value="Central Registry" className="bg-slate-900">Central Registry</option>
@@ -747,15 +796,32 @@ export const FileTrackerModule: React.FC<FileTrackerModuleProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-300 mb-1">Cabinet / Desk Detail</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Adv. Kamau Desk / Clerk Peter Workstation"
-                      value={toCabinet}
-                      onChange={e => setToCabinet(e.target.value)}
-                      className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded text-xs focus:border-[#C9A227]"
-                    />
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                      {toRoom === 'Central Registry' ? 'Cabinet / Unit' : 'Assigned Staff Custodian'}
+                    </label>
+                    {toRoom !== 'Central Registry' && users.length > 0 ? (
+                      <select
+                        value={toCabinet}
+                        onChange={e => setToCabinet(e.target.value)}
+                        className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded text-xs focus:border-[#C9A227]"
+                      >
+                        <option value="">-- Select Registered Staff Member --</option>
+                        {users.map(u => (
+                          <option key={u.id} value={`${u.fullName} (${u.role})`}>
+                            {u.fullName} — {u.role}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Cabinet A / Vault 1 / Adv. Kamau Desk"
+                        value={toCabinet}
+                        onChange={e => setToCabinet(e.target.value)}
+                        className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded text-xs focus:border-[#C9A227]"
+                      />
+                    )}
                   </div>
                 </div>
 

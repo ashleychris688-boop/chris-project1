@@ -174,6 +174,10 @@ export interface CorumEntry {
   caseStatusAfter?: FileStatus;
   recordedBy?: string;              // Name of advocate / staff who entered the record
   recordedAt?: string;
+  isEdited?: boolean;               // True if edited once
+  editedAt?: string;                // Timestamp of the 1-time edit
+  editedBy?: string;                // Staff who performed the 1-time edit
+  editCount?: number;               // Number of times edited (max 1)
 }
 
 export interface CourtOutcome {

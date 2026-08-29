@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { isWeekend, ensureWeekday } from '../utils/dateUtils';
+import { LaptopDatePicker } from './LaptopDatePicker';
 import { 
   TaskItem, 
   TaskPriority, 
@@ -1179,69 +1180,202 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 
-                {/* Related File Number */}
-                <div className="sm:col-span-2 bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
+                {/* Related File Number - Optimized Registry File Selection Pane */}
+                <div className="sm:col-span-2 bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <label className="text-slate-200 font-bold text-xs flex items-center gap-1.5">
                       <FolderArchive className="w-4 h-4 text-[#C9A227]" />
-                      <span>Select Active or Closed File (Court Case, Parties & Station Search)</span>
+                      <span>Select File from Registry *</span>
+                      <span className="text-[10px] text-slate-400 font-normal font-mono">({files.length} registered)</span>
                     </label>
-                    <div className="flex gap-1 text-[10px]">
+
+                    <div className="flex items-center gap-1 text-[10px]">
                       {(['All', 'Active', 'Closed'] as const).map(st => (
                         <button
                           key={st}
                           type="button"
                           onClick={() => setFileStatusFilterModal(st)}
-                          className={`px-2 py-0.5 rounded transition ${
+                          className={`px-2.5 py-0.5 rounded-lg font-medium transition cursor-pointer ${
                             fileStatusFilterModal === st 
-                              ? 'bg-[#C9A227] text-slate-950 font-bold' 
-                              : 'bg-slate-900 text-slate-400 hover:text-white'
+                              ? 'bg-[#C9A227] text-slate-950 font-bold shadow' 
+                              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                           }`}
                         >
-                          {st}
+                          {st} Files
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search file #, court case #, client, opposing party, court station..."
-                      value={fileSearchQuery}
-                      onChange={e => setFileSearchQuery(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A227]"
-                    />
-                  </div>
+                  {/* Selected File Banner if already chosen */}
+                  {selectedFileObj ? (
+                    <div className="p-3.5 bg-gradient-to-r from-slate-900 to-slate-950 rounded-xl border-2 border-[#C9A227] text-xs text-slate-200 space-y-2 shadow-lg relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-[#C9A227] text-slate-950 font-mono font-extrabold text-xs shadow">
+                            📁 {selectedFileObj.internalFileNumber}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                            selectedFileObj.currentStatus === 'Closed'
+                              ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                              : 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                          }`}>
+                            {selectedFileObj.currentStatus || 'Active'}
+                          </span>
+                        </div>
 
-                  <select
-                    value={newTask.fileNumber}
-                    onChange={e => {
-                      const selNum = e.target.value;
-                      const fObj = files.find(f => f.internalFileNumber === selNum);
-                      setSelectedFileObj(fObj || null);
-                      setNewTask({ ...newTask, fileNumber: selNum });
-                    }}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white text-xs focus:outline-none focus:border-[#C9A227]"
-                  >
-                    <option value="">No Specific File / General Task</option>
-                    {filteredFilesForModal.map(f => (
-                      <option key={f.id} value={f.internalFileNumber}>
-                        [{f.currentStatus || 'Active'}] {f.internalFileNumber} | {f.courtCaseNumber ? `${f.courtCaseNumber} - ` : ''}{f.clientName} v {f.opposingParty || 'N/A'} ({f.courtStation || 'No Station'})
-                      </option>
-                    ))}
-                  </select>
-
-                  {selectedFileObj && (
-                    <div className="bg-slate-900/90 p-2.5 rounded-lg border border-[#C9A227]/30 text-[11px] text-slate-300 space-y-1">
-                      <div className="flex justify-between items-center text-[#C9A227] font-bold">
-                        <span>{selectedFileObj.internalFileNumber}</span>
-                        <span className="text-[10px] uppercase px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">{selectedFileObj.currentStatus}</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedFileObj(null);
+                              setNewTask({ ...newTask, fileNumber: '' });
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-red-950 hover:text-red-300 text-slate-300 text-[11px] rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Remove / Change</span>
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-white font-medium">Court Case: {selectedFileObj.courtCaseNumber || 'N/A'}</div>
-                      <div>Parties: <span className="text-white">{selectedFileObj.clientName}</span> vs <span className="text-amber-200">{selectedFileObj.opposingParty || 'N/A'}</span></div>
-                      <div className="text-slate-400">Court Station: {selectedFileObj.courtStation || 'N/A'} ({selectedFileObj.courtNumber || 'N/A'})</div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                        <div>
+                          <span className="text-slate-400">Parties: </span>
+                          <strong className="text-white">{selectedFileObj.clientName}</strong>
+                          <span className="text-slate-400"> vs </span>
+                          <strong className="text-amber-200">{selectedFileObj.opposingParty || 'N/A'}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Court Case: </span>
+                          <span className="font-mono text-slate-200 font-bold">{selectedFileObj.courtCaseNumber || 'Not filed yet'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Station / Court: </span>
+                          <span className="text-slate-200">{selectedFileObj.courtStation || 'Registry'} ({selectedFileObj.courtNumber || 'Unassigned'})</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Assigned Advocate: </span>
+                          <span className="text-amber-300 font-medium">{selectedFileObj.advocateName || 'None'}</span>
+                        </div>
+                      </div>
+
+                      {/* Quick Auto-Assign button if file has advocate */}
+                      {selectedFileObj.advocateName && selectedFileObj.advocateName !== newTask.assignedTo && (
+                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400">This file is handled by {selectedFileObj.advocateName}:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const advUser = users.find(u => u.fullName.toLowerCase().includes(selectedFileObj.advocateName.toLowerCase()) || selectedFileObj.advocateName.toLowerCase().includes(u.fullName.toLowerCase()));
+                              setNewTask({
+                                ...newTask,
+                                assignedTo: selectedFileObj.advocateName,
+                                assignedToRole: advUser?.role || 'Advocate'
+                              });
+                            }}
+                            className="px-2 py-0.5 bg-[#C9A227]/20 hover:bg-[#C9A227] hover:text-slate-950 text-[#C9A227] text-[10px] font-bold rounded border border-[#C9A227]/40 transition cursor-pointer"
+                          >
+                            ⚡ Quick Assign to {selectedFileObj.advocateName}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Search & Select File from Registry List */
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#C9A227]" />
+                        <input
+                          type="text"
+                          placeholder="Search registry by File #, Court Case #, Client, Opposing Party, Station..."
+                          value={fileSearchQuery}
+                          onChange={e => setFileSearchQuery(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A227] shadow-inner"
+                        />
+                        {fileSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setFileSearchQuery('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Interactive Registry Files Scrollable Grid */}
+                      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 rounded-xl border border-slate-800/80 bg-slate-950/60 p-1.5 custom-scrollbar">
+                        {/* Option for General Task */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFileObj(null);
+                            setNewTask({ ...newTask, fileNumber: '' });
+                          }}
+                          className={`w-full text-left p-2 rounded-lg border transition flex items-center justify-between cursor-pointer ${
+                            !newTask.fileNumber 
+                              ? 'bg-slate-900 border-[#C9A227] text-white font-bold' 
+                              : 'bg-slate-950/40 border-slate-800/80 hover:bg-slate-900/60 text-slate-400'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                            <span className="text-xs">General / Non-File Registry Task</span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">No specific file</span>
+                        </button>
+
+                        {filteredFilesForModal.length === 0 ? (
+                          <div className="p-4 text-center text-slate-500 text-xs italic">
+                            No registry files match "{fileSearchQuery}". Try another search term.
+                          </div>
+                        ) : (
+                          filteredFilesForModal.map(f => {
+                            const isSelected = newTask.fileNumber === f.internalFileNumber;
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedFileObj(f);
+                                  setNewTask({ ...newTask, fileNumber: f.internalFileNumber });
+                                }}
+                                className={`w-full text-left p-2.5 rounded-lg border transition flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-slate-900 border-[#C9A227] shadow'
+                                    : 'bg-slate-950/50 hover:bg-slate-900 border-slate-800/80 hover:border-slate-700'
+                                }`}
+                              >
+                                <div className="space-y-0.5 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-[#C9A227] text-xs">
+                                      {f.internalFileNumber}
+                                    </span>
+                                    <span className="text-white font-semibold text-xs truncate">
+                                      {f.clientName} <span className="text-slate-400 font-normal">v</span> {f.opposingParty || 'N/A'}
+                                    </span>
+                                    <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded uppercase ${
+                                      f.currentStatus === 'Closed' ? 'bg-slate-800 text-slate-400' : 'bg-emerald-950 text-emerald-300'
+                                    }`}>
+                                      {f.currentStatus || 'Active'}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 flex-wrap">
+                                    {f.courtCaseNumber && <span className="font-mono text-slate-300">Case: {f.courtCaseNumber}</span>}
+                                    {f.courtStation && <span>📍 {f.courtStation}</span>}
+                                    {f.advocateName && <span className="text-amber-300/90">⚖️ {f.advocateName}</span>}
+                                  </div>
+                                </div>
+
+                                <span className="text-[10px] font-bold text-[#C9A227] shrink-0 sm:self-center px-2 py-1 bg-slate-900 rounded border border-slate-800">
+                                  Select File →
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1308,12 +1442,41 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
                     required
                   >
-                    {assignableUsers.map(u => (
-                      <option key={u.id} value={u.fullName}>
-                        {u.fullName} ({u.role})
-                      </option>
-                    ))}
+                    <option value="">-- Select Assignee --</option>
+                    {['Advocate', 'Clerk', 'Secretary', 'Case Chaser', 'Proprietor'].map(roleName => {
+                      const roleStaff = assignableUsers.filter(u => u.role === roleName);
+                      if (roleStaff.length === 0) return null;
+                      return (
+                        <optgroup key={roleName} label={`${roleName}s`}>
+                          {roleStaff.map(u => (
+                            <option key={u.id} value={u.fullName}>
+                              {u.fullName} ({u.role})
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
+
+                  {/* Quick Staff Selection Chips */}
+                  {assignableUsers.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5 max-h-16 overflow-y-auto">
+                      {assignableUsers.slice(0, 5).map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => setNewTask({ ...newTask, assignedTo: u.fullName, assignedToRole: u.role })}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition cursor-pointer ${
+                            newTask.assignedTo === u.fullName
+                              ? 'bg-[#C9A227] text-slate-950 font-bold border-[#C9A227]'
+                              : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500'
+                          }`}
+                        >
+                          {u.fullName} ({u.role})
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Priority */}
@@ -1334,25 +1497,15 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
 
                 {/* Due Date */}
                 <div>
-                  <label className="block text-slate-400 font-bold mb-1">Due Date *</label>
-                  <input
-                    type="date"
-                    value={newTask.dueDate}
-                    onChange={e => {
-                      const selected = e.target.value;
-                      if (selected && isWeekend(selected)) {
-                        const valid = ensureWeekday(selected);
-                        setNewTask({ ...newTask, dueDate: valid });
-                      } else {
-                        setNewTask({ ...newTask, dueDate: selected });
-                      }
-                    }}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                  <LaptopDatePicker
+                    label="Due Date"
                     required
+                    value={newTask.dueDate}
+                    allowFuture={true}
+                    onChange={val => {
+                      setNewTask({ ...newTask, dueDate: val });
+                    }}
                   />
-                  {newTask.dueDate && isWeekend(newTask.dueDate) && (
-                    <span className="text-[10px] text-amber-400 font-semibold block mt-0.5">⚠️ Task due dates cannot fall on weekends. Auto-adjusted to Monday.</span>
-                  )}
                 </div>
 
                 {/* Due Time */}

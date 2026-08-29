@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   CourtSession, 
-  RegistryFile 
+  RegistryFile,
+  User
 } from '../types';
 import { 
   Scale, 
@@ -20,6 +21,7 @@ import {
 import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { exportTableToPdf } from '../utils/pdfExport';
 import { CourtStationPicker } from './CourtStationPicker';
+import { LaptopDatePicker } from './LaptopDatePicker';
 
 interface CourtDiaryModuleProps {
   sessions: CourtSession[];
@@ -27,6 +29,7 @@ interface CourtDiaryModuleProps {
   onAddSession: (session: CourtSession, sameDayAlert?: { fileNumber: string; time: string; purpose: string }) => void;
   onNavigateToOutcome: (session: CourtSession) => void;
   courtStations: string[];
+  users?: User[];
 }
 
 export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
@@ -34,7 +37,8 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
   files,
   onAddSession,
   onNavigateToOutcome,
-  courtStations
+  courtStations,
+  users = []
 }) => {
   const [viewMode, setViewMode] = useState<'today' | 'weekly' | 'monthly'>('today');
   const [searchTerm, setSearchTerm] = useState('');
@@ -392,28 +396,17 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Hearing Date</label>
-                  <input
-                    type="date"
+                  <LaptopDatePicker
+                    label="Hearing Date"
                     required
                     min={todayStr}
                     value={formData.hearingDate}
-                    onChange={e => {
-                      const selected = e.target.value;
-                      if (selected && isWeekend(selected)) {
-                        const valid = ensureWeekday(selected);
-                        setFormData({ ...formData, hearingDate: valid });
-                        setValidationError(`Weekend court dates are forbidden. Auto-adjusted from ${selected} to next business day (${valid}).`);
-                      } else {
-                        setFormData({ ...formData, hearingDate: selected });
-                        setValidationError(null);
-                      }
+                    onChange={val => {
+                      setFormData({ ...formData, hearingDate: val });
+                      setValidationError(null);
                     }}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded focus:border-[#C9A227]"
+                    allowFuture={true}
                   />
-                  {formData.hearingDate && isWeekend(formData.hearingDate) && (
-                    <span className="text-[10px] text-rose-400 font-semibold block mt-0.5">⚠️ Selected date is a weekend</span>
-                  )}
                 </div>
 
                 <div>
@@ -472,12 +465,27 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Assigned Advocate</label>
-                <input
-                  type="text"
+                <select
                   value={formData.advocateName}
                   onChange={e => setFormData({ ...formData, advocateName: e.target.value })}
                   className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded focus:border-[#C9A227]"
-                />
+                >
+                  <option value="">-- Select Assigned Advocate --</option>
+                  {users.filter(u => u.role === 'Advocate' || u.role === 'Proprietor').map(u => (
+                    <option key={u.id} value={u.fullName}>
+                      {u.fullName} ({u.role})
+                    </option>
+                  ))}
+                  {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').length > 0 && (
+                    <optgroup label="Other Registered Staff">
+                      {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').map(u => (
+                        <option key={u.id} value={u.fullName}>
+                          {u.fullName} ({u.role})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">

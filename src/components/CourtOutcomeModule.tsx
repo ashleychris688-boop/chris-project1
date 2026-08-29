@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   CourtOutcome, 
   RegistryFile, 
-  CourtSession 
+  CourtSession,
+  User as UserType
 } from '../types';
 import { 
   FileCheck2, 
@@ -16,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
+import { LaptopDatePicker } from './LaptopDatePicker';
 
 interface CourtOutcomeModuleProps {
   outcomes: CourtOutcome[];
@@ -27,13 +29,15 @@ interface CourtOutcomeModuleProps {
     sameDayAlert?: { fileNumber: string; time: string; purpose: string }
   ) => void;
   preselectedSession?: CourtSession | null;
+  users?: UserType[];
 }
 
 export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
   outcomes,
   files,
   onAddOutcome,
-  preselectedSession
+  preselectedSession,
+  users = []
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(!!preselectedSession);
@@ -243,35 +247,43 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Appearance Date</label>
-                  <input
-                    type="date"
+                  <LaptopDatePicker
+                    label="Appearance Date"
                     required
                     value={appearanceDate}
-                    onChange={e => {
-                      const selected = e.target.value;
-                      if (selected && isWeekend(selected)) {
-                        const valid = ensureWeekday(selected);
-                        setAppearanceDate(valid);
-                        setValidationError(`Appearance date cannot fall on a weekend. Auto-adjusted from ${selected} to next business day (${valid}).`);
-                      } else {
-                        setAppearanceDate(selected);
-                        setValidationError(null);
-                      }
+                    onChange={val => {
+                      setAppearanceDate(val);
+                      setValidationError(null);
                     }}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded focus:border-[#C9A227]"
+                    allowPast={true}
+                    allowFuture={true}
                   />
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Advocate Present</label>
-                  <input
-                    type="text"
+                  <select
                     required
                     value={advocatePresent}
                     onChange={e => setAdvocatePresent(e.target.value)}
                     className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded focus:border-[#C9A227]"
-                  />
+                  >
+                    <option value="">-- Select Advocate Present --</option>
+                    {users.filter(u => u.role === 'Advocate' || u.role === 'Proprietor').map(u => (
+                      <option key={u.id} value={u.fullName}>
+                        {u.fullName} ({u.role})
+                      </option>
+                    ))}
+                    {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').length > 0 && (
+                      <optgroup label="Other Registered Staff">
+                        {users.filter(u => u.role !== 'Advocate' && u.role !== 'Proprietor').map(u => (
+                          <option key={u.id} value={u.fullName}>
+                            {u.fullName} ({u.role})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
                 </div>
               </div>
 
@@ -330,17 +342,16 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Next Hearing Date</label>
-                  <input
-                    type="date"
+                  <LaptopDatePicker
+                    label="Next Hearing Date"
                     min={todayStr}
                     value={nextHearingDate}
-                    onChange={e => handleNextDateChange(e.target.value)}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 text-[#C9A227] font-bold rounded focus:border-[#C9A227]"
+                    onChange={val => {
+                      setNextHearingDate(val);
+                      setValidationError(null);
+                    }}
+                    allowFuture={true}
                   />
-                  {isWeekend(nextHearingDate) && (
-                    <span className="text-[10px] text-rose-400 font-semibold block mt-0.5">⚠️ Selected date is a weekend</span>
-                  )}
                 </div>
 
                 {nextHearingDate === todayStr ? (
