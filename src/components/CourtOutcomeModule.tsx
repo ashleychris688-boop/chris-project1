@@ -12,6 +12,7 @@ import {
   Calendar, 
   Clock, 
   User, 
+  UserCheck,
   AlertTriangle,
   Bell,
   X
@@ -30,6 +31,7 @@ interface CourtOutcomeModuleProps {
   ) => void;
   preselectedSession?: CourtSession | null;
   users?: UserType[];
+  currentUser?: UserType | null;
 }
 
 export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
@@ -37,7 +39,8 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
   files,
   onAddOutcome,
   preselectedSession,
-  users = []
+  users = [],
+  currentUser
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(!!preselectedSession);
@@ -93,6 +96,10 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
       }
     }
 
+    const recordingUser = currentUser?.fullName
+      ? `${currentUser.fullName} (${currentUser.role})`
+      : (advocatePresent || 'Advocate on Record');
+
     const newOutcome: CourtOutcome = {
       id: `co-${Date.now()}`,
       fileId: file.id,
@@ -103,7 +110,9 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
       nextHearingDate,
       advocatePresent,
       remarks,
-      caseStatusAfter
+      caseStatusAfter,
+      recordedBy: recordingUser,
+      recordedAt: new Date().toISOString()
     };
 
     // If next hearing date is TODAY, prepare same day alert for Clerk, Proprietor, Secretary
@@ -195,9 +204,17 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 pt-2 border-t border-slate-800">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-[#C9A227]" />
-                <span>Advocate Present: <strong className="text-white">{o.advocatePresent}</strong></span>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-[#C9A227]" />
+                  <span>Advocate Present: <strong className="text-white">{o.advocatePresent}</strong></span>
+                </div>
+                {o.recordedBy && (
+                  <span className="text-[11px] font-mono text-slate-400 bg-slate-950 px-2.5 py-0.5 rounded border border-slate-800 flex items-center gap-1">
+                    <UserCheck className="w-3 h-3 text-emerald-400" />
+                    Recorded by: <strong className="text-slate-200">{o.recordedBy}</strong>
+                  </span>
+                )}
               </div>
 
               {o.nextHearingDate && (

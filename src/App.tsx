@@ -2213,6 +2213,7 @@ export default function App() {
               onAddOutcome={handleAddCourtOutcome}
               preselectedSession={preselectedSessionForOutcome}
               users={activeFirmUsers}
+              currentUser={currentUser}
             />
           )}
 

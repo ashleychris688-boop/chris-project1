@@ -660,13 +660,25 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     setCorumTargetFile(file);
     setEditingCorumEntry(null);
     setCorumValidationError(null);
+
+    // Capture the name and role of the currently logged-in user
+    const recordingUser = currentUser?.fullName
+      ? `${currentUser.fullName} (${currentUser.role})`
+      : (users?.find(u => u.role === 'Advocate' || u.role === 'Proprietor')?.fullName
+          ? `${users.find(u => u.role === 'Advocate' || u.role === 'Proprietor')!.fullName} (${users.find(u => u.role === 'Advocate' || u.role === 'Proprietor')!.role})`
+          : 'Advocate on Record');
+
+    const defaultAdvocatePresent = (currentUser?.role === 'Advocate' || currentUser?.role === 'Proprietor')
+      ? currentUser.fullName
+      : (file.advocateName || users?.find(u => u.role === 'Advocate' || u.role === 'Proprietor')?.fullName || '');
+
     setCorumFormData({
       date: todayStr,
       time: '09:00 AM',
       coram: file.magistrate || '',
       courtStation: file.courtStation || '',
       courtNumber: file.courtNumber || 'Court 1',
-      advocatePresent: file.advocateName || users?.find(u => u.role === 'Advocate' || u.role === 'Proprietor')?.fullName || '',
+      advocatePresent: defaultAdvocatePresent,
       defendantAdvocate: '',
       comingUpFor: 'Mention',
       customComingUpFor: '',
@@ -677,7 +689,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       nextCourtTime: '09:00 AM',
       nextComingUpFor: 'Mention',
       caseStatusAfter: file.currentStatus || 'Active',
-      recordedBy: users?.find(u => u.role === 'Advocate' || u.role === 'Clerk')?.fullName || 'Advocate on Record'
+      recordedBy: recordingUser
     });
     setShowRecordCorumModal(true);
   };
@@ -709,6 +721,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     ];
     const isCustom = corum.comingUpFor ? !standardPurposes.includes(corum.comingUpFor) : false;
 
+    const currentRecorder = corum.recordedBy || (currentUser?.fullName
+      ? `${currentUser.fullName} (${currentUser.role})`
+      : 'Advocate on Record');
+
     setCorumFormData({
       date: corum.date || todayStr,
       time: corum.time || '09:00 AM',
@@ -726,7 +742,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       nextCourtTime: corum.nextCourtTime || '09:00 AM',
       nextComingUpFor: corum.nextComingUpFor || 'Mention',
       caseStatusAfter: corum.caseStatusAfter || file.currentStatus || 'Active',
-      recordedBy: corum.recordedBy || 'Advocate on Record'
+      recordedBy: currentRecorder
     });
     setShowRecordCorumModal(true);
   };
@@ -759,6 +775,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       }
     }
 
+    const activeUserTag = currentUser?.fullName
+      ? `${currentUser.fullName} (${currentUser.role})`
+      : (corumFormData.recordedBy || 'Advocate on Record');
+
     if (editingCorumEntry) {
       // 1-Time Edit Execution
       const updatedCorumEntry: CorumEntry = {
@@ -780,7 +800,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
         caseStatusAfter: corumFormData.caseStatusAfter,
         isEdited: true,
         editedAt: new Date().toISOString(),
-        editedBy: corumFormData.recordedBy || 'Advocate on Record',
+        editedBy: activeUserTag,
         editCount: (editingCorumEntry.editCount || 0) + 1
       };
 
@@ -790,7 +810,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
         onAddCorumEntry(updatedCorumEntry, corumFormData.nextCourtDate || undefined, corumFormData.caseStatusAfter);
       }
     } else {
-      // New CORUM Entry Creation
+      // New CORUM Entry Creation - Takes the name of the user that recorded it
       const newCorumEntry: CorumEntry = {
         id: `corum-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         firmCode: currentFirm?.firmCode,
@@ -812,7 +832,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
         nextCourtTime: corumFormData.nextCourtDate ? corumFormData.nextCourtTime : undefined,
         nextComingUpFor: corumFormData.nextCourtDate ? corumFormData.nextComingUpFor : undefined,
         caseStatusAfter: corumFormData.caseStatusAfter,
-        recordedBy: corumFormData.recordedBy || 'Advocate',
+        recordedBy: activeUserTag,
         recordedAt: new Date().toISOString()
       };
 
@@ -2113,10 +2133,10 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                         </div>
 
                         {/* Next Court Appearance & Attribution Footer */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60 text-[11px] text-slate-400">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 text-[11px] text-slate-400">
                           {corum.nextCourtDate ? (
                             <div className="flex items-center gap-1 text-amber-300 font-bold">
-                              <Clock className="w-3 h-3 text-[#C9A227]" />
+                              <Clock className="w-3.5 h-3.5 text-[#C9A227]" />
                               Next Court Appearance: <span className="underline font-mono">{corum.nextCourtDate} {corum.nextCourtTime || ''}</span>
                               {corum.nextComingUpFor && (
                                 <span className="text-slate-300 font-normal">({corum.nextComingUpFor})</span>
@@ -2126,11 +2146,17 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                             <span className="text-slate-500 italic">No future court date fixed</span>
                           )}
 
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 font-mono">
-                            <span>Recorded by: <span className="text-slate-400 font-medium">{corum.recordedBy || 'Advocate'}</span></span>
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 font-mono">
+                            <span className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Recorded by: <strong className="text-slate-200">{corum.recordedBy || 'Advocate on Record'}</strong></span>
+                              {corum.recordedAt && (
+                                <span className="text-slate-500 text-[10px]">({new Date(corum.recordedAt).toLocaleDateString()} {new Date(corum.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>
+                              )}
+                            </span>
                             {corum.isEdited && corum.editedAt && (
-                              <span className="text-amber-400/90 font-medium">
-                                • (Edited by {corum.editedBy || 'Staff'} on {new Date(corum.editedAt).toLocaleDateString()})
+                              <span className="text-amber-400/90 font-medium px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 rounded">
+                                Amended by <strong>{corum.editedBy || 'Staff'}</strong> on {new Date(corum.editedAt).toLocaleDateString()}
                               </span>
                             )}
                           </div>
@@ -3021,6 +3047,32 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
             <form onSubmit={handleSaveCorum} className="space-y-4 text-xs">
               
+              {/* User Recording Corum Attribution Banner */}
+              <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-[#C9A227]/20 border border-[#C9A227]/40 flex items-center justify-center text-[#C9A227]">
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                      {editingCorumEntry ? 'Amending Officer' : 'Recording Officer / User'}
+                    </div>
+                    <div className="font-bold text-slate-100 flex items-center gap-1.5">
+                      <span>{currentUser ? currentUser.fullName : (corumFormData.recordedBy || 'Advocate on Record')}</span>
+                      {currentUser && (
+                        <span className="px-1.5 py-0.2 bg-[#C9A227]/20 text-[#C9A227] rounded text-[10px] font-mono font-bold">
+                          {currentUser.role}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-800/60 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" />
+                  Attributed to User Session
+                </span>
+              </div>
+
               {/* Date & Time Row with LaptopDatePicker */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
