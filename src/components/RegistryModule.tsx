@@ -129,6 +129,7 @@ interface RegistryModuleProps {
   onUpdateUnprocessedRecord?: (record: UnprocessedClientRecord) => void;
   fileNumberPrefix?: string;
   users?: User[];
+  currentUser?: User | null;
   currentFirm?: LawFirmProfile | null;
   onUpdateFirm?: (firm: LawFirmProfile) => void;
   corumEntries?: CorumEntry[];
@@ -153,6 +154,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   onUpdateUnprocessedRecord,
   fileNumberPrefix = 'NGA',
   users = [],
+  currentUser = null,
   currentFirm = null,
   onUpdateFirm,
   corumEntries = [],
@@ -207,6 +209,15 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   const [showCloseModalForFile, setShowCloseModalForFile] = useState<RegistryFile | null>(null);
   const [closeJudgmentNotes, setCloseJudgmentNotes] = useState('');
   const [closedByRole, setClosedByRole] = useState<'Clerk' | 'Advocate' | 'Proprietor'>('Clerk');
+
+  // Proprietor File Information Edit Modal State (1-Time Edit Permission)
+  const [showEditFileModalForFile, setShowEditFileModalForFile] = useState<RegistryFile | null>(null);
+  const [editFileFormData, setEditFileFormData] = useState<Partial<RegistryFile>>({});
+  const [editFileConfirmLock, setEditFileConfirmLock] = useState(false);
+  const [editFileError, setEditFileError] = useState<string | null>(null);
+
+  // Check if current user is the firm Proprietor
+  const isProprietor = currentUser?.role === 'Proprietor';
 
   // Station search state for large list of court stations
   const [stationSearchTerm, setStationSearchTerm] = useState('');
@@ -463,6 +474,115 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       setSelectedFile(updatedFile);
     }
     setShowManagePartiesModalForFile(null);
+  };
+
+  // Open Proprietor Single-Edit File Modal
+  const openEditFileModal = (file: RegistryFile) => {
+    if (!isProprietor) {
+      alert('Access Restricted: Only the Firm Proprietor is authorized to edit physical file information.');
+      return;
+    }
+    if (file.isEdited) {
+      alert(`This file record was already edited once by ${file.editedBy || 'the Proprietor'} on ${file.editedAt ? new Date(file.editedAt).toLocaleDateString() : ''}. Under the single-edit governance policy, subsequent edits are restricted.`);
+      return;
+    }
+    setShowEditFileModalForFile(file);
+    setEditFileConfirmLock(false);
+    setEditFileError(null);
+    setEditFileFormData({
+      internalFileNumber: file.internalFileNumber || '',
+      courtCaseNumber: file.courtCaseNumber || '',
+      clientName: file.clientName || '',
+      clientType: file.clientType || 'Individual',
+      partyCapacity: file.partyCapacity || 'Plaintiff',
+      opposingParty: file.opposingParty || '',
+      insuranceCompanyName: file.insuranceCompanyName || 'None',
+      courtStation: file.courtStation || courtStations[0] || '',
+      courtNumber: file.courtNumber || 'Court 1',
+      magistrate: file.magistrate || '',
+      advocateName: file.advocateName || '',
+      clerkName: file.clerkName || '',
+      secretaryName: file.secretaryName || '',
+      caseChaserName: file.caseChaserName || '',
+      caseCategory: file.caseCategory || 'Civil Litigation',
+      caseType: file.caseType || 'General Civil Suit',
+      subCaseType: file.subCaseType || 'General Civil Suit',
+      physicalLocation: file.physicalLocation ? { ...file.physicalLocation } : { room: 'Central Registry', cabinet: cabinets[0] || 'Cabinet A', shelf: 'Shelf 1' },
+      dateOpened: file.dateOpened || new Date().toISOString().split('T')[0],
+      currentStatus: file.currentStatus || 'Active',
+      notes: file.notes || ''
+    });
+  };
+
+  // Save Proprietor 1-Time File Edit
+  const handleSaveEditFile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showEditFileModalForFile) return;
+
+    if (!isProprietor) {
+      setEditFileError('Access Restricted: Only the Firm Proprietor is authorized to edit physical file information.');
+      return;
+    }
+
+    if (showEditFileModalForFile.isEdited) {
+      setEditFileError('This file record has already undergone its single authorized edit and is permanently locked.');
+      return;
+    }
+
+    if (!editFileFormData.clientName?.trim()) {
+      setEditFileError('Client Name is required.');
+      return;
+    }
+
+    if (!editFileFormData.internalFileNumber?.trim()) {
+      setEditFileError('Internal File Number is required.');
+      return;
+    }
+
+    if (!editFileFormData.courtStation?.trim()) {
+      setEditFileError('Court Station is required.');
+      return;
+    }
+
+    if (!editFileConfirmLock) {
+      setEditFileError('Please confirm the acknowledgment checkbox verifying this single-edit lock.');
+      return;
+    }
+
+    const updatedFile: RegistryFile = {
+      ...showEditFileModalForFile,
+      internalFileNumber: editFileFormData.internalFileNumber?.trim() || showEditFileModalForFile.internalFileNumber,
+      courtCaseNumber: editFileFormData.courtCaseNumber?.trim() || showEditFileModalForFile.courtCaseNumber,
+      clientName: editFileFormData.clientName.trim(),
+      clientType: editFileFormData.clientType || showEditFileModalForFile.clientType,
+      partyCapacity: editFileFormData.partyCapacity || showEditFileModalForFile.partyCapacity,
+      opposingParty: editFileFormData.opposingParty?.trim() || showEditFileModalForFile.opposingParty,
+      insuranceCompanyName: editFileFormData.insuranceCompanyName?.trim() || showEditFileModalForFile.insuranceCompanyName,
+      courtStation: editFileFormData.courtStation || showEditFileModalForFile.courtStation,
+      courtNumber: editFileFormData.courtNumber || showEditFileModalForFile.courtNumber,
+      magistrate: editFileFormData.magistrate?.trim() || showEditFileModalForFile.magistrate,
+      advocateName: editFileFormData.advocateName || showEditFileModalForFile.advocateName,
+      clerkName: editFileFormData.clerkName || showEditFileModalForFile.clerkName,
+      secretaryName: editFileFormData.secretaryName || showEditFileModalForFile.secretaryName,
+      caseChaserName: editFileFormData.caseChaserName || showEditFileModalForFile.caseChaserName,
+      caseCategory: editFileFormData.caseCategory || showEditFileModalForFile.caseCategory,
+      caseType: editFileFormData.caseType || showEditFileModalForFile.caseType,
+      subCaseType: editFileFormData.subCaseType || showEditFileModalForFile.subCaseType,
+      physicalLocation: editFileFormData.physicalLocation || showEditFileModalForFile.physicalLocation,
+      dateOpened: editFileFormData.dateOpened || showEditFileModalForFile.dateOpened,
+      currentStatus: editFileFormData.currentStatus || showEditFileModalForFile.currentStatus,
+      notes: editFileFormData.notes || showEditFileModalForFile.notes,
+      isEdited: true,
+      editedAt: new Date().toISOString(),
+      editedBy: currentUser?.fullName || 'Proprietor',
+      editCount: (showEditFileModalForFile.editCount || 0) + 1
+    };
+
+    onUpdateFile(updatedFile);
+    if (selectedFile?.id === updatedFile.id) {
+      setSelectedFile(updatedFile);
+    }
+    setShowEditFileModalForFile(null);
   };
 
   // Open modal and initialize system generated file number
@@ -1433,6 +1553,26 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                             <Eye className="w-4 h-4 text-[#C9A227]" />
                           </button>
 
+                          {/* Proprietor 1-Time Edit Action in Table */}
+                          {isProprietor && (
+                            file.isEdited ? (
+                              <span
+                                className="p-1.5 text-slate-500 cursor-help"
+                                title={`File info was edited once by ${file.editedBy || 'Proprietor'} on ${file.editedAt ? new Date(file.editedAt).toLocaleDateString() : 'Record'}. Record is locked.`}
+                              >
+                                <ShieldCheck className="w-4 h-4 text-[#C9A227]/70" />
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => openEditFileModal(file)}
+                                className="p-1.5 rounded-lg hover:bg-amber-500/20 text-[#C9A227] transition cursor-pointer"
+                                title="Edit File Information (Proprietor Authorization • 1-Time Edit)"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                            )
+                          )}
+
                           <button
                             onClick={() => onOpenMoveModal(file)}
                             className="p-1.5 rounded-lg hover:bg-amber-950/60 text-amber-300 transition"
@@ -1543,7 +1683,35 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 {getStatusBadge(selectedFile.currentStatus)}
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Proprietor 1-Time Edit Permission Button / Lock Badge */}
+                {selectedFile.isEdited ? (
+                  <div 
+                    className="px-3 py-2 bg-slate-950/90 border border-[#C9A227]/40 rounded-lg text-xs font-mono text-amber-300 flex items-center gap-1.5 shadow-sm"
+                    title={`File information was edited once by ${selectedFile.editedBy || 'Proprietor'} on ${selectedFile.editedAt ? new Date(selectedFile.editedAt).toLocaleDateString() : 'Record'}. Under single-edit governance, this record is permanently locked.`}
+                  >
+                    <ShieldCheck className="w-4 h-4 text-[#C9A227]" />
+                    <span>Edited & Finalized (1-Time Lock)</span>
+                  </div>
+                ) : isProprietor ? (
+                  <button
+                    onClick={() => openEditFileModal(selectedFile)}
+                    className="px-3.5 py-2 bg-gradient-to-r from-[#C9A227] to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black rounded-lg shadow-md transition flex items-center gap-1.5 cursor-pointer transform active:scale-95"
+                    title="Edit physical file details (Proprietor exclusive authorization • 1-Time edit policy)"
+                  >
+                    <Edit3 className="w-4 h-4 stroke-[2.5]" />
+                    Edit File Info (Proprietor • 1-Time)
+                  </button>
+                ) : (
+                  <div 
+                    className="px-2.5 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-[11px] font-mono text-slate-400 flex items-center gap-1.5"
+                    title="Physical file information can only be edited by the Firm Proprietor (1-time edit policy)"
+                  >
+                    <FolderLock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Edit File: Proprietor Only</span>
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
                     const target = selectedFile;
@@ -1768,6 +1936,26 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 <div className="font-bold text-slate-100">{selectedFile.insuranceCompanyName}</div>
               </div>
             </div>
+
+            {/* Proprietor Single-Edit Audit Trail Banner */}
+            {selectedFile.isEdited && (
+              <div className="p-3.5 bg-slate-950 border border-[#C9A227]/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-[#C9A227] shrink-0" />
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-amber-200">
+                      Proprietor One-Time Edit Finalized
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      File details amended by <strong>{selectedFile.editedBy || 'Proprietor'}</strong> on {selectedFile.editedAt ? new Date(selectedFile.editedAt).toLocaleString() : 'Record'}. Further edits are restricted.
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-[#C9A227]/20 text-[#C9A227] border border-[#C9A227]/30 shrink-0 self-start sm:self-center">
+                  Immutable Record
+                </span>
+              </div>
+            )}
 
             {/* CORUM & COURT PROCEEDINGS REGISTER */}
             <div className="space-y-3 pt-3 border-t border-slate-800">
@@ -3322,6 +3510,415 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   Save Parties Changes
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PROPRIETOR FILE INFORMATION EDIT MODAL (1-TIME EDIT ONLY) */}
+      {showEditFileModalForFile && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-[#081729] rounded-2xl max-w-2xl w-full p-6 space-y-4 border border-[#C9A227] shadow-2xl text-slate-100 my-8">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-mono font-bold text-[#C9A227] uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C9A227]" />
+                  PROPRIETOR EXCLUSIVE PERMISSION • 1-TIME FILE AMENDMENT
+                </span>
+                <h3 className="font-serif font-black text-xl text-white mt-1">
+                  Edit File Record: {showEditFileModalForFile.internalFileNumber}
+                </h3>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  {showEditFileModalForFile.clientName} vs {showEditFileModalForFile.opposingParty}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditFileModalForFile(null)}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Strict 1-Time Rule Notice Box */}
+            <div className="p-3.5 bg-amber-950/40 border border-amber-600/60 rounded-xl space-y-1.5">
+              <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Proprietor Single-Edit Governance Notice</span>
+              </div>
+              <p className="text-xs text-amber-100/90 leading-relaxed">
+                As the firm <strong>Proprietor</strong>, you are authorized to make a <strong>single one-time amendment</strong> to this physical file's registration details. Once saved, this file information will be <strong>permanently locked</strong> from subsequent edits to preserve legal audit integrity.
+              </p>
+            </div>
+
+            {editFileError && (
+              <div className="p-3 bg-red-950/70 border border-red-700 rounded-xl text-xs text-red-200 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{editFileError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditFile} className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+              {/* SECTION 1: CASE IDENTITY */}
+              <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-white uppercase font-serif flex items-center gap-1.5 text-[#C9A227]">
+                  <Tag className="w-3.5 h-3.5" />
+                  1. Case Reference & Identity
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Internal File # *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFileFormData.internalFileNumber || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, internalFileNumber: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-mono font-bold focus:border-[#C9A227]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Court Case #</label>
+                    <input
+                      type="text"
+                      value={editFileFormData.courtCaseNumber || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, courtCaseNumber: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-medium focus:border-[#C9A227]"
+                      placeholder="e.g. Milimani HCCC No. 428 of 2025"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Case Category</label>
+                    <select
+                      value={editFileFormData.caseCategory || 'Civil Litigation'}
+                      onChange={e => {
+                        const cat = e.target.value;
+                        const catConfig = DEFAULT_CASE_CATEGORIES.find(c => c.category === cat);
+                        const firstSub = catConfig?.subTypes[0] || cat;
+                        setEditFileFormData(prev => ({
+                          ...prev,
+                          caseCategory: cat,
+                          caseType: firstSub,
+                          subCaseType: firstSub
+                        }));
+                      }}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-medium focus:border-[#C9A227]"
+                    >
+                      {DEFAULT_CASE_CATEGORIES.map(c => (
+                        <option key={c.category} value={c.category}>{c.category}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Specific Case Sub-Type</label>
+                    <select
+                      value={editFileFormData.caseType || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, caseType: e.target.value, subCaseType: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-medium focus:border-[#C9A227]"
+                    >
+                      {(DEFAULT_CASE_CATEGORIES.find(c => c.category === editFileFormData.caseCategory)?.subTypes || ['General Civil Suit']).map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Date Opened</label>
+                    <input
+                      type="date"
+                      value={editFileFormData.dateOpened || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, dateOpened: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:border-[#C9A227]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Current Status</label>
+                    <select
+                      value={editFileFormData.currentStatus || 'Active'}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, currentStatus: e.target.value as FileStatus }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-medium focus:border-[#C9A227]"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Out in Court">Out in Court</option>
+                      <option value="Out with Advocate">Out with Advocate</option>
+                      <option value="Out with Insurance">Out with Insurance</option>
+                      <option value="Pending Court">Pending Court</option>
+                      <option value="Incomplete">Incomplete</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: LITIGANTS & PARTIES */}
+              <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-white uppercase font-serif flex items-center gap-1.5 text-[#C9A227]">
+                  <Users className="w-3.5 h-3.5" />
+                  2. Primary Litigants & Client Details
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-300 font-semibold mb-1">Client Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFileFormData.clientName || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, clientName: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-bold focus:border-[#C9A227]"
+                      placeholder="e.g. John Doe / Apex Logistics Ltd"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Client Legal Type</label>
+                    <select
+                      value={editFileFormData.clientType || 'Individual'}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, clientType: e.target.value as ClientType }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    >
+                      {CLIENT_TYPES.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Client Party Capacity</label>
+                    <select
+                      value={editFileFormData.partyCapacity || 'Plaintiff'}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, partyCapacity: e.target.value as PartyCapacity }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    >
+                      {ALL_PARTY_CAPACITIES.map(cap => (
+                        <option key={cap} value={cap}>{cap}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Opposing Party / Adverse Side</label>
+                    <input
+                      type="text"
+                      value={editFileFormData.opposingParty || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, opposingParty: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 font-semibold focus:border-[#C9A227]"
+                      placeholder="e.g. Kenya Power & Lighting Co. Ltd"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Insurance Company Name</label>
+                    <input
+                      type="text"
+                      value={editFileFormData.insuranceCompanyName || 'None'}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, insuranceCompanyName: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                      placeholder="e.g. APA Insurance / None"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: COURT STATION & BENCH */}
+              <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-white uppercase font-serif flex items-center gap-1.5 text-[#C9A227]">
+                  <Landmark className="w-3.5 h-3.5" />
+                  3. Court Station & Bench
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-300 font-semibold mb-1">Court Station *</label>
+                    <CourtStationPicker
+                      selectedStation={editFileFormData.courtStation || courtStations[0] || 'Milimani Law Courts'}
+                      onSelectStation={st => setEditFileFormData(prev => ({ ...prev, courtStation: st }))}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Court Room / Number</label>
+                    <input
+                      type="text"
+                      value={editFileFormData.courtNumber || 'Court 1'}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, courtNumber: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                      placeholder="e.g. Court 3 / Commercial 4"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Presiding Magistrate / Judge</label>
+                    <input
+                      type="text"
+                      value={editFileFormData.magistrate || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, magistrate: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                      placeholder="e.g. Hon. Lady Justice ... / Hon. Principal Magistrate ..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: ASSIGNED STAFF & REGISTRY LOCATION */}
+              <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-white uppercase font-serif flex items-center gap-1.5 text-[#C9A227]">
+                  <Briefcase className="w-3.5 h-3.5" />
+                  4. Staff Assignment & Physical Location
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Assigned Advocate</label>
+                    <select
+                      value={editFileFormData.advocateName || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, advocateName: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    >
+                      <option value="">-- Select Advocate --</option>
+                      {users.filter(u => u.role === 'Advocate' || u.role === 'Proprietor').map(u => (
+                        <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Assigned Case Chaser</label>
+                    <select
+                      value={editFileFormData.caseChaserName || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, caseChaserName: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    >
+                      <option value="Direct / Walk-in (No Chaser)">Direct / Walk-in (No Chaser)</option>
+                      {users.filter(u => u.role === 'Case Chaser').map(u => (
+                        <option key={u.id} value={u.fullName}>{u.fullName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Assigned Registry Clerk</label>
+                    <select
+                      value={editFileFormData.clerkName || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, clerkName: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    >
+                      <option value="">-- Select Clerk --</option>
+                      {users.filter(u => u.role === 'Clerk').map(u => (
+                        <option key={u.id} value={u.fullName}>{u.fullName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Assigned Secretary</label>
+                    <select
+                      value={editFileFormData.secretaryName || ''}
+                      onChange={e => setEditFileFormData(prev => ({ ...prev, secretaryName: e.target.value }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    >
+                      <option value="">-- Select Secretary --</option>
+                      {users.filter(u => u.role === 'Secretary').map(u => (
+                        <option key={u.id} value={u.fullName}>{u.fullName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Physical Cabinet</label>
+                    <select
+                      value={editFileFormData.physicalLocation?.cabinet || cabinets[0] || 'Cabinet A'}
+                      onChange={e => setEditFileFormData(prev => ({
+                        ...prev,
+                        physicalLocation: {
+                          room: prev.physicalLocation?.room || 'Central Registry',
+                          shelf: prev.physicalLocation?.shelf || 'Shelf 1',
+                          detail: prev.physicalLocation?.detail,
+                          cabinet: e.target.value
+                        }
+                      }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    >
+                      {cabinets.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Shelf Number</label>
+                    <input
+                      type="text"
+                      value={editFileFormData.physicalLocation?.shelf || 'Shelf 1'}
+                      onChange={e => setEditFileFormData(prev => ({
+                        ...prev,
+                        physicalLocation: {
+                          room: prev.physicalLocation?.room || 'Central Registry',
+                          cabinet: prev.physicalLocation?.cabinet || cabinets[0] || 'Cabinet A',
+                          detail: prev.physicalLocation?.detail,
+                          shelf: e.target.value
+                        }
+                      }))}
+                      className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:border-[#C9A227]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 5: MATTER NOTES */}
+              <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2">
+                <label className="block text-slate-300 font-semibold text-xs">Case Description & Registry Notes</label>
+                <textarea
+                  rows={3}
+                  value={editFileFormData.notes || ''}
+                  onChange={e => setEditFileFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Enter any relevant registry notes or case background..."
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:border-[#C9A227] leading-relaxed"
+                />
+              </div>
+
+              {/* CONFIRMATION CHECKBOX */}
+              <div className="p-4 bg-slate-950 border border-[#C9A227]/40 rounded-xl space-y-2">
+                <label className="flex items-start gap-3 cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={editFileConfirmLock}
+                    onChange={e => setEditFileConfirmLock(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-[#C9A227] bg-slate-900 border-slate-700 focus:ring-[#C9A227] accent-[#C9A227] cursor-pointer"
+                  />
+                  <span className="text-slate-200 font-medium">
+                    I confirm as the <strong>Firm Proprietor ({currentUser?.fullName})</strong> that these file details are accurate. I acknowledge that this is the <strong>sole authorized edit</strong> for this physical file and will permanently lock further editing.
+                  </span>
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowEditFileModalForFile(null)}
+                  className="px-4 py-2 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 cursor-pointer text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!editFileConfirmLock}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#C9A227] to-amber-500 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-xl uppercase tracking-wider shadow-lg flex items-center gap-2 cursor-pointer text-xs transition"
+                >
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                  Save & Finalize One-Time File Edit
+                </button>
+              </div>
+
             </form>
           </div>
         </div>

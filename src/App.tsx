@@ -1289,14 +1289,26 @@ export default function App() {
     saveFiles(updated);
     saveDocumentToFirebase('files', file);
 
+    const isSingleEdit = file.isEdited && file.editCount === 1;
+
     showToast(
       'success',
-      'File Record Updated',
-      `Physical file ${file.internalFileNumber} (${file.clientName}) records were successfully updated and saved.`
+      isSingleEdit ? 'Proprietor File Edit Finalized' : 'File Record Updated',
+      isSingleEdit
+        ? `Proprietor one-time file information edit for ${file.internalFileNumber} (${file.clientName}) saved. Edit permission is now permanently locked.`
+        : `Physical file ${file.internalFileNumber} (${file.clientName}) records were successfully updated and saved.`
     );
 
     if (currentUser) {
-      addAuditLog(currentUser.fullName, currentUser.role, 'Updated File Record', 'Registry', `Updated physical file ${file.internalFileNumber} metadata`);
+      addAuditLog(
+        currentUser.fullName, 
+        currentUser.role, 
+        isSingleEdit ? 'Proprietor 1-Time File Edit' : 'Updated File Record', 
+        'Registry', 
+        isSingleEdit
+          ? `Proprietor finalized single authorized edit for physical file ${file.internalFileNumber} (${file.clientName}). Subsequent edits locked.`
+          : `Updated physical file ${file.internalFileNumber} metadata`
+      );
       setAuditLogsState(getStoredAuditLogs());
     }
   };
@@ -2146,6 +2158,7 @@ export default function App() {
               movements={activeFirmMovements}
               corumEntries={activeFirmCorumEntries}
               courtOutcomes={activeFirmCourtOutcomes}
+              currentUser={currentUser}
               onAddCorumEntry={handleAddCorumEntry}
               onUpdateCorumEntry={handleUpdateCorumEntry}
               onAddCourtOutcome={handleAddCourtOutcome}

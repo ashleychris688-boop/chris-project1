@@ -131,6 +131,10 @@ export interface RegistryFile {
   caseCategory?: string;
   caseType?: string;
   subCaseType?: string;
+  isEdited?: boolean;
+  editedAt?: string;
+  editedBy?: string;
+  editCount?: number;
 }
 
 export interface CourtSession {
