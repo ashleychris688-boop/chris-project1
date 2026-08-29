@@ -1965,7 +1965,6 @@ export default function App() {
         onNavigateTab={tab => setActiveTab(tab)}
         onGoToSuperAdmin={currentUser?.role === 'Super Admin' ? () => setActiveTab('super-admin') : undefined}
         onManualCloudSync={performFirebaseSnapshotSync}
-        onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
         lastSyncTime={lastSnapshotSyncTime}
         sessionsTodayCount={courtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length}
         filesOutCount={files.filter(f => f.currentStatus.startsWith('Out')).length}
@@ -2343,7 +2342,6 @@ export default function App() {
         <MobileBottomNav
           activeTab={activeTab}
           onSelectTab={tab => setActiveTab(tab)}
-          onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
           onToggleSidebar={() => setSidebarCollapsed(prev => !prev)}
           pendingTasksCount={activeFirmTasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length}
           courtSessionsTodayCount={activeFirmCourtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length}

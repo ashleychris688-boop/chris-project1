@@ -4,14 +4,12 @@ import {
   FolderArchive, 
   Scale, 
   CheckSquare, 
-  Sparkles,
   Menu
 } from 'lucide-react';
 
 interface MobileBottomNavProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
-  onOpenShortcuts: () => void;
   onToggleSidebar: () => void;
   pendingTasksCount?: number;
   courtSessionsTodayCount?: number;
@@ -20,7 +18,6 @@ interface MobileBottomNavProps {
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeTab,
   onSelectTab,
-  onOpenShortcuts,
   onToggleSidebar,
   pendingTasksCount = 0,
   courtSessionsTodayCount = 0
@@ -89,16 +86,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           {pendingTasksCount > 0 && (
             <span className="absolute top-1 right-2 w-2 h-2 bg-[#C9A227] rounded-full animate-pulse" />
           )}
-        </button>
-
-        {/* Shortcuts & Quick Actions */}
-        <button
-          onClick={onOpenShortcuts}
-          className="flex flex-col items-center justify-center p-1.5 rounded-xl transition cursor-pointer text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 flex-1"
-          title="Shortcuts & Gestures"
-        >
-          <Sparkles className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] leading-tight">Shortcuts</span>
         </button>
 
         {/* More / Menu Drawer */}
