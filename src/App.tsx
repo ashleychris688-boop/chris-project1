@@ -2141,7 +2141,22 @@ export default function App() {
               pendingCheques: activeFirmCheques.filter(c => c.status !== 'Cleared').length,
               commissions: activeFirmCommissions.filter(c => c.outstandingBalance > 0).length,
               pendingReviewIntakes: activeFirmUnprocessedRecords.filter(r => r.status === 'Pending Review').length,
-              pendingTasks: activeFirmTasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length
+              pendingTasks: (currentUser?.role === 'Proprietor' || currentUser?.role === 'Admin' || currentUser?.role === 'Super Admin')
+                ? activeFirmTasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length
+                : activeFirmTasks.filter(t => {
+                    const isPending = t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue';
+                    if (!isPending) return false;
+                    const myName = (currentUser?.fullName || '').toLowerCase().trim();
+                    const myUsername = (currentUser?.username || '').toLowerCase().trim();
+                    const assigned = (t.assignedTo || '').toLowerCase().trim();
+                    const assignedChaser = (t.assignedToChaserName || '').toLowerCase().trim();
+                    const assignedId = t.assignedToId || t.assignedToChaserId || '';
+                    return (
+                      (assigned && (assigned === myName || assigned === myUsername)) ||
+                      (assignedChaser && (assignedChaser === myName || assignedChaser === myUsername)) ||
+                      (assignedId && assignedId === currentUser?.id)
+                    );
+                  }).length
             }}
           />
         )}
@@ -2194,6 +2209,7 @@ export default function App() {
               users={activeFirmUsers}
               files={activeFirmFiles}
               tasks={activeFirmTasks}
+              courtStations={settings.courtStations}
               onAddTask={handleAddTask}
               onUpdateTask={handleUpdateTask}
               onDeleteTask={handleDeleteTask}
@@ -2458,7 +2474,22 @@ export default function App() {
           activeTab={activeTab}
           onSelectTab={tab => setActiveTab(tab)}
           onToggleSidebar={() => setSidebarCollapsed(prev => !prev)}
-          pendingTasksCount={activeFirmTasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length}
+          pendingTasksCount={(currentUser?.role === 'Proprietor' || currentUser?.role === 'Admin' || currentUser?.role === 'Super Admin')
+            ? activeFirmTasks.filter(t => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue').length
+            : activeFirmTasks.filter(t => {
+                const isPending = t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue';
+                if (!isPending) return false;
+                const myName = (currentUser?.fullName || '').toLowerCase().trim();
+                const myUsername = (currentUser?.username || '').toLowerCase().trim();
+                const assigned = (t.assignedTo || '').toLowerCase().trim();
+                const assignedChaser = (t.assignedToChaserName || '').toLowerCase().trim();
+                const assignedId = t.assignedToId || t.assignedToChaserId || '';
+                return (
+                  (assigned && (assigned === myName || assigned === myUsername)) ||
+                  (assignedChaser && (assignedChaser === myName || assignedChaser === myUsername)) ||
+                  (assignedId && assignedId === currentUser?.id)
+                );
+              }).length}
           courtSessionsTodayCount={activeFirmCourtSessions.filter(s => s.hearingDate === new Date().toISOString().split('T')[0]).length}
         />
       )}

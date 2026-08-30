@@ -480,6 +480,7 @@ export interface TaskItem {
   assignedByRole: UserRole;
   assignedTo: string; // User Name or ID
   assignedToRole: UserRole;
+  assignedToId?: string; // Specific User Account ID
   assignedToChaserId?: string; // For backward compatibility
   assignedToChaserName?: string; // For backward compatibility
   priority: TaskPriority;
