@@ -183,6 +183,13 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
   const [fileStatusFilterModal, setFileStatusFilterModal] = useState<'All' | 'Active' | 'Closed'>('All');
   const [selectedFileObj, setSelectedFileObj] = useState<RegistryFile | null>(null);
 
+  // File Picker Modal State with Search & 15-per-page Pagination
+  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
+  const [filePickerSearch, setFilePickerSearch] = useState('');
+  const [filePickerStation, setFilePickerStation] = useState<string>('');
+  const [filePickerPage, setFilePickerPage] = useState(1);
+  const FILES_PER_PAGE = 15;
+
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskItem | null>(null);
@@ -242,10 +249,37 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
     return counts;
   }, [files]);
 
-  // Filtered files for modal selection based on selected station & search
+  // Filtered files for file picker dialog with search, station filter, and 15-per-page pagination
+  const filteredPickerFiles = useMemo(() => {
+    let base = files;
+    const targetStation = filePickerStation || selectedCourtStation;
+    if (targetStation && targetStation !== 'All' && targetStation !== 'General Registry') {
+      base = files.filter(f => (f.courtStation || '').trim().toLowerCase() === targetStation.toLowerCase());
+    }
+    return base.filter(f => {
+      if (!filePickerSearch.trim()) return true;
+      const q = filePickerSearch.toLowerCase();
+      return (
+        f.internalFileNumber.toLowerCase().includes(q) ||
+        (f.courtCaseNumber && f.courtCaseNumber.toLowerCase().includes(q)) ||
+        f.clientName.toLowerCase().includes(q) ||
+        (f.opposingParty && f.opposingParty.toLowerCase().includes(q)) ||
+        (f.courtStation && f.courtStation.toLowerCase().includes(q)) ||
+        (f.advocateName && f.advocateName.toLowerCase().includes(q))
+      );
+    });
+  }, [files, filePickerStation, selectedCourtStation, filePickerSearch]);
+
+  const totalPickerPages = Math.max(1, Math.ceil(filteredPickerFiles.length / FILES_PER_PAGE));
+  const paginatedPickerFiles = useMemo(() => {
+    const startIndex = (filePickerPage - 1) * FILES_PER_PAGE;
+    return filteredPickerFiles.slice(startIndex, startIndex + FILES_PER_PAGE);
+  }, [filteredPickerFiles, filePickerPage, FILES_PER_PAGE]);
+
+  // Quick selectable files
   const selectableFiles = useMemo(() => {
     let base = files;
-    if (selectedCourtStation && selectedCourtStation !== 'All') {
+    if (selectedCourtStation && selectedCourtStation !== 'All' && selectedCourtStation !== 'General Registry') {
       base = files.filter(f => (f.courtStation || '').trim().toLowerCase() === selectedCourtStation.toLowerCase());
     }
     return base.filter(f => {
@@ -720,7 +754,7 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
               {/* Case File */}
               <div>
                 <label className="block text-slate-300 font-bold mb-1 flex items-center justify-between">
-                  <span>Case File (Optional)</span>
+                  <span>Case File</span>
                   {selectedFileObj && (
                     <button
                       type="button"
@@ -730,36 +764,41 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                       }}
                       className="text-[10px] text-slate-400 hover:text-white underline font-normal cursor-pointer"
                     >
-                      Unlink
+                      Unlink File
                     </button>
                   )}
                 </label>
-                <select
-                  value={selectedFileObj?.id || ''}
-                  onChange={e => {
-                    const found = files.find(f => f.id === e.target.value);
-                    if (found) {
-                      setSelectedFileObj(found);
-                      if (found.courtStation) setSelectedCourtStation(found.courtStation);
-                      setNewTask(prev => ({
-                        ...prev,
-                        fileNumber: found.internalFileNumber,
-                        assignedTo: found.advocateName || prev.assignedTo
-                      }));
-                    } else {
-                      setSelectedFileObj(null);
-                      setNewTask(prev => ({ ...prev, fileNumber: '' }));
-                    }
-                  }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                >
-                  <option value="">-- Select Case File --</option>
-                  {selectableFiles.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {f.internalFileNumber} - {f.clientName} v {f.opposingParty || 'N/A'} {f.courtStation ? `[${f.courtStation}]` : ''}
-                    </option>
-                  ))}
-                </select>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilePickerStation(selectedCourtStation);
+                      setFilePickerSearch('');
+                      setFilePickerPage(1);
+                      setIsFilePickerOpen(true);
+                    }}
+                    className={`flex-1 flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs font-medium transition cursor-pointer ${
+                      selectedFileObj
+                        ? 'bg-slate-900 border-[#C9A227]/70 text-white'
+                        : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="truncate">
+                      {selectedFileObj ? (
+                        <span className="font-mono text-[#C9A227] font-bold">
+                          {selectedFileObj.internalFileNumber} - <span className="text-white font-sans">{selectedFileObj.clientName} v {selectedFileObj.opposingParty || 'N/A'}</span>
+                        </span>
+                      ) : (
+                        'Select or search case file...'
+                      )}
+                    </span>
+                    <span className="px-2 py-0.5 bg-[#C9A227]/20 hover:bg-[#C9A227] hover:text-slate-950 text-[#C9A227] text-[11px] font-bold rounded-lg border border-[#C9A227]/40 shrink-0 ml-2 transition flex items-center gap-1">
+                      <Search className="w-3 h-3" />
+                      Browse
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1515,6 +1554,216 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* CASE FILE SEARCH & PAGINATED PICKER MODAL (15 PER PAGE) */}
+      {isFilePickerOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-[#0A1A2F] border border-[#C9A227] rounded-2xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl space-y-4 my-6 flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-[#C9A227]/20 text-[#C9A227] rounded-lg">
+                  <FolderArchive className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="font-serif font-bold text-base sm:text-lg text-white">
+                    Select Case File
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Showing {filteredPickerFiles.length} registered {filteredPickerFiles.length === 1 ? 'file' : 'files'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilePickerOpen(false)}
+                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search & Station Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              {/* Search Bar */}
+              <div className="sm:col-span-8 relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by File #, Court Case #, Client name, Party..."
+                  value={filePickerSearch}
+                  onChange={e => {
+                    setFilePickerSearch(e.target.value);
+                    setFilePickerPage(1);
+                  }}
+                  autoFocus
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A227]"
+                />
+                {filePickerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilePickerSearch('');
+                      setFilePickerPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Station Filter */}
+              <div className="sm:col-span-4">
+                <select
+                  value={filePickerStation}
+                  onChange={e => {
+                    setFilePickerStation(e.target.value);
+                    setFilePickerPage(1);
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-[#C9A227]"
+                >
+                  <option value="">All Stations ({files.length})</option>
+                  {activeCourtStationsWithFiles.map(st => (
+                    <option key={st} value={st}>
+                      {st} ({stationFileCounts[st] || 0})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Files List */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 min-h-[220px] max-h-[380px] custom-scrollbar">
+              {paginatedPickerFiles.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs italic bg-slate-950/60 rounded-xl border border-slate-850">
+                  <FolderArchive className="w-8 h-8 mx-auto text-slate-600 mb-2 opacity-60" />
+                  No matching registered case files found.
+                </div>
+              ) : (
+                paginatedPickerFiles.map(f => {
+                  const isSelected = selectedFileObj?.id === f.id;
+                  return (
+                    <div
+                      key={f.id}
+                      onClick={() => {
+                        setSelectedFileObj(f);
+                        if (f.courtStation) setSelectedCourtStation(f.courtStation);
+                        setNewTask(prev => ({
+                          ...prev,
+                          fileNumber: f.internalFileNumber,
+                          assignedTo: f.advocateName || prev.assignedTo
+                        }));
+                        setIsFilePickerOpen(false);
+                      }}
+                      className={`p-2.5 rounded-xl border transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                        isSelected
+                          ? 'bg-[#C9A227]/15 border-[#C9A227] shadow'
+                          : 'bg-slate-950 hover:bg-slate-900 border-slate-800 hover:border-[#C9A227]/70'
+                      }`}
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-[#C9A227] text-xs bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                            {f.internalFileNumber}
+                          </span>
+                          <span className="text-white font-medium truncate">
+                            {f.clientName} <span className="text-slate-400 font-normal">v</span> {f.opposingParty || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
+                          {f.courtCaseNumber && (
+                            <span className="text-slate-300">⚖️ Case: <strong className="font-mono text-white">{f.courtCaseNumber}</strong></span>
+                          )}
+                          {f.courtStation && (
+                            <span>📍 {f.courtStation}</span>
+                          )}
+                          {f.advocateName && (
+                            <span className="text-amber-300/80">Advocate: {f.advocateName}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="self-end sm:self-center shrink-0">
+                        <span className="px-3 py-1 bg-[#C9A227] hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg transition inline-flex items-center gap-1 shadow">
+                          Select →
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Pagination Controls (15 per page) */}
+            {filteredPickerFiles.length > FILES_PER_PAGE && (
+              <div className="flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
+                <div className="text-slate-400 text-[11px]">
+                  Page <strong className="text-white">{filePickerPage}</strong> of <strong className="text-white">{totalPickerPages}</strong>
+                  <span className="ml-2 text-slate-500">({filteredPickerFiles.length} total)</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={filePickerPage <= 1}
+                    onClick={() => setFilePickerPage(p => Math.max(1, p - 1))}
+                    className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 text-slate-300 text-xs font-medium rounded-lg border border-slate-800 cursor-pointer disabled:cursor-not-allowed transition"
+                  >
+                    Previous
+                  </button>
+
+                  {/* Page numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPickerPages }).map((_, idx) => {
+                      const pageNum = idx + 1;
+                      // Only show current, first, last, and immediate neighbors
+                      if (
+                        pageNum === 1 ||
+                        pageNum === totalPickerPages ||
+                        Math.abs(pageNum - filePickerPage) <= 1
+                      ) {
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => setFilePickerPage(pageNum)}
+                            className={`w-7 h-7 text-xs font-mono rounded-lg border transition cursor-pointer ${
+                              filePickerPage === pageNum
+                                ? 'bg-[#C9A227] text-slate-950 font-bold border-[#C9A227]'
+                                : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      }
+                      if (
+                        (pageNum === 2 && filePickerPage > 3) ||
+                        (pageNum === totalPickerPages - 1 && filePickerPage < totalPickerPages - 2)
+                      ) {
+                        return <span key={pageNum} className="text-slate-500 text-xs px-0.5">...</span>;
+                      }
+                      return null;
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={filePickerPage >= totalPickerPages}
+                    onClick={() => setFilePickerPage(p => Math.min(totalPickerPages, p + 1))}
+                    className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 text-slate-300 text-xs font-medium rounded-lg border border-slate-800 cursor-pointer disabled:cursor-not-allowed transition"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
