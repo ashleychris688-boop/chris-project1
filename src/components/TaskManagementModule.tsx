@@ -279,7 +279,7 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
     return []; // Case Chasers cannot assign tasks
   }, [users, isProprietor, isAdvocate, isClerkOrSecretary]);
 
-  // Set default assigned user when opening create modal
+  // Set default assigned user when opening create modal / pane
   const handleOpenCreateModal = () => {
     if (isCaseChaser) {
       alert("Case Chasers cannot assign new tasks.");
@@ -303,7 +303,7 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
       isRecurring: false,
       recurringInterval: 'Weekly'
     });
-    setShowCreateModal(true);
+    setIsAssignPanelOpen(true);
   };
 
   // Helper date calculation
@@ -502,6 +502,7 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
 
     onAddTask(item);
     setShowCreateModal(false);
+    setIsAssignPanelOpen(false); // Automatically closes pane after saving
     setSelectedCourtStation('');
     setSelectedFileObj(null);
     setNewTask({
@@ -645,47 +646,38 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
         </div>
       </div>
 
-      {/* PROMPT 1, 2, 3: COURT STATION -> CASE FILE -> TASK DETAILS ASSIGNMENT WORKSPACE */}
-      {!isCaseChaser && (
-        <div className="bg-[#0A1A2F] border-2 border-[#C9A227]/70 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4">
+      {/* SIMPLIFIED ASSIGNMENT PANE */}
+      {!isCaseChaser && isAssignPanelOpen && (
+        <div className="bg-[#0A1A2F] border border-[#C9A227]/80 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4">
           
-          {/* Section Header with Quick Collapse / Expand */}
+          {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 bg-[#C9A227]/20 text-[#C9A227] rounded-xl border border-[#C9A227]/40">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-[#C9A227]/20 text-[#C9A227] rounded-lg">
                 <Scale className="w-4 h-4" />
               </span>
-              <div>
-                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#C9A227]">
-                  Guided Task Dispatch Flow
-                </div>
-                <h2 className="font-serif font-bold text-base sm:text-lg text-white">
-                  1. Court Station → 2. Case File → 3. Task Assignment
-                </h2>
-              </div>
+              <h2 className="font-serif font-bold text-base sm:text-lg text-white">
+                Assign Task
+              </h2>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsAssignPanelOpen(!isAssignPanelOpen)}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition cursor-pointer flex items-center gap-1"
-              >
-                {isAssignPanelOpen ? 'Collapse Form ▲' : 'Open Assign Form ▼'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsAssignPanelOpen(false)}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          {isAssignPanelOpen && (
-            <div className="space-y-4">
-              
-              {/* STEP 1: COURT STATION SELECTION (ONLY STATIONS WITH REGISTERED FILES) */}
-              <div className="space-y-2">
-                <label className="block text-slate-300 font-bold text-xs flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Scale className="w-3.5 h-3.5 text-[#C9A227]" />
-                    <span className="text-[#C9A227] font-mono">STEP 1:</span> Select Court Station
-                  </span>
+          <form onSubmit={handleCreateSubmit} className="space-y-3.5 text-xs">
+            
+            {/* Row 1: Court Station & Case File */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Court Station */}
+              <div>
+                <label className="block text-slate-300 font-bold mb-1 flex items-center justify-between">
+                  <span>Court Station</span>
                   {selectedCourtStation && (
                     <button
                       type="button"
@@ -694,87 +686,41 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                         setSelectedFileObj(null);
                         setNewTask(prev => ({ ...prev, fileNumber: '' }));
                       }}
-                      className="text-[11px] text-slate-400 hover:text-white underline font-normal"
+                      className="text-[10px] text-slate-400 hover:text-white underline font-normal cursor-pointer"
                     >
-                      Clear Station
+                      Clear
                     </button>
                   )}
                 </label>
-
-                {/* Court Station Grid Cards (Mobile Scroll / Laptop Grid) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                  
-                  {/* General / Non-Court Registry Station */}
-                  <div
-                    onClick={() => {
-                      setSelectedCourtStation('General Registry');
+                <select
+                  value={selectedCourtStation}
+                  onChange={e => {
+                    const st = e.target.value;
+                    setSelectedCourtStation(st);
+                    if (selectedFileObj && selectedFileObj.courtStation !== st) {
                       setSelectedFileObj(null);
                       setNewTask(prev => ({ ...prev, fileNumber: '' }));
-                    }}
-                    className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${
-                      selectedCourtStation === 'General Registry'
-                        ? 'bg-[#C9A227]/15 border-[#C9A227] shadow'
-                        : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Building className="w-3.5 h-3.5 text-[#C9A227] shrink-0" />
-                      <div className="truncate">
-                        <div className="font-bold text-xs text-white truncate">General Registry</div>
-                        <div className="text-[10px] text-slate-400">Non-Court Tasks</div>
-                      </div>
-                    </div>
-                    {selectedCourtStation === 'General Registry' && (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#C9A227] shrink-0" />
-                    )}
-                  </div>
-
-                  {/* Registered Court Stations */}
+                    }
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                >
+                  <option value="">All Court Stations</option>
+                  <option value="General Registry">General Registry (Non-Court)</option>
                   {activeCourtStationsWithFiles.map(st => {
                     const count = stationFileCounts[st] || 0;
-                    const isSelected = selectedCourtStation.toLowerCase() === st.toLowerCase();
                     return (
-                      <div
-                        key={st}
-                        onClick={() => {
-                          setSelectedCourtStation(st);
-                          // Auto unlink if existing file doesn't match new station
-                          if (selectedFileObj && selectedFileObj.courtStation !== st) {
-                            setSelectedFileObj(null);
-                            setNewTask(prev => ({ ...prev, fileNumber: '' }));
-                          }
-                        }}
-                        className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${
-                          isSelected
-                            ? 'bg-[#C9A227]/15 border-[#C9A227] shadow'
-                            : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Scale className="w-3.5 h-3.5 text-[#C9A227] shrink-0" />
-                          <div className="truncate">
-                            <div className="font-bold text-xs text-white truncate">{st}</div>
-                            <div className="text-[10px] text-amber-300/80 font-mono">
-                              {count} {count === 1 ? 'registered file' : 'registered files'}
-                            </div>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#C9A227] shrink-0" />
-                        )}
-                      </div>
+                      <option key={st} value={st}>
+                        {st} ({count} {count === 1 ? 'file' : 'files'})
+                      </option>
                     );
                   })}
-                </div>
+                </select>
               </div>
 
-              {/* STEP 2: SELECT CASE FILE */}
-              <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                <label className="block text-slate-300 font-bold text-xs flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <FolderArchive className="w-3.5 h-3.5 text-[#C9A227]" />
-                    <span className="text-[#C9A227] font-mono">STEP 2:</span> Link Case File {selectedCourtStation ? `(${selectedCourtStation})` : ''}
-                  </span>
+              {/* Case File */}
+              <div>
+                <label className="block text-slate-300 font-bold mb-1 flex items-center justify-between">
+                  <span>Case File (Optional)</span>
                   {selectedFileObj && (
                     <button
                       type="button"
@@ -782,285 +728,213 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                         setSelectedFileObj(null);
                         setNewTask(prev => ({ ...prev, fileNumber: '' }));
                       }}
-                      className="text-[11px] text-slate-400 hover:text-white underline font-normal"
+                      className="text-[10px] text-slate-400 hover:text-white underline font-normal cursor-pointer"
                     >
-                      Unlink File
+                      Unlink
                     </button>
                   )}
                 </label>
+                <select
+                  value={selectedFileObj?.id || ''}
+                  onChange={e => {
+                    const found = files.find(f => f.id === e.target.value);
+                    if (found) {
+                      setSelectedFileObj(found);
+                      if (found.courtStation) setSelectedCourtStation(found.courtStation);
+                      setNewTask(prev => ({
+                        ...prev,
+                        fileNumber: found.internalFileNumber,
+                        assignedTo: found.advocateName || prev.assignedTo
+                      }));
+                    } else {
+                      setSelectedFileObj(null);
+                      setNewTask(prev => ({ ...prev, fileNumber: '' }));
+                    }
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                >
+                  <option value="">-- Select Case File --</option>
+                  {selectableFiles.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.internalFileNumber} - {f.clientName} v {f.opposingParty || 'N/A'} {f.courtStation ? `[${f.courtStation}]` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                {/* Selected File Card */}
-                {selectedFileObj ? (
-                  <div className="p-3 bg-slate-900/90 rounded-xl border-2 border-[#C9A227] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-lg">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2 py-0.5 rounded bg-[#C9A227] text-slate-950 font-mono font-bold text-xs">
-                          {selectedFileObj.internalFileNumber}
-                        </span>
-                        <span className="text-white font-bold text-xs truncate">
-                          {selectedFileObj.clientName} <span className="text-slate-400 font-normal">v</span> {selectedFileObj.opposingParty || 'N/A'}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          ({selectedFileObj.courtStation || 'Registry'})
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-300 flex items-center gap-3 flex-wrap">
-                        {selectedFileObj.courtCaseNumber && <span>⚖️ Case: <strong className="font-mono text-white">{selectedFileObj.courtCaseNumber}</strong></span>}
-                        {selectedFileObj.advocateName && <span className="text-amber-300">Advocate: {selectedFileObj.advocateName}</span>}
-                      </div>
-                    </div>
+            {/* Selected File Details Bar */}
+            {selectedFileObj && (
+              <div className="p-2.5 bg-slate-950/90 rounded-xl border border-slate-800 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs truncate">
+                  <span className="px-2 py-0.5 rounded bg-[#C9A227] text-slate-950 font-mono font-bold text-[11px] shrink-0">
+                    {selectedFileObj.internalFileNumber}
+                  </span>
+                  <span className="text-white font-medium truncate">
+                    {selectedFileObj.clientName} v {selectedFileObj.opposingParty || 'N/A'}
+                  </span>
+                  {selectedFileObj.courtCaseNumber && (
+                    <span className="text-slate-400 font-mono text-[11px] shrink-0 hidden sm:inline">
+                      ⚖️ {selectedFileObj.courtCaseNumber}
+                    </span>
+                  )}
+                  {selectedFileObj.advocateName && (
+                    <span className="text-amber-300/90 text-[11px] shrink-0">
+                      ({selectedFileObj.advocateName})
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFileObj(null);
+                    setNewTask(prev => ({ ...prev, fileNumber: '' }));
+                  }}
+                  className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 shrink-0 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      {selectedFileObj.advocateName && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const advUser = users.find(u => u.fullName.toLowerCase().includes(selectedFileObj.advocateName.toLowerCase()) || selectedFileObj.advocateName.toLowerCase().includes(u.fullName.toLowerCase()));
-                            setNewTask(prev => ({
-                              ...prev,
-                              assignedTo: selectedFileObj.advocateName,
-                              assignedToRole: advUser?.role || 'Advocate'
-                            }));
-                          }}
-                          className="px-2.5 py-1 bg-[#C9A227]/20 hover:bg-[#C9A227] hover:text-slate-950 text-[#C9A227] text-[10px] font-bold rounded-lg border border-[#C9A227]/40 transition cursor-pointer"
-                        >
-                          Assign to {selectedFileObj.advocateName}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedFileObj(null);
-                          setNewTask(prev => ({ ...prev, fileNumber: '' }));
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800"
-                        title="Unlink File"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {/* Search file input */}
-                    <div className="relative">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder={`Search ${selectedCourtStation ? `files in ${selectedCourtStation}` : 'all registered case files'} by File #, Court Case #, Client, Party...`}
-                        value={fileSearchQuery}
-                        onChange={e => setFileSearchQuery(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A227]"
-                      />
-                    </div>
+            {/* Row 2: Task Title */}
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Task Title *</label>
+              <input
+                type="text"
+                placeholder="e.g. Extract formal court order / File supplementary affidavit"
+                value={newTask.taskTitle}
+                onChange={e => setNewTask(prev => ({ ...prev, taskTitle: e.target.value }))}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                required
+              />
+            </div>
 
-                    {/* Quick Selectable Files Grid */}
-                    <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                      {selectableFiles.length === 0 ? (
-                        <div className="p-3 text-center text-slate-500 text-xs italic bg-slate-950/60 rounded-xl border border-slate-850">
-                          No registered files found{selectedCourtStation ? ` for ${selectedCourtStation}` : ''}. You can proceed without a file.
-                        </div>
-                      ) : (
-                        selectableFiles.slice(0, 10).map(f => (
-                          <div
-                            key={f.id}
-                            onClick={() => {
-                              setSelectedFileObj(f);
-                              if (f.courtStation) setSelectedCourtStation(f.courtStation);
-                              setNewTask(prev => ({
-                                ...prev,
-                                fileNumber: f.internalFileNumber,
-                                assignedTo: f.advocateName || prev.assignedTo
-                              }));
-                            }}
-                            className="p-2 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800/80 hover:border-[#C9A227]/70 cursor-pointer transition flex items-center justify-between text-xs"
-                          >
-                            <div className="truncate min-w-0 pr-2">
-                              <span className="font-mono text-[#C9A227] font-bold mr-2">{f.internalFileNumber}</span>
-                              <span className="text-white font-medium">{f.clientName} v {f.opposingParty || 'N/A'}</span>
-                              {f.courtStation && <span className="text-slate-400 text-[10px] ml-2 font-mono">[{f.courtStation}]</span>}
-                              {f.advocateName && <span className="text-amber-300/80 text-[10px] ml-2">({f.advocateName})</span>}
-                            </div>
-                            <span className="text-[10px] text-[#C9A227] font-bold px-2 py-0.5 rounded bg-slate-900 border border-slate-800 shrink-0">
-                              Select File →
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
+            {/* Row 3: Staff Assignee, Category, Priority */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Assign Staff Member *</label>
+                <select
+                  value={newTask.assignedTo}
+                  onChange={e => {
+                    const sel = users.find(u => u.fullName === e.target.value);
+                    setNewTask(prev => ({ 
+                      ...prev, 
+                      assignedTo: e.target.value,
+                      assignedToRole: sel ? sel.role : 'Clerk'
+                    }));
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                  required
+                >
+                  <option value="">-- Select Staff --</option>
+                  {['Advocate', 'Clerk', 'Secretary', 'Case Chaser', 'Proprietor'].map(roleName => {
+                    const roleStaff = assignableUsers.filter(u => u.role === roleName);
+                    if (roleStaff.length === 0) return null;
+                    return (
+                      <optgroup key={roleName} label={`${roleName}s`}>
+                        {roleStaff.map(u => (
+                          <option key={u.id} value={u.fullName}>
+                            {u.fullName} ({u.role})
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
               </div>
 
-              {/* STEP 3: TASK DETAILS & FILLING FORM */}
-              <form onSubmit={handleCreateSubmit} className="space-y-3 pt-2 border-t border-slate-800/80 text-xs">
-                
-                <div className="text-slate-300 font-bold text-xs flex items-center gap-1.5">
-                  <CheckSquare className="w-3.5 h-3.5 text-[#C9A227]" />
-                  <span className="text-[#C9A227] font-mono">STEP 3:</span> Fill Task Details & Assign
-                </div>
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Category *</label>
+                <select
+                  value={newTask.taskCategory}
+                  onChange={e => setNewTask(prev => ({ ...prev, taskCategory: e.target.value as TaskCategory }))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                  required
+                >
+                  <option value="Court">Court</option>
+                  <option value="Registry">Registry</option>
+                  <option value="Client">Client</option>
+                  <option value="Insurance">Insurance</option>
+                  <option value="Financial">Financial</option>
+                  <option value="Administrative">Administrative</option>
+                  <option value="Follow-Up">Follow-Up</option>
+                  <option value="Legal">Legal</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
 
-                {/* Quick Preset Chips */}
-                <div className="space-y-1">
-                  <div className="text-[10px] font-mono uppercase text-slate-400 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-[#C9A227]" />
-                    <span>Quick Presets</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto pr-1">
-                    {(PRESET_TASK_SUGGESTIONS[`${currentRole === 'Secretary' ? 'Clerk' : currentRole}_Legal`] || PRESET_TASK_SUGGESTIONS['Proprietor_Legal'] || []).concat(
-                      PRESET_TASK_SUGGESTIONS[`${currentRole === 'Secretary' ? 'Clerk' : currentRole}_Clerk`] || PRESET_TASK_SUGGESTIONS['Advocate_Clerk'] || []
-                    ).slice(0, 8).map((ps, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => applyPresetSuggestion(ps)}
-                        className="px-2 py-0.5 bg-slate-900 hover:bg-[#C9A227] hover:text-slate-950 text-slate-300 text-[11px] rounded-lg border border-slate-800 transition cursor-pointer"
-                      >
-                        + {ps.title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Grid Inputs: Assignee, Category, Title */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  
-                  {/* Assignee */}
-                  <div>
-                    <label className="block text-slate-400 font-bold mb-1">Assign Staff Member *</label>
-                    <select
-                      value={newTask.assignedTo}
-                      onChange={e => {
-                        const sel = users.find(u => u.fullName === e.target.value);
-                        setNewTask(prev => ({ 
-                          ...prev, 
-                          assignedTo: e.target.value,
-                          assignedToRole: sel ? sel.role : 'Clerk'
-                        }));
-                      }}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                      required
-                    >
-                      <option value="">-- Select Assignee --</option>
-                      {['Advocate', 'Clerk', 'Secretary', 'Case Chaser', 'Proprietor'].map(roleName => {
-                        const roleStaff = assignableUsers.filter(u => u.role === roleName);
-                        if (roleStaff.length === 0) return null;
-                        return (
-                          <optgroup key={roleName} label={`${roleName}s`}>
-                            {roleStaff.map(u => (
-                              <option key={u.id} value={u.fullName}>
-                                {u.fullName} ({u.role})
-                              </option>
-                            ))}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                  </div>
-
-                  {/* Task Category */}
-                  <div>
-                    <label className="block text-slate-400 font-bold mb-1">Task Category *</label>
-                    <select
-                      value={newTask.taskCategory}
-                      onChange={e => setNewTask(prev => ({ ...prev, taskCategory: e.target.value as TaskCategory }))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                      required
-                    >
-                      <option value="Court">Court</option>
-                      <option value="Registry">Registry</option>
-                      <option value="Client">Client</option>
-                      <option value="Insurance">Insurance</option>
-                      <option value="Financial">Financial</option>
-                      <option value="Administrative">Administrative</option>
-                      <option value="Follow-Up">Follow-Up</option>
-                      <option value="Legal">Legal</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  {/* Priority */}
-                  <div>
-                    <label className="block text-slate-400 font-bold mb-1">Priority Level *</label>
-                    <select
-                      value={newTask.priority}
-                      onChange={e => setNewTask(prev => ({ ...prev, priority: e.target.value as TaskPriority }))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                      required
-                    >
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
-                      <option value="Urgent">🔴 Urgent</option>
-                    </select>
-                  </div>
-
-                  {/* Task Title */}
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-slate-400 font-bold mb-1">Task Title *</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Extract formal court order / Attend hearing..."
-                      value={newTask.taskTitle}
-                      onChange={e => setNewTask(prev => ({ ...prev, taskTitle: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                      required
-                    />
-                  </div>
-
-                  {/* Due Date */}
-                  <div>
-                    <LaptopDatePicker
-                      label="Due Date"
-                      required
-                      value={newTask.dueDate}
-                      allowFuture={true}
-                      onChange={val => {
-                        setNewTask(prev => ({ ...prev, dueDate: val }));
-                      }}
-                    />
-                  </div>
-
-                  {/* Due Time */}
-                  <div>
-                    <label className="block text-slate-400 font-bold mb-1">Due Time (Optional)</label>
-                    <input
-                      type="time"
-                      value={newTask.dueTime}
-                      onChange={e => setNewTask(prev => ({ ...prev, dueTime: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                    />
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="sm:col-span-2 lg:col-span-1">
-                    <label className="block text-slate-400 font-bold mb-1">Instructions (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="Notes for assignee..."
-                      value={newTask.description}
-                      onChange={e => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                    />
-                  </div>
-
-                </div>
-
-                {/* Form Action Buttons */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-6 py-2.5 bg-[#C9A227] hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Assign & Save Task
-                  </button>
-                </div>
-
-              </form>
-
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Priority *</label>
+                <select
+                  value={newTask.priority}
+                  onChange={e => setNewTask(prev => ({ ...prev, priority: e.target.value as TaskPriority }))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                  required
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Urgent">🔴 Urgent</option>
+                </select>
+              </div>
             </div>
-          )}
+
+            {/* Row 4: Due Date, Due Time, Instructions */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <LaptopDatePicker
+                  label="Due Date"
+                  required
+                  value={newTask.dueDate}
+                  allowFuture={true}
+                  onChange={val => {
+                    setNewTask(prev => ({ ...prev, dueDate: val }));
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Due Time</label>
+                <input
+                  type="time"
+                  value={newTask.dueTime}
+                  onChange={e => setNewTask(prev => ({ ...prev, dueTime: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Instructions (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Notes for assignee..."
+                  value={newTask.description}
+                  onChange={e => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
+                />
+              </div>
+            </div>
+
+            {/* Row 5: Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => setIsAssignPanelOpen(false)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#C9A227] hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Assign Task
+              </button>
+            </div>
+
+          </form>
 
         </div>
       )}
@@ -1641,368 +1515,6 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* CREATE NEW TASK MODAL DIALOG - CLEAN SEAMLESS SINGLE SCROLL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-[#0A1A2F] border-2 border-[#C9A227] rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-6">
-            
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <span className="px-2 py-0.5 bg-[#C9A227]/20 text-[#C9A227] text-[10px] font-mono font-bold rounded border border-[#C9A227]/40 uppercase">
-                  Registry & Task Assignment
-                </span>
-                <h3 className="font-serif font-bold text-lg sm:text-xl text-white mt-1">
-                  Assign New Task
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-              
-              {/* 1. Court Station Selection (Only courts with registered files) */}
-              <div>
-                <label className="block text-slate-300 font-bold mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Scale className="w-3.5 h-3.5 text-[#C9A227]" />
-                    Court Station
-                  </span>
-                  {selectedCourtStation && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCourtStation('');
-                        setSelectedFileObj(null);
-                        setNewTask({ ...newTask, fileNumber: '' });
-                      }}
-                      className="text-[10px] text-slate-400 hover:text-white font-normal"
-                    >
-                      Clear Station
-                    </button>
-                  )}
-                </label>
-
-                <select
-                  value={selectedCourtStation}
-                  onChange={e => {
-                    const st = e.target.value;
-                    setSelectedCourtStation(st);
-                    setSelectedFileObj(null);
-                    setNewTask({ ...newTask, fileNumber: '' });
-                  }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                >
-                  <option value="">-- All Registered Stations / General --</option>
-                  {activeCourtStationsWithFiles.map(st => {
-                    const count = stationFileCounts[st] || 0;
-                    return (
-                      <option key={st} value={st}>
-                        {st} ({count} {count === 1 ? 'file' : 'files'})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* 2. Registered Case File Selection */}
-              <div>
-                <label className="block text-slate-300 font-bold mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <FolderArchive className="w-3.5 h-3.5 text-[#C9A227]" />
-                    Link Case File (Optional)
-                  </span>
-                  {selectedFileObj && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedFileObj(null);
-                        setNewTask({ ...newTask, fileNumber: '' });
-                      }}
-                      className="text-[10px] text-slate-400 hover:text-white font-normal"
-                    >
-                      Unlink File
-                    </button>
-                  )}
-                </label>
-
-                {/* Selected File Badge */}
-                {selectedFileObj ? (
-                  <div className="p-3 bg-slate-900/90 rounded-xl border border-[#C9A227] flex items-center justify-between gap-2">
-                    <div className="min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-bold text-[#C9A227] text-xs">
-                          {selectedFileObj.internalFileNumber}
-                        </span>
-                        <span className="text-white font-semibold truncate">
-                          {selectedFileObj.clientName} v {selectedFileObj.opposingParty || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-3">
-                        {selectedFileObj.courtCaseNumber && <span>⚖️ {selectedFileObj.courtCaseNumber}</span>}
-                        {selectedFileObj.courtStation && <span>📍 {selectedFileObj.courtStation}</span>}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedFileObj(null);
-                        setNewTask({ ...newTask, fileNumber: '' });
-                      }}
-                      className="p-1 text-slate-400 hover:text-white rounded-lg bg-slate-800"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search file by #, court case #, client, or party..."
-                        value={fileSearchQuery}
-                        onChange={e => setFileSearchQuery(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A227]"
-                      />
-                    </div>
-
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                      {selectableFiles.length === 0 ? (
-                        <p className="text-slate-500 text-[11px] text-center py-2 italic bg-slate-950/50 rounded-lg border border-slate-900">
-                          No registered files found.
-                        </p>
-                      ) : (
-                        selectableFiles.slice(0, 15).map(f => (
-                          <div
-                            key={f.id}
-                            onClick={() => {
-                              setSelectedFileObj(f);
-                              setSelectedCourtStation(f.courtStation || selectedCourtStation);
-                              setNewTask({
-                                ...newTask,
-                                fileNumber: f.internalFileNumber,
-                                assignedTo: f.advocateName || newTask.assignedTo
-                              });
-                            }}
-                            className="p-2 rounded-lg bg-slate-950 hover:bg-slate-900 border border-slate-800/80 hover:border-[#C9A227]/60 cursor-pointer transition flex items-center justify-between text-xs"
-                          >
-                            <div className="truncate min-w-0 pr-2">
-                              <span className="font-mono text-[#C9A227] font-bold mr-2">{f.internalFileNumber}</span>
-                              <span className="text-slate-200">{f.clientName} v {f.opposingParty || 'N/A'}</span>
-                              {f.courtStation && <span className="text-slate-400 text-[10px] ml-2">({f.courtStation})</span>}
-                            </div>
-                            <span className="text-[10px] text-[#C9A227] font-bold shrink-0">Select</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 3. Task Presets Chips */}
-              <div className="space-y-1.5">
-                <div className="text-[10px] font-mono uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-[#C9A227]" />
-                  <span>Quick Presets</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto pr-1">
-                  {(PRESET_TASK_SUGGESTIONS[`${currentRole === 'Secretary' ? 'Clerk' : currentRole}_Legal`] || PRESET_TASK_SUGGESTIONS['Proprietor_Legal'] || []).concat(
-                    PRESET_TASK_SUGGESTIONS[`${currentRole === 'Secretary' ? 'Clerk' : currentRole}_Clerk`] || PRESET_TASK_SUGGESTIONS['Advocate_Clerk'] || []
-                  ).slice(0, 8).map((ps, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => applyPresetSuggestion(ps)}
-                      className="px-2 py-0.5 bg-slate-900 hover:bg-[#C9A227] hover:text-slate-950 text-slate-300 text-[11px] rounded-lg border border-slate-800 transition cursor-pointer"
-                    >
-                      + {ps.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 4. Task Category & Staff Assignee */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 font-bold mb-1">Task Category *</label>
-                  <select
-                    value={newTask.taskCategory}
-                    onChange={e => setNewTask({ ...newTask, taskCategory: e.target.value as TaskCategory })}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                    required
-                  >
-                    <option value="Court">Court</option>
-                    <option value="Registry">Registry</option>
-                    <option value="Client">Client</option>
-                    <option value="Insurance">Insurance</option>
-                    <option value="Financial">Financial</option>
-                    <option value="Administrative">Administrative</option>
-                    <option value="Follow-Up">Follow-Up</option>
-                    <option value="Legal">Legal</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-bold mb-1">Assign Staff Member *</label>
-                  <select
-                    value={newTask.assignedTo}
-                    onChange={e => {
-                      const sel = users.find(u => u.fullName === e.target.value);
-                      setNewTask({ 
-                        ...newTask, 
-                        assignedTo: e.target.value,
-                        assignedToRole: sel ? sel.role : 'Clerk'
-                      });
-                    }}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                    required
-                  >
-                    <option value="">-- Select Assignee --</option>
-                    {['Advocate', 'Clerk', 'Secretary', 'Case Chaser', 'Proprietor'].map(roleName => {
-                      const roleStaff = assignableUsers.filter(u => u.role === roleName);
-                      if (roleStaff.length === 0) return null;
-                      return (
-                        <optgroup key={roleName} label={`${roleName}s`}>
-                          {roleStaff.map(u => (
-                            <option key={u.id} value={u.fullName}>
-                              {u.fullName} ({u.role})
-                            </option>
-                          ))}
-                        </optgroup>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
-
-              {/* 5. Task Title */}
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Task Title *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Extract formal court order from Registry"
-                  value={newTask.taskTitle}
-                  onChange={e => setNewTask({ ...newTask, taskTitle: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                  required
-                />
-              </div>
-
-              {/* 6. Description / Instructions */}
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Instructions / Description</label>
-                <textarea
-                  rows={2}
-                  placeholder="Provide specific guidelines or notes for the assignee..."
-                  value={newTask.description}
-                  onChange={e => setNewTask({ ...newTask, description: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                />
-              </div>
-
-              {/* 7. Priority, Due Date, Due Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-400 font-bold mb-1">Priority Level *</label>
-                  <select
-                    value={newTask.priority}
-                    onChange={e => setNewTask({ ...newTask, priority: e.target.value as TaskPriority })}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                    required
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">🔴 Urgent</option>
-                  </select>
-                </div>
-
-                <div>
-                  <LaptopDatePicker
-                    label="Due Date"
-                    required
-                    value={newTask.dueDate}
-                    allowFuture={true}
-                    onChange={val => {
-                      setNewTask({ ...newTask, dueDate: val });
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-bold mb-1">Due Time (Optional)</label>
-                  <input
-                    type="time"
-                    value={newTask.dueTime}
-                    onChange={e => setNewTask({ ...newTask, dueTime: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-[#C9A227]"
-                  />
-                </div>
-              </div>
-
-              {/* 8. Recurring Task Option */}
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Repeat className="w-4 h-4 text-[#C9A227]" />
-                  <span className="font-bold text-slate-200">Recurring Task</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={newTask.isRecurring}
-                    onChange={e => setNewTask({ ...newTask, isRecurring: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-700 text-[#C9A227] focus:ring-[#C9A227]"
-                  />
-                  {newTask.isRecurring && (
-                    <select
-                      value={newTask.recurringInterval}
-                      onChange={e => setNewTask({ ...newTask, recurringInterval: e.target.value as any })}
-                      className="bg-slate-900 text-slate-200 text-xs p-1.5 rounded-lg border border-slate-700"
-                    >
-                      <option value="Daily">Daily</option>
-                      <option value="Weekly">Weekly</option>
-                      <option value="Monthly">Monthly</option>
-                      <option value="Routine">Routine</option>
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              {/* Modal Footer Actions */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#C9A227] hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Assign & Save Task
-                </button>
-              </div>
-
-            </form>
-
           </div>
         </div>
       )}
