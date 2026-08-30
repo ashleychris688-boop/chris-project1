@@ -11,7 +11,8 @@ import {
   CommissionRecord,
   AuditLogEntry,
   SystemSettings,
-  LawFirmProfile
+  LawFirmProfile,
+  FileDocumentAttachment
 } from '../types';
 import { DEFAULT_KENYA_COURT_STATIONS } from './kenyaCourts';
 
@@ -67,3 +68,4 @@ export const INITIAL_INSURANCE_CLAIMS: InsuranceClaim[] = [];
 export const INITIAL_PENDING_CHEQUES: PendingCheque[] = [];
 export const INITIAL_COMMISSIONS: CommissionRecord[] = [];
 export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
+export const INITIAL_FILE_DOCUMENTS: FileDocumentAttachment[] = [];

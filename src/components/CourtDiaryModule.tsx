@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { 
   CourtSession, 
   RegistryFile,
-  User
+  User,
+  CorumEntry,
+  FileDocumentAttachment
 } from '../types';
 import { 
   Scale, 
@@ -11,7 +13,7 @@ import {
   MapPin, 
   Plus, 
   Search, 
-  X,
+  X, 
   FileCheck2,
   AlertTriangle,
   Bell,
@@ -26,7 +28,12 @@ import {
   Briefcase,
   Layers,
   Shield,
-  ExternalLink
+  ExternalLink,
+  Gavel,
+  History,
+  Lock,
+  Paperclip,
+  Download
 } from 'lucide-react';
 import { validateCourtDate, getNextBusinessDay, getTodayStr, isWeekend, ensureWeekday } from '../utils/dateUtils';
 import { exportTableToPdf } from '../utils/pdfExport';
@@ -36,19 +43,27 @@ import { LaptopDatePicker } from './LaptopDatePicker';
 interface CourtDiaryModuleProps {
   sessions: CourtSession[];
   files: RegistryFile[];
+  corumEntries?: CorumEntry[];
+  documents?: FileDocumentAttachment[];
   onAddSession: (session: CourtSession, sameDayAlert?: { fileNumber: string; time: string; purpose: string }) => void;
   onNavigateToOutcome: (session: CourtSession) => void;
   courtStations: string[];
   users?: User[];
+  onOpenDocumentManager?: (file: RegistryFile) => void;
+  onViewDocument?: (doc: FileDocumentAttachment) => void;
 }
 
 export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
   sessions,
   files,
+  corumEntries = [],
+  documents = [],
   onAddSession,
   onNavigateToOutcome,
   courtStations,
-  users = []
+  users = [],
+  onOpenDocumentManager,
+  onViewDocument
 }) => {
   const [viewMode, setViewMode] = useState<'today' | 'weekly' | 'monthly'>('today');
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,6 +80,22 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
   const [copiedFileNum, setCopiedFileNum] = useState(false);
 
   const todayStr = getTodayStr();
+
+  const fileCorums = selectedFileForSummary ? (corumEntries || [])
+    .filter(c => 
+      (selectedFileForSummary.file && c.fileId === selectedFileForSummary.file.id) ||
+      (c.fileNumber && selectedFileForSummary.file?.internalFileNumber && c.fileNumber.trim().toLowerCase() === selectedFileForSummary.file.internalFileNumber.trim().toLowerCase()) ||
+      (selectedFileForSummary.fallbackNumber && c.fileNumber && c.fileNumber.trim().toLowerCase() === selectedFileForSummary.fallbackNumber.trim().toLowerCase())
+    )
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [];
+
+  const fileDocuments = selectedFileForSummary ? (documents || [])
+    .filter(d => 
+      (selectedFileForSummary.file && d.fileId === selectedFileForSummary.file.id) ||
+      (d.fileNumber && selectedFileForSummary.file?.internalFileNumber && d.fileNumber.trim().toLowerCase() === selectedFileForSummary.file.internalFileNumber.trim().toLowerCase()) ||
+      (selectedFileForSummary.fallbackNumber && d.fileNumber && d.fileNumber.trim().toLowerCase() === selectedFileForSummary.fallbackNumber.trim().toLowerCase())
+    )
+    .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()) : [];
 
   const handleOpenGlance = (session: CourtSession) => {
     const matched = files.find(
@@ -368,21 +399,51 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
 
             {/* Action Bar */}
             <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
-              <button
-                onClick={() => handleOpenGlance(session)}
-                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-semibold rounded-lg border border-slate-700 hover:border-[#C9A227]/60 transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5 text-[#C9A227]" />
-                <span>Summary</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleOpenGlance(session)}
+                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-semibold rounded-lg border border-slate-700 hover:border-[#C9A227]/60 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-[#C9A227]" />
+                  <span>Summary</span>
+                </button>
 
-              <button
-                onClick={() => onNavigateToOutcome(session)}
-                className="px-3 py-1.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 text-xs font-bold rounded-lg shadow transition flex items-center gap-1 cursor-pointer"
-              >
-                <FileCheck2 className="w-3.5 h-3.5" />
-                Record Outcome
-              </button>
+                {(() => {
+                  const docCount = documents.filter(d => 
+                    d.fileId === session.fileId || 
+                    (d.fileNumber && d.fileNumber.trim().toLowerCase() === session.fileNumber.trim().toLowerCase())
+                  ).length;
+                  if (docCount === 0) return null;
+                  return (
+                    <span 
+                      className="flex items-center gap-1 text-[10px] text-[#C9A227] font-mono font-bold bg-[#C9A227]/10 px-1.5 py-1 rounded-lg border border-[#C9A227]/30 select-none"
+                      title={`${docCount} document${docCount === 1 ? '' : 's'} attached to this case`}
+                    >
+                      <Paperclip className="w-3 h-3" />
+                      <span>{docCount}</span>
+                    </span>
+                  );
+                })()}
+              </div>
+
+              {session.hearingDate <= todayStr ? (
+                <button
+                  onClick={() => onNavigateToOutcome(session)}
+                  className="px-3 py-1.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 text-xs font-bold rounded-lg shadow transition flex items-center gap-1 cursor-pointer"
+                  title="Record court outcome for this hearing"
+                >
+                  <FileCheck2 className="w-3.5 h-3.5" />
+                  Record Outcome
+                </button>
+              ) : (
+                <div 
+                  className="px-2.5 py-1.5 bg-slate-950/90 text-slate-400 border border-slate-800 rounded-lg text-[11px] font-mono flex items-center gap-1.5 select-none"
+                  title={`Outcome can only be recorded on or after the court due date (${session.hearingDate})`}
+                >
+                  <Lock className="w-3 h-3 text-amber-500/80" />
+                  <span>Due: {session.hearingDate}</span>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -850,6 +911,221 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
 
               </div>
 
+              {/* Attached Documents & Case Vault */}
+              <div className="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2 text-[#C9A227] font-bold text-xs">
+                    <Paperclip className="w-4 h-4" />
+                    <span>Attached Case Documents ({fileDocuments.length})</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {onOpenDocumentManager && selectedFileForSummary.file && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fileObj = selectedFileForSummary.file!;
+                          setSelectedFileForSummary(null);
+                          onOpenDocumentManager(fileObj);
+                        }}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#C9A227] hover:text-amber-300 border border-[#C9A227]/40 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3 stroke-[3]" />
+                        <span>Upload / Manage</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {fileDocuments.length === 0 ? (
+                  <div className="p-3 bg-slate-950/70 rounded-lg border border-slate-800/80 text-center text-slate-400 text-xs">
+                    <p className="font-semibold text-slate-300">No Attached Documents on File</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Pleadings, affidavits, rulings and exhibits can be uploaded from the registry.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                    {fileDocuments.map((doc) => (
+                      <div 
+                        key={doc.id}
+                        className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 transition flex items-start justify-between gap-2 text-xs"
+                      >
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#C9A227]/15 text-[#C9A227] border border-[#C9A227]/30 shrink-0">
+                              {doc.category}
+                            </span>
+                            {doc.isConfidential && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-red-950 text-red-400 border border-red-800 shrink-0">
+                                Confidential
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-bold text-slate-100 truncate" title={doc.title}>
+                            {doc.title}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {doc.fileName}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                          {onViewDocument && (
+                            <button
+                              type="button"
+                              onClick={() => onViewDocument(doc)}
+                              className="p-1 rounded-lg bg-slate-900 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 transition cursor-pointer"
+                              title="Preview Document"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {doc.dataUrl && (
+                            <a
+                              href={doc.dataUrl}
+                              download={doc.fileName}
+                              className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition cursor-pointer"
+                              title="Download File"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recorded CORUM Proceedings History */}
+              <div className="p-3.5 bg-slate-900/90 rounded-xl border border-[#C9A227]/40 space-y-3 shadow-inner">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2 text-[#C9A227] font-bold text-xs">
+                    <Gavel className="w-4 h-4" />
+                    <span>Recorded CORUM Proceedings ({fileCorums.length})</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {fileCorums.length > 0 ? `${fileCorums.length} appearance${fileCorums.length === 1 ? '' : 's'} on record` : 'No appearances yet'}
+                  </span>
+                </div>
+
+                {fileCorums.length === 0 ? (
+                  <div className="p-4 bg-slate-950/80 rounded-lg border border-slate-800 text-center text-slate-400 text-xs space-y-1">
+                    <History className="w-5 h-5 mx-auto text-slate-600 mb-1" />
+                    <p className="font-semibold text-slate-300">No CORUM Proceedings Recorded Yet</p>
+                    <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                      Court proceedings and advocate coram outcomes will be displayed here once recorded on or after the court due date.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {fileCorums.map((corum, idx) => (
+                      <div key={corum.id || idx} className="p-3 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 space-y-2 text-xs">
+                        
+                        {/* Corum Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800/80 pb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-amber-950/80 text-[#C9A227] border border-amber-800 font-mono font-bold text-[11px]">
+                              {corum.date} {corum.time ? `@ ${corum.time}` : ''}
+                            </span>
+                            <span className="font-bold text-slate-200">
+                              {corum.comingUpFor || 'Court Appearance'}
+                            </span>
+                          </div>
+                          
+                          {corum.caseStatusAfter && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-900 border border-slate-700 text-slate-300">
+                              Status: {corum.caseStatusAfter}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Coram & Bench */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                          <div>
+                            <span className="text-slate-400">Coram (Judge/Magistrate):</span>{' '}
+                            <strong className="text-slate-100">{corum.coram || 'Presiding Magistrate'}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Court / Station:</span>{' '}
+                            <span className="text-slate-200 font-medium">{corum.courtStation || 'Station'} ({corum.courtNumber || 'Court 1'})</span>
+                          </div>
+                        </div>
+
+                        {/* Advocates Present */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] p-2 bg-slate-900/60 rounded-lg border border-slate-800/60">
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Advocate for Firm / Plaintiff</div>
+                            <div className="font-semibold text-slate-200">{corum.advocatePresent || 'Counsel on Record'}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Opposing Advocate / Defendant</div>
+                            <div className="font-semibold text-slate-200">{corum.defendantAdvocate || 'Opposing Counsel'}</div>
+                          </div>
+                        </div>
+
+                        {/* Court Orders Issued */}
+                        {corum.orders && (
+                          <div className="p-2.5 bg-amber-950/20 border border-amber-800/40 rounded-lg">
+                            <div className="text-[10px] uppercase font-bold text-[#C9A227] mb-0.5">Court Orders Issued</div>
+                            <p className="text-slate-200 leading-relaxed font-mono text-[11px] whitespace-pre-line">
+                              {corum.orders}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Remarks & Proceedings Notes */}
+                        {corum.remarks && (
+                          <div>
+                            <div className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5">Proceedings / Advocate Notes</div>
+                            <p className="text-slate-300 text-[11px] italic bg-slate-900/50 p-2 rounded border border-slate-800/50">
+                              "{corum.remarks}"
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Office Action Required */}
+                        {corum.officeAction && (
+                          <div className="text-[11px] text-sky-300 bg-sky-950/40 px-2.5 py-1.5 rounded border border-sky-800/50">
+                            <span className="font-bold text-sky-400 uppercase text-[10px] mr-1">Office Action:</span>
+                            <span>{corum.officeAction}</span>
+                          </div>
+                        )}
+
+                        {/* Next Court Appearance & Attribution */}
+                        <div className="pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          {corum.nextCourtDate ? (
+                            <div className="flex items-center gap-1 text-amber-300 font-bold">
+                              <Clock className="w-3.5 h-3.5 text-[#C9A227]" />
+                              Next Appearance: <span className="underline font-mono">{corum.nextCourtDate} {corum.nextCourtTime || ''}</span>
+                              {corum.nextComingUpFor && (
+                                <span className="text-slate-300 font-normal">({corum.nextComingUpFor})</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 italic text-[10px]">No next date fixed</span>
+                          )}
+
+                          <div className="flex items-center gap-2 font-mono text-[10px] text-slate-400">
+                            <span className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                              <UserCheck className="w-3 h-3 text-emerald-400" />
+                              <span>Recorded by: <strong className="text-slate-200">{corum.recordedBy || 'Advocate'}</strong></span>
+                            </span>
+                            {corum.isEdited && (
+                              <span className="text-amber-400/90 font-medium px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/30 rounded">
+                                Amended
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Notes & Special Remarks (if any) */}
               {(selectedFileForSummary.file?.notes || (selectedFileForSummary.file?.missingRequirements && selectedFileForSummary.file.missingRequirements.length > 0)) && (
                 <div className="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2">
@@ -895,18 +1171,28 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
 
               <div className="flex items-center gap-2">
                 {selectedFileForSummary.session && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const sess = selectedFileForSummary.session!;
-                      setSelectedFileForSummary(null);
-                      onNavigateToOutcome(sess);
-                    }}
-                    className="px-4 py-2 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <FileCheck2 className="w-3.5 h-3.5" />
-                    <span>Record Outcome</span>
-                  </button>
+                  selectedFileForSummary.session.hearingDate <= todayStr ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sess = selectedFileForSummary.session!;
+                        setSelectedFileForSummary(null);
+                        onNavigateToOutcome(sess);
+                      }}
+                      className="px-4 py-2 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileCheck2 className="w-3.5 h-3.5" />
+                      <span>Record Outcome</span>
+                    </button>
+                  ) : (
+                    <div 
+                      className="px-3 py-2 bg-slate-950 text-slate-400 border border-slate-800 rounded-xl text-xs font-mono flex items-center gap-1.5 select-none"
+                      title={`Outcome can only be recorded on or after the court due date (${selectedFileForSummary.session.hearingDate})`}
+                    >
+                      <Lock className="w-3.5 h-3.5 text-amber-500/80" />
+                      <span>Outcome Due On: {selectedFileForSummary.session.hearingDate}</span>
+                    </div>
+                  )
                 )}
                 
                 <button

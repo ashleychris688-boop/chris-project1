@@ -20,7 +20,8 @@ import {
   UnprocessedClientRecord,
   UrgentAlert,
   ToastNotification,
-  ToastType
+  ToastType,
+  FileDocumentAttachment
 } from './types';
 
 import {
@@ -32,6 +33,7 @@ import {
   getStoredCourtSessions, saveCourtSessions,
   getStoredCourtOutcomes, saveCourtOutcomes,
   getStoredCorumEntries, saveCorumEntries,
+  getStoredFileDocuments, saveFileDocuments,
   getStoredBringUpItems, saveBringUpItems,
   getStoredInsuranceClaims, saveInsuranceClaims,
   getStoredPendingCheques, savePendingCheques,
@@ -90,6 +92,9 @@ import { TaskManagementModule } from './components/TaskManagementModule';
 import { ToastContainer } from './components/Toast';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { DocumentManagerModal } from './components/DocumentManagerModal';
+import { DocumentViewerModal } from './components/DocumentViewerModal';
+import { BulkImportModal } from './components/BulkImportModal';
 
 
 export default function App() {
@@ -179,6 +184,10 @@ export default function App() {
   const [courtSessions, setCourtSessionsState] = useState<CourtSession[]>(getStoredCourtSessions());
   const [courtOutcomes, setCourtOutcomesState] = useState<CourtOutcome[]>(getStoredCourtOutcomes());
   const [corumEntries, setCorumEntriesState] = useState<CorumEntry[]>(getStoredCorumEntries());
+  const [fileDocuments, setFileDocumentsState] = useState<FileDocumentAttachment[]>(getStoredFileDocuments());
+  const [selectedFileForDocManager, setSelectedFileForDocManager] = useState<RegistryFile | null>(null);
+  const [activeDocumentForViewer, setActiveDocumentForViewer] = useState<FileDocumentAttachment | null>(null);
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState<boolean>(false);
   const [bringUpItems, setBringUpItemsState] = useState<BringUpItem[]>(getStoredBringUpItems());
   const [claims, setClaimsState] = useState<InsuranceClaim[]>(getStoredInsuranceClaims());
   const [cheques, setChequesState] = useState<PendingCheque[]>(getStoredPendingCheques());
@@ -220,6 +229,11 @@ export default function App() {
     if (isSuperAdminView) return corumEntries;
     return corumEntries.filter(c => matchesFirm(c.firmCode));
   }, [corumEntries, currentFirmCodeUpper, isSuperAdminView]);
+
+  const activeFirmFileDocuments = useMemo(() => {
+    if (isSuperAdminView) return fileDocuments;
+    return fileDocuments.filter(d => matchesFirm(d.firmCode));
+  }, [fileDocuments, currentFirmCodeUpper, isSuperAdminView]);
 
   const activeFirmMovements = useMemo(() => {
     if (isSuperAdminView) return movements;
@@ -1672,6 +1686,85 @@ export default function App() {
     }
   };
 
+  const handleAddDocumentAttachment = (doc: FileDocumentAttachment) => {
+    const docWithFirm: FileDocumentAttachment = {
+      ...doc,
+      firmCode: doc.firmCode || currentUser?.firmCode || settings.firmCode
+    };
+    const updated = [docWithFirm, ...fileDocuments];
+    setFileDocumentsState(updated);
+    saveFileDocuments(updated);
+    saveDocumentToFirebase('file_documents', docWithFirm);
+
+    showToast('success', 'Document Attached', `"${doc.title}" was saved to case file vault.`);
+
+    if (currentUser) {
+      addAuditLog(
+        currentUser.fullName, 
+        currentUser.role, 
+        'Attached Document', 
+        'Registry', 
+        `Attached document "${doc.title}" (${doc.category}) to file ${doc.fileNumber || doc.fileId}`
+      );
+      setAuditLogsState(getStoredAuditLogs());
+    }
+  };
+
+  const handleDeleteDocumentAttachment = (docId: string) => {
+    const docToDelete = fileDocuments.find(d => d.id === docId);
+    const updated = fileDocuments.filter(d => d.id !== docId);
+    setFileDocumentsState(updated);
+    saveFileDocuments(updated);
+    deleteDocumentFromFirebase('file_documents', docId);
+
+    showToast('info', 'Document Removed', `Document "${docToDelete?.title || 'Record'}" was deleted from vault.`);
+
+    if (currentUser && docToDelete) {
+      addAuditLog(
+        currentUser.fullName, 
+        currentUser.role, 
+        'Deleted Document', 
+        'Registry', 
+        `Removed document "${docToDelete.title}" from file ${docToDelete.fileNumber || docToDelete.fileId}`
+      );
+      setAuditLogsState(getStoredAuditLogs());
+    }
+  };
+
+  const handleBulkImportFiles = (newFiles: RegistryFile[]) => {
+    const filesWithFirm = newFiles.map(f => ({
+      ...f,
+      firmCode: f.firmCode || currentUser?.firmCode || settings.firmCode
+    }));
+
+    const updatedFiles = [...filesWithFirm, ...files];
+    setFilesState(updatedFiles);
+    saveFiles(updatedFiles);
+
+    filesWithFirm.forEach(f => {
+      saveDocumentToFirebase('files', f);
+    });
+
+    setIsBulkImportModalOpen(false);
+
+    showToast(
+      'success',
+      'Bulk Import Completed',
+      `Successfully imported ${filesWithFirm.length} case file${filesWithFirm.length === 1 ? '' : 's'} into physical registry.`
+    );
+
+    if (currentUser) {
+      addAuditLog(
+        currentUser.fullName, 
+        currentUser.role, 
+        'Bulk Import Spreadsheet', 
+        'Registry', 
+        `Imported ${filesWithFirm.length} client files via spreadsheet upload`
+      );
+      setAuditLogsState(getStoredAuditLogs());
+    }
+  };
+
   const handleToggleBringUpRetrieved = (id: string) => {
     let targetItemUpdated: BringUpItem | null = null;
     const updated = bringUpItems.map(item => {
@@ -2158,6 +2251,7 @@ export default function App() {
               movements={activeFirmMovements}
               corumEntries={activeFirmCorumEntries}
               courtOutcomes={activeFirmCourtOutcomes}
+              documents={activeFirmFileDocuments}
               currentUser={currentUser}
               onAddCorumEntry={handleAddCorumEntry}
               onUpdateCorumEntry={handleUpdateCorumEntry}
@@ -2168,6 +2262,9 @@ export default function App() {
                 setSelectedFileToMove(file);
                 setActiveTab('file-tracker');
               }}
+              onOpenDocumentManager={file => setSelectedFileForDocManager(file)}
+              onOpenBulkImport={() => setIsBulkImportModalOpen(true)}
+              onViewDocument={doc => setActiveDocumentForViewer(doc)}
               courtStations={settings.courtStations}
               cabinets={settings.cabinets}
               openNewModalInitially={openNewFileModalOnRegistry}
@@ -2196,11 +2293,15 @@ export default function App() {
             <CourtDiaryModule
               sessions={activeFirmCourtSessions}
               files={activeFirmFiles}
+              corumEntries={activeFirmCorumEntries}
+              documents={activeFirmFileDocuments}
               onAddSession={handleAddCourtSession}
               onNavigateToOutcome={session => {
                 setPreselectedSessionForOutcome(session);
                 setActiveTab('court-outcomes');
               }}
+              onOpenDocumentManager={file => setSelectedFileForDocManager(file)}
+              onViewDocument={doc => setActiveDocumentForViewer(doc)}
               courtStations={settings.courtStations}
               users={activeFirmUsers}
             />
@@ -2374,6 +2475,38 @@ export default function App() {
         onClose={() => setIsRegisterModalOpen(false)}
         onSuccess={handleRegisterFirmSuccess}
       />
+
+      {/* Document Manager & Vault Modal */}
+      {selectedFileForDocManager && (
+        <DocumentManagerModal
+          file={selectedFileForDocManager}
+          documents={fileDocuments}
+          currentUser={currentUser}
+          onClose={() => setSelectedFileForDocManager(null)}
+          onAddDocument={handleAddDocumentAttachment}
+          onDeleteDocument={handleDeleteDocumentAttachment}
+          onViewDocument={doc => setActiveDocumentForViewer(doc)}
+        />
+      )}
+
+      {/* Document Viewer / Preview / Print Modal */}
+      {activeDocumentForViewer && (
+        <DocumentViewerModal
+          document={activeDocumentForViewer}
+          onClose={() => setActiveDocumentForViewer(null)}
+        />
+      )}
+
+      {/* Bulk Import Excel / CSV Modal */}
+      {isBulkImportModalOpen && (
+        <BulkImportModal
+          existingFiles={activeFirmFiles}
+          currentUser={currentUser}
+          activeFirmCode={currentFirmCode}
+          onClose={() => setIsBulkImportModalOpen(false)}
+          onImportComplete={handleBulkImportFiles}
+        />
+      )}
 
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
 

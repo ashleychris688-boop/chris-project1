@@ -11,7 +11,8 @@ import {
   User,
   LawFirmProfile,
   CorumEntry,
-  CourtOutcome
+  CourtOutcome,
+  FileDocumentAttachment
 } from '../types';
 import { DEFAULT_CASE_CATEGORIES, CaseCategoryConfig } from '../data/caseCategories';
 import { 
@@ -66,7 +67,10 @@ import {
   Edit3,
   Users,
   UserPlus,
-  Trash2
+  Trash2,
+  Paperclip,
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
 
 export const CLIENT_TYPES: ClientType[] = [
@@ -137,6 +141,10 @@ interface RegistryModuleProps {
   onAddCorumEntry?: (entry: CorumEntry, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
   onUpdateCorumEntry?: (entry: CorumEntry, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
   onAddCourtOutcome?: (outcome: CourtOutcome, nextCourtDate?: string, updatedCaseStatus?: RegistryFile['currentStatus']) => void;
+  documents?: FileDocumentAttachment[];
+  onOpenDocumentManager?: (file: RegistryFile) => void;
+  onOpenBulkImport?: () => void;
+  onViewDocument?: (doc: FileDocumentAttachment) => void;
 }
 
 export type RegistryCategoryTab = 'ACTIVE' | 'CLOSED' | 'INCOMPLETE' | 'ALL';
@@ -161,7 +169,11 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   courtOutcomes = [],
   onAddCorumEntry,
   onUpdateCorumEntry,
-  onAddCourtOutcome
+  onAddCourtOutcome,
+  documents = [],
+  onOpenDocumentManager,
+  onOpenBulkImport,
+  onViewDocument
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourtStation, setSelectedCourtStation] = useState<string>('ALL');
@@ -752,6 +764,12 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     e.preventDefault();
     if (!corumTargetFile) return;
 
+    // Enforce Rule: Corum proceeding date cannot be in the future
+    if (corumFormData.date > todayStr) {
+      setCorumValidationError(`Corum appearance proceeding date cannot be in the future (${corumFormData.date}). Court outcomes can only be recorded on or after the court due date (today: ${todayStr}).`);
+      return;
+    }
+
     if (!corumFormData.defendantAdvocate.trim()) {
       setCorumValidationError('Please enter the Defendant Advocate / Opposing Counsel (e.g. "M/s Kamau & Co. Advocates for Defendant" or "Self-Represented").');
       return;
@@ -1128,16 +1146,32 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#081729] p-5 rounded-2xl border border-[#C9A227]/40 shadow-2xl">
         <div className="flex items-center gap-2.5">
           <FolderArchive className="w-6 h-6 text-[#C9A227]" />
-          <h2 className="font-serif font-bold text-xl text-white">Physical File Registry</h2>
+          <div>
+            <h2 className="font-serif font-bold text-xl text-white">Physical File Registry</h2>
+            <p className="text-xs text-slate-400">Manage case files, physical tracking, attached documents & proceedings</p>
+          </div>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-5 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#B08D1E] hover:from-[#B08D1E] hover:to-[#967616] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          Register New Physical File
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {onOpenBulkImport && (
+            <button
+              onClick={onOpenBulkImport}
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-[#C9A227] hover:text-amber-300 border border-[#C9A227]/50 font-bold text-xs rounded-xl shadow transition flex items-center gap-2 cursor-pointer shrink-0"
+              title="Bulk upload client files from Excel (.xlsx) or CSV"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              Bulk Import (Excel / CSV)
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-5 py-2.5 bg-gradient-to-r from-[#C9A227] to-[#B08D1E] hover:from-[#B08D1E] hover:to-[#967616] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            Register New Physical File
+          </button>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
@@ -1573,6 +1607,30 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                             <Eye className="w-4 h-4 text-[#C9A227]" />
                           </button>
 
+                          {/* Attached Document Manager Button */}
+                          {onOpenDocumentManager && (() => {
+                            const count = documents.filter(d => 
+                              d.fileId === file.id || 
+                              (d.fileNumber && d.fileNumber.trim().toLowerCase() === file.internalFileNumber.trim().toLowerCase())
+                            ).length;
+                            return (
+                              <button
+                                onClick={() => onOpenDocumentManager(file)}
+                                className={`p-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                                  count > 0 
+                                    ? 'bg-amber-500/15 text-[#C9A227] hover:bg-amber-500/25 border border-amber-500/30' 
+                                    : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                                }`}
+                                title={`Attached Documents: ${count} file${count === 1 ? '' : 's'} attached`}
+                              >
+                                <Paperclip className="w-4 h-4" />
+                                {count > 0 && (
+                                  <span className="text-[10px] font-mono font-bold">{count}</span>
+                                )}
+                              </button>
+                            );
+                          })()}
+
                           {/* Proprietor 1-Time Edit Action in Table */}
                           {isProprietor && (
                             file.isEdited ? (
@@ -1704,6 +1762,28 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               </div>
               
               <div className="flex flex-wrap items-center gap-2">
+                {onOpenDocumentManager && (
+                  <button
+                    onClick={() => onOpenDocumentManager(selectedFile)}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-[#C9A227] hover:text-amber-300 border border-[#C9A227]/40 text-xs font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    title="Upload and manage attached documents for this file"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    <span>Attach / View Docs</span>
+                    {(() => {
+                      const count = documents.filter(d => 
+                        d.fileId === selectedFile.id || 
+                        (d.fileNumber && d.fileNumber.trim().toLowerCase() === selectedFile.internalFileNumber.trim().toLowerCase())
+                      ).length;
+                      return count > 0 ? (
+                        <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-[#C9A227] text-slate-950 font-mono font-black text-[10px]">
+                          {count}
+                        </span>
+                      ) : null;
+                    })()}
+                  </button>
+                )}
+
                 {/* Proprietor 1-Time Edit Permission Button / Lock Badge */}
                 {selectedFile.isEdited ? (
                   <div 
@@ -1976,6 +2056,120 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                 </span>
               </div>
             )}
+
+            {/* ATTACHED DOCUMENTS & FILE REPOSITORY */}
+            <div className="space-y-3 pt-3 border-t border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[#C9A227]">
+                    <Paperclip className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-sm text-white flex items-center gap-2">
+                      ATTACHED DOCUMENTS & VAULT
+                      {(() => {
+                        const fileDocs = documents.filter(d => 
+                          d.fileId === selectedFile.id || 
+                          (d.fileNumber && d.fileNumber.trim().toLowerCase() === selectedFile.internalFileNumber.trim().toLowerCase())
+                        );
+                        return (
+                          <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-[#C9A227] border border-[#C9A227]/30 rounded-full font-mono font-bold">
+                            {fileDocs.length} {fileDocs.length === 1 ? 'Document' : 'Documents'}
+                          </span>
+                        );
+                      })()}
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      Pleadings, affidavits, rulings, witness statements & police abstracts
+                    </p>
+                  </div>
+                </div>
+
+                {onOpenDocumentManager && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenDocumentManager(selectedFile)}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-[#C9A227] hover:text-amber-300 border border-[#C9A227]/40 text-xs font-bold rounded-lg shadow flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    Upload / Manage Files
+                  </button>
+                )}
+              </div>
+
+              {/* Documents List */}
+              {(() => {
+                const fileDocs = documents.filter(d => 
+                  d.fileId === selectedFile.id || 
+                  (d.fileNumber && d.fileNumber.trim().toLowerCase() === selectedFile.internalFileNumber.trim().toLowerCase())
+                );
+
+                if (fileDocs.length === 0) {
+                  return (
+                    <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800 text-center text-xs text-slate-400">
+                      <Paperclip className="w-5 h-5 mx-auto text-slate-600 mb-1" />
+                      <p className="font-semibold text-slate-300">No Document Attachments Yet</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Upload pleadings, medical reports, affidavits, rulings, or receipts for this case file.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {fileDocs.map(doc => (
+                      <div 
+                        key={doc.id}
+                        className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-slate-700 transition flex items-start justify-between gap-2.5 text-xs group"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#C9A227]/15 text-[#C9A227] border border-[#C9A227]/30 shrink-0">
+                              {doc.category}
+                            </span>
+                            {doc.isConfidential && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-950 text-red-400 border border-red-800 shrink-0">
+                                Confidential
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-bold text-slate-100 truncate" title={doc.title}>
+                            {doc.title}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {doc.fileName} • {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : ''}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 pt-1">
+                          {onViewDocument && (
+                            <button
+                              type="button"
+                              onClick={() => onViewDocument(doc)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 transition cursor-pointer"
+                              title="Preview Document"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {doc.dataUrl && (
+                            <a
+                              href={doc.dataUrl}
+                              download={doc.fileName}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                              title="Download File"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
 
             {/* CORUM & COURT PROCEEDINGS REGISTER */}
             <div className="space-y-3 pt-3 border-t border-slate-800">
@@ -3077,14 +3271,17 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <LaptopDatePicker
-                    label="Date of Appearance"
+                    label="Date of Appearance (Court Due Date)"
                     required
+                    max={todayStr}
                     value={corumFormData.date}
                     onChange={val => {
                       setCorumFormData({ ...corumFormData, date: val });
                       setCorumValidationError(null);
                     }}
-                    allowFuture={true}
+                    allowPast={true}
+                    allowFuture={false}
+                    showQuickPills={false}
                   />
                 </div>
 

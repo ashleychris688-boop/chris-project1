@@ -207,6 +207,45 @@ export interface CourtOutcome {
   caseStatusAfter: FileStatus;
   recordedBy?: string;
   recordedAt?: string;
+  attachedDocumentIds?: string[];
+}
+
+export type DocumentCategory =
+  | 'Pleadings & Petitions'
+  | 'Court Orders & Decrees'
+  | 'Rulings & Judgments'
+  | 'Affidavits & Statements'
+  | 'Notices & Summons'
+  | 'Correspondence & Letters'
+  | 'Client KYC & Retainer'
+  | 'Evidence & Exhibits'
+  | 'Invoices & Fee Notes'
+  | 'Other';
+
+export interface FileDocumentAttachment {
+  id: string;
+  firmCode?: string;
+  fileId: string;                     // Matches RegistryFile.id
+  fileNumber: string;                 // e.g. LFR/2026/0142
+  corumId?: string;                   // Optional link to specific Corum outcome
+  title: string;                      // Document title e.g. "Signed Court Order for Injunction"
+  category: DocumentCategory;
+  fileName: string;                   // Original file name e.g. "Order_28_Aug.pdf"
+  fileType: string;                   // Mime type or extension
+  fileSize: number;                   // Bytes
+  dataUrl?: string;                   // Base64 data URL for preview/download
+  uploadedBy: string;                 // User / Advocate who uploaded
+  uploadedAt: string;                 // ISO date timestamp
+  notes?: string;
+  isConfidential?: boolean;
+}
+
+export interface BulkImportResult {
+  totalRows: number;
+  importedCount: number;
+  skippedCount: number;
+  errors: string[];
+  importedFiles: RegistryFile[];
 }
 
 export interface BringUpItem {

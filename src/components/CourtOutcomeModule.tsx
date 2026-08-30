@@ -87,6 +87,17 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
     const file = files.find(f => f.id === targetFileId) || files[0];
     if (!file) return;
 
+    // Enforce Rule: Outcome should NOT be recorded until due date that the file is in court
+    if (appearanceDate > todayStr) {
+      setValidationError(`Court appearance outcome cannot be recorded before the due date (selected date: ${appearanceDate}). Outcomes can only be logged on or after the court due date (today: ${todayStr}).`);
+      return;
+    }
+
+    if (preselectedSession && preselectedSession.hearingDate > todayStr) {
+      setValidationError(`This hearing session is scheduled for ${preselectedSession.hearingDate}. Court outcomes cannot be recorded in advance before the matter appears in court.`);
+      return;
+    }
+
     // Validate Next Hearing Date if provided
     if (nextHearingDate) {
       const val = validateCourtDate(nextHearingDate, nextHearingTime);
@@ -249,6 +260,18 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
 
             <form onSubmit={handleSaveOutcome} className="space-y-3 text-xs">
               
+              {preselectedSession && preselectedSession.hearingDate > todayStr && (
+                <div className="p-3 bg-amber-950/80 border border-amber-700/80 rounded-xl text-amber-200 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold">Court Date in Advance ({preselectedSession.hearingDate})</div>
+                    <div className="text-[11px] text-amber-300/90">
+                      Court outcomes cannot be recorded prior to the scheduled court due date. Please return on or after {preselectedSession.hearingDate} to record what transpired.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Select Physical File</label>
                 <select
@@ -265,15 +288,17 @@ export const CourtOutcomeModule: React.FC<CourtOutcomeModuleProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <LaptopDatePicker
-                    label="Appearance Date"
+                    label="Appearance Date (Court Due Date)"
                     required
+                    max={todayStr}
                     value={appearanceDate}
                     onChange={val => {
                       setAppearanceDate(val);
                       setValidationError(null);
                     }}
                     allowPast={true}
-                    allowFuture={true}
+                    allowFuture={false}
+                    showQuickPills={false}
                   />
                 </div>
 

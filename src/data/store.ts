@@ -17,7 +17,8 @@ import {
   ChaserFileResponsibility,
   ChaserTask,
   UnprocessedClientRecord,
-  UrgentAlert
+  UrgentAlert,
+  FileDocumentAttachment
 } from '../types';
 
 import {
@@ -33,7 +34,8 @@ import {
   INITIAL_INSURANCE_CLAIMS,
   INITIAL_PENDING_CHEQUES,
   INITIAL_COMMISSIONS,
-  INITIAL_AUDIT_LOGS
+  INITIAL_AUDIT_LOGS,
+  INITIAL_FILE_DOCUMENTS
 } from './initialData';
 
 import {
@@ -71,6 +73,7 @@ const STORAGE_KEYS = {
   TASKS: 'lfr_chaser_tasks_v2',
   UNPROCESSED: 'lfr_unprocessed_records_v2',
   URGENT_ALERTS: 'lfr_urgent_alerts_v2',
+  FILE_DOCUMENTS: 'lfr_file_documents_v2',
   LAST_ACTIVE_TIME: 'lfr_last_active_time_v2',
   CURRENT_TAB: 'lfr_current_tab_v2',
   VIEW_STATE: 'lfr_view_state_v2'
@@ -335,6 +338,14 @@ export function getStoredUrgentAlerts(): UrgentAlert[] {
 
 export function saveUrgentAlerts(alerts: UrgentAlert[]): void {
   saveItem(STORAGE_KEYS.URGENT_ALERTS, alerts);
+}
+
+export function getStoredFileDocuments(): FileDocumentAttachment[] {
+  return loadItem(STORAGE_KEYS.FILE_DOCUMENTS, INITIAL_FILE_DOCUMENTS);
+}
+
+export function saveFileDocuments(docs: FileDocumentAttachment[]): void {
+  saveItem(STORAGE_KEYS.FILE_DOCUMENTS, docs);
 }
 
 export function getCurrentUser(): User | null {
