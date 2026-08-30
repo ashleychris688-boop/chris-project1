@@ -111,7 +111,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const summaryCards = [
     { label: 'Active Files', value: activeFilesCount, color: 'text-emerald-400 bg-emerald-950/40 border-emerald-800/60', icon: FolderCheck, tab: 'registry' },
     { label: 'Court Sessions Today', value: courtSessionsTodayCount, color: 'text-amber-400 bg-amber-950/40 border-amber-800/60', icon: Scale, tab: 'court-diary' },
-    { label: 'Upcoming Hearings', value: upcomingHearingsCount, color: 'text-sky-400 bg-sky-950/40 border-sky-800/60', icon: Calendar, tab: 'court-diary' },
+    { label: 'Upcoming Matters', value: upcomingHearingsCount, color: 'text-sky-400 bg-sky-950/40 border-sky-800/60', icon: Calendar, tab: 'court-diary' },
     { label: 'Files Out', value: filesOutCount, color: 'text-orange-400 bg-orange-950/40 border-orange-800/60', icon: PackageSearch, tab: 'file-tracker' },
     { label: 'Pending Insurance Payments', value: pendingInsuranceCount, color: 'text-indigo-400 bg-indigo-950/40 border-indigo-800/60', icon: Building, tab: 'insurance' },
     { label: 'Pending Cheques', value: pendingChequesCount, color: 'text-teal-400 bg-teal-950/40 border-teal-800/60', icon: Receipt, tab: 'pending-cheques' },
@@ -684,7 +684,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Upcoming hearings list */}
             <div className="pt-2">
-              <h4 className="font-bold text-sm text-slate-200 mb-3">Upcoming Hearings</h4>
+              <h4 className="font-bold text-sm text-slate-200 mb-3">Upcoming Matters</h4>
               <div className="space-y-2">
                 {courtSessions.slice(0, 3).map(cs => (
                   <div key={cs.id} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">

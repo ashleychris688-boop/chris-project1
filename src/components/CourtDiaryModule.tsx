@@ -288,7 +288,7 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
               viewMode === 'today' ? 'bg-[#C9A227] text-slate-950 shadow' : 'text-slate-300 hover:text-white'
             }`}
           >
-            Today's Hearings ({todaySessionsCount})
+            Today's Matters ({todaySessionsCount})
           </button>
           <button
             onClick={() => setViewMode('weekly')}
@@ -296,7 +296,7 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
               viewMode === 'weekly' ? 'bg-[#C9A227] text-slate-950 shadow' : 'text-slate-300 hover:text-white'
             }`}
           >
-            Upcoming Hearings ({upcomingSessionsCount})
+            Upcoming Matters ({upcomingSessionsCount})
           </button>
           <button
             onClick={() => setViewMode('monthly')}
