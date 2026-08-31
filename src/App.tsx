@@ -1327,6 +1327,21 @@ export default function App() {
   };
 
   const handleLoginSuccess = (user: User) => {
+    // 1. Update local user records
+    setUsersState(prev => {
+      const idx = prev.findIndex(u => u.id === user.id || (u.email && u.email.toLowerCase() === (user.email || '').toLowerCase()));
+      let updated: User[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = { ...updated[idx], ...user };
+      } else {
+        updated = [user, ...prev];
+      }
+      saveUsers(updated);
+      return updated;
+    });
+
+    // 2. Set current user & active session
     setCurrentUser(user);
     setUser(user);
     setIsAuthenticated(true);
@@ -1335,13 +1350,36 @@ export default function App() {
     saveStoredViewState('app');
     setLastActiveTime(Date.now());
     
+    // 3. Match and sync firm settings if applicable
+    const matchingFirm = firms.find(f => 
+      (user.firmCode && (f.firmCode === user.firmCode || f.id === user.firmCode)) ||
+      (user.firmId && (f.id === user.firmId || f.firmCode === user.firmId))
+    );
+    if (matchingFirm) {
+      setSettingsState(prev => {
+        const nextSettings: SystemSettings = {
+          ...prev,
+          firmName: matchingFirm.firmName || prev.firmName,
+          firmCode: matchingFirm.firmCode || prev.firmCode,
+          firmRegistrationNumber: matchingFirm.registrationNumber || prev.firmRegistrationNumber,
+          cityOrBranch: matchingFirm.cityOrBranch || matchingFirm.county || prev.cityOrBranch,
+          address: matchingFirm.physicalAddress || prev.address,
+          phone: matchingFirm.phone || prev.phone,
+          email: matchingFirm.email || prev.email,
+          fileNumberPrefix: matchingFirm.fileNumberPrefix || matchingFirm.firmInitials || prev.fileNumberPrefix
+        };
+        saveSettings(nextSettings);
+        return nextSettings;
+      });
+    }
+
     if (user.role === 'Super Admin' || user.id === '3TVRWijWagVJBVfuTcFXCDqDzR02') {
       setActiveTab('super-admin');
     } else {
       setActiveTab('dashboard');
     }
     
-    addAuditLog(user.fullName, user.role, 'User Login', 'Auth', 'Authenticated via Law Firm Registry Portal');
+    addAuditLog(user.fullName, user.role, 'User Login', 'Auth', `Authenticated via Law Firm Registry Portal (${user.role})`);
     setAuditLogsState(getStoredAuditLogs());
   };
 

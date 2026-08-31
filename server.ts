@@ -8,10 +8,55 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// In-memory initial data or fallback
-let dbFirms: any[] = [];
+// Data file persistence helpers
+const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_FILE = path.join(DATA_DIR, 'persistent_registry.json');
 
-let dbUsers = [
+function ensureDataDir() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (e) {}
+}
+
+function loadPersistedState() {
+  ensureDataDir();
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (e) {
+    console.warn('Error reading persistent data:', e);
+  }
+  return null;
+}
+
+function savePersistedState() {
+  ensureDataDir();
+  try {
+    const payload = {
+      dbFirms,
+      dbUsers,
+      dbFiles,
+      dbCourtSessions,
+      dbClaims,
+      dbCheques,
+      dbCommissions
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Error writing persistent data:', e);
+  }
+}
+
+const savedData = loadPersistedState();
+
+// In-memory data initialized from persistent store or defaults
+let dbFirms: any[] = savedData?.dbFirms || [];
+
+let dbUsers: any[] = savedData?.dbUsers || [
   {
     id: "3TVRWijWagVJBVfuTcFXCDqDzR02",
     firmId: "platform-owner",
@@ -321,20 +366,59 @@ app.get("/api/health", (req, res) => {
 
 // 2. Auth Login API Endpoint
 app.post("/api/auth/login", (req, res) => {
-  const { email, username, password } = req.body;
+  const { email, username, password, firmId } = req.body;
   const identifier = (email || username || '').toLowerCase().trim();
+  const rawIdentifier = (email || username || '').trim();
+  const cleanFirm = (firmId || '').toUpperCase().trim();
 
   if (!identifier || !password) {
-    return res.status(400).json({ success: false, message: "Email and password are required." });
+    return res.status(400).json({ success: false, message: "Email/username and password are required." });
   }
 
-  // Find matching user by email or username
-  const user = dbUsers.find(
-    u => u.email.toLowerCase() === identifier || u.username.toLowerCase() === identifier
-  );
+  // Find matching user by email, username, fullName, or ID
+  const user = dbUsers.find(u => {
+    const uEmail = (u.email || '').toLowerCase().trim();
+    const uUsername = (u.username || '').toLowerCase().trim();
+    const uFullName = (u.fullName || '').toLowerCase().trim();
+    const uId = String(u.id || '').trim();
+    const uPhone = String(u.phone || '').trim();
+
+    const matchesIdentity = (
+      uEmail === identifier ||
+      uUsername === identifier ||
+      uFullName === identifier ||
+      uId === rawIdentifier ||
+      uPhone === rawIdentifier
+    );
+
+    if (!matchesIdentity) return false;
+
+    if (cleanFirm) {
+      const uFirmId = (u.firmId || '').toUpperCase().trim();
+      const uFirmCode = (u.firmCode || '').toUpperCase().trim();
+      const uFirmName = (u.firmName || '').toUpperCase().trim();
+      return uFirmId === cleanFirm || uFirmCode === cleanFirm || uFirmName.includes(cleanFirm);
+    }
+
+    return true;
+  }) || dbUsers.find(u => {
+    const uEmail = (u.email || '').toLowerCase().trim();
+    const uUsername = (u.username || '').toLowerCase().trim();
+    const uFullName = (u.fullName || '').toLowerCase().trim();
+    const uId = String(u.id || '').trim();
+    const uPhone = String(u.phone || '').trim();
+
+    return (
+      uEmail === identifier ||
+      uUsername === identifier ||
+      uFullName === identifier ||
+      uId === rawIdentifier ||
+      uPhone === rawIdentifier
+    );
+  });
 
   if (!user) {
-    return res.status(401).json({ success: false, message: "Invalid email or password." });
+    return res.status(401).json({ success: false, message: "Invalid email, username or password." });
   }
 
   if (user.status === 'Suspended') {
@@ -344,11 +428,12 @@ app.post("/api/auth/login", (req, res) => {
   // Password check (validates against stored password or default 'password123')
   const validPassword = user.password || 'password123';
   if (password !== validPassword && password !== 'password123') {
-    return res.status(401).json({ success: false, message: "Invalid email or password." });
+    return res.status(401).json({ success: false, message: "Invalid email, username or password." });
   }
 
   // Update last login
   user.lastLogin = `Today at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  savePersistedState();
 
   return res.json({
     success: true,
@@ -398,14 +483,21 @@ app.get("/api/stats", (req, res) => {
 // 4. CRUD Endpoints
 app.get("/api/firms", (req, res) => res.json(dbFirms));
 app.post("/api/firms", (req, res) => {
-  const newFirm = { id: `firm-${Date.now()}`, ...req.body };
-  dbFirms.unshift(newFirm);
+  const newFirm = { id: req.body.id || `firm-${Date.now()}`, ...req.body };
+  const idx = dbFirms.findIndex(f => f.id === newFirm.id || (f.firmCode && f.firmCode === newFirm.firmCode));
+  if (idx >= 0) {
+    dbFirms[idx] = { ...dbFirms[idx], ...newFirm };
+  } else {
+    dbFirms.unshift(newFirm);
+  }
+  savePersistedState();
   res.status(201).json(newFirm);
 });
 app.delete("/api/firms/:id", (req, res) => {
   const { id } = req.params;
   dbFirms = dbFirms.filter(f => f.id !== id && f.firmCode !== id);
   dbUsers = dbUsers.filter(u => u.firmId !== id && u.firmCode !== id);
+  savePersistedState();
   res.json({ success: true });
 });
 
@@ -418,7 +510,15 @@ app.post("/api/users", (req, res) => {
   } else {
     dbUsers.push(newUser);
   }
+  savePersistedState();
   res.status(201).json(newUser);
+});
+
+app.delete("/api/users/:id", (req, res) => {
+  const { id } = req.params;
+  dbUsers = dbUsers.filter(u => u.id !== id && u.username !== id);
+  savePersistedState();
+  res.json({ success: true });
 });
 
 app.post("/api/users/sync", (req, res) => {
@@ -433,13 +533,20 @@ app.post("/api/users/sync", (req, res) => {
       }
     });
   }
+  savePersistedState();
   res.json({ success: true, count: dbUsers.length });
 });
 
 app.get("/api/files", (req, res) => res.json(dbFiles));
 app.post("/api/files", (req, res) => {
-  const newFile = { id: `f-${Date.now()}`, ...req.body };
-  dbFiles.unshift(newFile);
+  const newFile = { id: req.body.id || `f-${Date.now()}`, ...req.body };
+  const idx = dbFiles.findIndex(f => f.id === newFile.id || f.internalFileNumber === newFile.internalFileNumber);
+  if (idx >= 0) {
+    dbFiles[idx] = { ...dbFiles[idx], ...newFile };
+  } else {
+    dbFiles.unshift(newFile);
+  }
+  savePersistedState();
   res.status(201).json(newFile);
 });
 

@@ -38,11 +38,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
 const firestoreSettings = {
-  experimentalForceLongPolling: true,
-  ignoreUndefinedProperties: true,
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
+  ignoreUndefinedProperties: true
 };
 
 export const db = firebaseConfigData.firestoreDatabaseId 
@@ -205,27 +201,13 @@ export async function saveDocumentToFirebase(collectionName: string, item: any) 
   if (!docId) return;
 
   try {
-    const docRef = doc(db, collectionName, docId);
-    const docPromise = setDoc(docRef, item, { merge: true }).catch((err) => {
-      if (isQuotaError(err)) {
-        handleQuotaExceeded(err);
-      }
-      throw err;
-    });
-
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Firestore save timeout')), 3000)
-    );
-
-    await Promise.race([
-      docPromise,
-      timeoutPromise
-    ]);
+    const docRef = doc(db, collectionName, String(docId));
+    await setDoc(docRef, item, { merge: true });
   } catch (err) {
     if (isQuotaError(err)) {
       handleQuotaExceeded(err);
     } else {
-      console.warn(`Failed or timed out saving ${docId} to Firebase ${collectionName}:`, err);
+      console.warn(`Failed saving ${docId} to Firebase ${collectionName}:`, err);
     }
   }
 }
@@ -336,26 +318,13 @@ export async function deleteDocumentFromFirebase(collectionName: string, docId: 
   if (isQuotaExceeded || !docId) return;
 
   try {
-    const docPromise = deleteDoc(doc(db, collectionName, docId)).catch((err) => {
-      if (isQuotaError(err)) {
-        handleQuotaExceeded(err);
-      }
-      throw err;
-    });
-
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Firestore delete timeout')), 2500)
-    );
-
-    await Promise.race([
-      docPromise,
-      timeoutPromise
-    ]);
+    const docRef = doc(db, collectionName, String(docId));
+    await deleteDoc(docRef);
   } catch (err) {
     if (isQuotaError(err)) {
       handleQuotaExceeded(err);
     } else {
-      console.warn(`Failed or timed out deleting ${docId} from Firebase ${collectionName}:`, err);
+      console.warn(`Failed deleting ${docId} from Firebase ${collectionName}:`, err);
     }
   }
 }
@@ -466,40 +435,65 @@ export async function triggerLocalStorageFirebaseSnapshot(firmCode = 'GLOBAL') {
 }
 
 /**
- * Directly fetches all registered Users from Firebase Firestore in real-time.
+ * Directly fetches all registered Users from Firebase Firestore and backend API in real-time.
  */
 export async function fetchUsersFromFirebase(): Promise<any[]> {
+  const usersMap = new Map<string, any>();
+
+  // 1. Fetch from Firestore
   try {
     const colRef = collection(db, 'users');
     const snap = await getDocs(colRef);
-    const usersList: any[] = [];
     snap.forEach(docSnap => {
       const data = docSnap.data();
       if (data) {
-        usersList.push({
-          id: docSnap.id,
-          ...data
-        });
+        const id = docSnap.id || data.id || data.username || data.email;
+        usersMap.set(id, { id: docSnap.id, ...data });
       }
     });
-    return usersList;
   } catch (err) {
-    console.warn('[Firebase] Error fetching users directly from Firestore:', err);
-    return [];
+    console.warn('[Firebase] Firestore users fetch note:', err);
   }
+
+  // 2. Fetch from backend API
+  try {
+    const res = await fetch('/api/users');
+    if (res.ok) {
+      const apiUsers = await res.json();
+      if (Array.isArray(apiUsers)) {
+        apiUsers.forEach((u: any) => {
+          if (u) {
+            const key = u.id || u.username || u.email;
+            if (key) {
+              if (usersMap.has(key)) {
+                usersMap.set(key, { ...usersMap.get(key), ...u });
+              } else {
+                usersMap.set(key, u);
+              }
+            }
+          }
+        });
+      }
+    }
+  } catch (err) {
+    // backend not available or offline
+  }
+
+  return Array.from(usersMap.values());
 }
 
 /**
- * Directly fetches all registered Law Firms from Firebase Firestore in real-time.
+ * Directly fetches all registered Law Firms from Firebase Firestore and backend API in real-time.
  */
 export async function fetchFirmsFromFirebase(): Promise<any[]> {
+  const firmMap = new Map<string, any>();
+
+  // 1. Fetch from Firestore
   try {
     const [firmsSnap, lawFirmsSnap] = await Promise.all([
       getDocs(collection(db, 'firms')).catch(() => ({ forEach: () => {} } as any)),
       getDocs(collection(db, 'law_firms')).catch(() => ({ forEach: () => {} } as any))
     ]);
-
-    const firmMap = new Map<string, any>();
 
     firmsSnap.forEach((docSnap: any) => {
       const data = docSnap.data();
@@ -516,17 +510,41 @@ export async function fetchFirmsFromFirebase(): Promise<any[]> {
         firmMap.set(id, { id, ...data });
       }
     });
-
-    return Array.from(firmMap.values());
   } catch (err) {
-    console.warn('[Firebase] Error fetching firms directly from Firestore:', err);
-    return [];
+    console.warn('[Firebase] Firestore firms fetch note:', err);
   }
+
+  // 2. Fetch from backend API
+  try {
+    const res = await fetch('/api/firms');
+    if (res.ok) {
+      const apiFirms = await res.json();
+      if (Array.isArray(apiFirms)) {
+        apiFirms.forEach((f: any) => {
+          if (f) {
+            const key = f.id || f.firmCode;
+            if (key) {
+              if (firmMap.has(key)) {
+                firmMap.set(key, { ...firmMap.get(key), ...f });
+              } else {
+                firmMap.set(key, f);
+              }
+            }
+          }
+        });
+      }
+    }
+  } catch (err) {
+    // backend not available or offline
+  }
+
+  return Array.from(firmMap.values());
 }
 
 /**
  * Cross-device Authentication Engine:
- * Validates login credentials against live Firebase Firestore collections ('users' and 'firms'/'law_firms').
+ * Validates login credentials against live Firebase Firestore collections ('users' and 'firms'/'law_firms')
+ * and backend authentication store.
  * Enables seamless login across laptops, phones, tablets, and other devices using the exact same login details.
  */
 export async function authenticateWithFirebase(
@@ -562,7 +580,7 @@ export async function authenticateWithFirebase(
       role: 'Super Admin',
       email: cleanInput.includes('@') ? cleanInput : 'anthonyomollo07@gmail.com',
       phone: '+254 700 000000',
-      password: passwordAttempt,
+      password: passwordAttempt || 'password123',
       status: 'Active',
       lastLogin: `Today at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
       permissions: ['all', 'superadmin']
@@ -572,28 +590,30 @@ export async function authenticateWithFirebase(
       return { success: false, error: 'Invalid password for Platform Owner / Super Admin account.' };
     }
 
-    // Persist Super Admin record in Firestore & localStorage
+    // Persist Super Admin record in Firestore, Backend & localStorage
     saveUserToFirebase(superAdminUser).catch(() => {});
     return { success: true, user: superAdminUser };
   }
 
   try {
-    // 2. Fetch live users and firms from Firebase Firestore concurrently with a short timeout
+    // 2. Fetch live users and firms from Firebase Firestore & backend concurrently
     const [liveUsers, liveFirms] = await Promise.all([
       fetchUsersFromFirebase(),
       fetchFirmsFromFirebase()
     ]);
 
-    // 3. Search for matching user in Firebase Firestore
+    // 3. Search for matching user in live pool
     let matchedUser = liveUsers.find((u: any) => {
       const uEmail = (u.email || '').toLowerCase().trim();
       const uUsername = (u.username || '').toLowerCase().trim();
+      const uFullName = (u.fullName || '').toLowerCase().trim();
       const uId = String(u.id || '').trim();
       const uPhone = String(u.phone || '').trim();
 
       const userMatches = (
         uEmail === cleanInput ||
         uUsername === cleanInput ||
+        uFullName === cleanInput ||
         uId === rawInput ||
         uPhone === rawInput
       );
@@ -617,22 +637,24 @@ export async function authenticateWithFirebase(
     });
 
     // 4. Fallback search ignoring firm filter if not initially found
-    if (!matchedUser && cleanFirm) {
+    if (!matchedUser) {
       matchedUser = liveUsers.find((u: any) => {
         const uEmail = (u.email || '').toLowerCase().trim();
         const uUsername = (u.username || '').toLowerCase().trim();
+        const uFullName = (u.fullName || '').toLowerCase().trim();
         const uId = String(u.id || '').trim();
         const uPhone = String(u.phone || '').trim();
         return (
           uEmail === cleanInput ||
           uUsername === cleanInput ||
+          uFullName === cleanInput ||
           uId === rawInput ||
           uPhone === rawInput
         );
       });
     }
 
-    // 5. If found in Firestore, validate password and status
+    // 5. If found in Firestore/backend, validate password and status
     if (matchedUser) {
       const expectedPassword = matchedUser.password || 'password123';
       if (passwordAttempt !== expectedPassword && passwordAttempt !== 'password123') {

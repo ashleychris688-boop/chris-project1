@@ -136,12 +136,10 @@ export function saveSettings(settings: SystemSettings): void {
 export function getStoredUsers(): User[] {
   const stored = loadItem<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
   const userList = Array.isArray(stored) ? stored : INITIAL_USERS;
-  const currentFirms = getStoredFirms();
-  const validFirmIds = new Set(currentFirms.map(f => f.id));
-  const validFirmCodes = new Set(currentFirms.map(f => f.firmCode));
   
-  // Filter out legacy demo accounts or orphaned user accounts whose law firm has been deleted
+  // Retain all valid user accounts without dropping them
   let cleaned = userList.filter(u => {
+    if (!u) return false;
     // Retain Platform Owner / Super Admin
     if (
       u.role === 'Super Admin' || 
@@ -154,17 +152,12 @@ export function getStoredUsers(): User[] {
       return true;
     }
 
-    // Strip demo users
+    // Strip legacy hardcoded dummy demo users
     if (DEMO_USER_IDS.has(u.id) || DEMO_USERNAMES.has(u.username)) {
       return false;
     }
 
-    // User must belong to an active registered firm in the system (only prune if currentFirms is populated)
-    if (currentFirms.length > 0) {
-      const hasValidFirm = (u.firmId && validFirmIds.has(u.firmId)) || (u.firmCode && validFirmCodes.has(u.firmCode));
-      return Boolean(hasValidFirm);
-    }
-    return Boolean(u.firmId || u.firmCode || u.username);
+    return Boolean(u.id || u.username || u.email);
   });
 
   // Ensure Super Admin exists
