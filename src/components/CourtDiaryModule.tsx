@@ -278,13 +278,13 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
       </div>
 
       {/* View Switcher & Search Bar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[#081729] p-4 rounded-xl border border-[#C9A227]/30 shadow-xl">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-[#081729] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-[#C9A227]/30 shadow-xl">
         
         {/* Today / Weekly / Monthly Switcher */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setViewMode('today')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               viewMode === 'today' ? 'bg-[#C9A227] text-slate-950 shadow' : 'text-slate-300 hover:text-white'
             }`}
           >
@@ -292,7 +292,7 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
           </button>
           <button
             onClick={() => setViewMode('weekly')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               viewMode === 'weekly' ? 'bg-[#C9A227] text-slate-950 shadow' : 'text-slate-300 hover:text-white'
             }`}
           >
@@ -300,7 +300,7 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
           </button>
           <button
             onClick={() => setViewMode('monthly')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               viewMode === 'monthly' ? 'bg-[#C9A227] text-slate-950 shadow' : 'text-slate-300 hover:text-white'
             }`}
           >
@@ -308,12 +308,12 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
           </button>
         </div>
 
-        {/* Station Filter */}
-        <div className="flex items-center gap-2">
+        {/* Station Filter & Search */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
           <select
             value={stationFilter}
             onChange={e => setStationFilter(e.target.value)}
-            className="p-2 bg-slate-950 border border-slate-700 text-xs rounded-lg font-semibold text-slate-200"
+            className="p-2 bg-slate-950 border border-slate-700 text-xs rounded-xl font-semibold text-slate-200 focus:outline-none focus:border-[#C9A227] w-full sm:w-auto"
           >
             <option value="ALL" className="bg-slate-900">All Court Stations</option>
             {courtStations.map(cs => (
@@ -321,14 +321,14 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
             ))}
           </select>
 
-          <div className="relative w-48">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative w-full sm:w-48">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Search file or advocate..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg focus:outline-none focus:border-[#C9A227]"
+              className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-xl focus:outline-none focus:border-[#C9A227]"
             />
           </div>
         </div>
@@ -336,7 +336,7 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
       </div>
 
       {/* Court Sessions Cards Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {filteredSessions.map(session => (
           <div 
             key={session.id}

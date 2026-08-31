@@ -61,7 +61,11 @@ import {
   saveFirmToFirebase, 
   saveUserToFirebase, 
   deleteFirmFromFirebase, 
-  deleteUserFromFirebase 
+  deleteUserFromFirebase,
+  fetchUsersFromFirebase,
+  fetchFirmsFromFirebase,
+  subscribeToUsers,
+  subscribeToFirms
 } from './lib/firebase';
 import { ShieldAlert } from 'lucide-react';
 
@@ -607,6 +611,76 @@ export default function App() {
       clearInterval(interval);
     };
   }, [currentUser?.firmCode]);
+
+  // Real-Time Cross-Device User & Firm Sync from Firebase Firestore
+  useEffect(() => {
+    let isMounted = true;
+
+    // Direct initial pull from Firebase Firestore
+    Promise.all([fetchUsersFromFirebase(), fetchFirmsFromFirebase()])
+      .then(([liveUsers, liveFirms]) => {
+        if (!isMounted) return;
+        if (liveUsers && liveUsers.length > 0) {
+          setUsersState(prev => {
+            const map = new Map<string, User>();
+            prev.forEach(u => map.set(u.id, u));
+            liveUsers.forEach((u: any) => map.set(u.id, u));
+            const merged = Array.from(map.values());
+            saveUsers(merged);
+            return merged;
+          });
+        }
+        if (liveFirms && liveFirms.length > 0) {
+          setFirmsState(prev => {
+            const map = new Map<string, LawFirmProfile>();
+            prev.forEach(f => map.set(f.id, f));
+            liveFirms.forEach((f: any) => map.set(f.id, f));
+            const merged = Array.from(map.values());
+            saveFirms(merged);
+            return merged;
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('[Firebase Boot Sync] Initial fetch fallback:', err);
+      });
+
+    // Real-time snapshot listener for users across devices
+    const unsubUsers = subscribeToUsers((liveUsers) => {
+      if (!isMounted) return;
+      if (liveUsers && liveUsers.length > 0) {
+        setUsersState(prev => {
+          const map = new Map<string, User>();
+          prev.forEach(u => map.set(u.id, u));
+          liveUsers.forEach((u: any) => map.set(u.id, u));
+          const merged = Array.from(map.values());
+          saveUsers(merged);
+          return merged;
+        });
+      }
+    });
+
+    // Real-time snapshot listener for firms across devices
+    const unsubFirms = subscribeToFirms((liveFirms) => {
+      if (!isMounted) return;
+      if (liveFirms && liveFirms.length > 0) {
+        setFirmsState(prev => {
+          const map = new Map<string, LawFirmProfile>();
+          prev.forEach(f => map.set(f.id, f));
+          liveFirms.forEach((f: any) => map.set(f.id, f));
+          const merged = Array.from(map.values());
+          saveFirms(merged);
+          return merged;
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubUsers();
+      unsubFirms();
+    };
+  }, []);
 
   // 1-Hour Inactivity Auto-Logout Handler
   const handleInactivityLogout = useCallback(() => {

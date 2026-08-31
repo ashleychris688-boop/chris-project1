@@ -159,9 +159,12 @@ export function getStoredUsers(): User[] {
       return false;
     }
 
-    // User must belong to an active registered firm in the system
-    const hasValidFirm = (u.firmId && validFirmIds.has(u.firmId)) || (u.firmCode && validFirmCodes.has(u.firmCode));
-    return Boolean(hasValidFirm);
+    // User must belong to an active registered firm in the system (only prune if currentFirms is populated)
+    if (currentFirms.length > 0) {
+      const hasValidFirm = (u.firmId && validFirmIds.has(u.firmId)) || (u.firmCode && validFirmCodes.has(u.firmCode));
+      return Boolean(hasValidFirm);
+    }
+    return Boolean(u.firmId || u.firmCode || u.username);
   });
 
   // Ensure Super Admin exists

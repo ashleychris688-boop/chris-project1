@@ -411,9 +411,29 @@ app.delete("/api/firms/:id", (req, res) => {
 
 app.get("/api/users", (req, res) => res.json(dbUsers));
 app.post("/api/users", (req, res) => {
-  const newUser = { id: `usr-${Date.now()}`, ...req.body };
-  dbUsers.push(newUser);
+  const newUser = { id: req.body.id || `usr-${Date.now()}`, ...req.body };
+  const idx = dbUsers.findIndex(u => u.id === newUser.id || (u.email && u.email.toLowerCase() === (newUser.email || '').toLowerCase()));
+  if (idx >= 0) {
+    dbUsers[idx] = { ...dbUsers[idx], ...newUser };
+  } else {
+    dbUsers.push(newUser);
+  }
   res.status(201).json(newUser);
+});
+
+app.post("/api/users/sync", (req, res) => {
+  const incomingUsers = req.body.users;
+  if (Array.isArray(incomingUsers)) {
+    incomingUsers.forEach(incUser => {
+      const idx = dbUsers.findIndex(u => u.id === incUser.id || (u.email && u.email.toLowerCase() === (incUser.email || '').toLowerCase()));
+      if (idx >= 0) {
+        dbUsers[idx] = { ...dbUsers[idx], ...incUser };
+      } else {
+        dbUsers.push(incUser);
+      }
+    });
+  }
+  res.json({ success: true, count: dbUsers.length });
 });
 
 app.get("/api/files", (req, res) => res.json(dbFiles));

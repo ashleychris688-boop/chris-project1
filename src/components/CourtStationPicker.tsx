@@ -173,7 +173,7 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-1.5 bg-[#081729] border border-[#C9A227]/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[420px] w-full min-w-[320px] sm:min-w-[420px] max-w-[560px]">
+        <div className="absolute z-50 left-0 right-0 sm:right-auto mt-1.5 bg-[#081729] border border-[#C9A227]/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[75vh] sm:max-h-[420px] w-full sm:w-[480px] max-w-full">
           
           {/* Header & Search Bar */}
           <div className="p-3 border-b border-slate-800 bg-[#0B1F3A]/90 space-y-2.5">
@@ -201,15 +201,15 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search court station, county or type..."
-                className="w-full pl-8 pr-7 py-1.5 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs focus:outline-none focus:border-[#C9A227]"
+                className="w-full pl-8 pr-7 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs focus:outline-none focus:border-[#C9A227]"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -219,7 +219,7 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedCategory('ALL')}
-                className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-full font-medium whitespace-nowrap transition cursor-pointer ${
                   selectedCategory === 'ALL'
                     ? 'bg-[#C9A227] text-slate-950 font-bold'
                     : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
@@ -232,7 +232,7 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
                   key={cat.category}
                   type="button"
                   onClick={() => setSelectedCategory(cat.category)}
-                  className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap transition cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-full font-medium whitespace-nowrap transition cursor-pointer ${
                     selectedCategory === cat.category
                       ? 'bg-[#C9A227] text-slate-950 font-bold'
                       : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
@@ -248,7 +248,6 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
           <div className="overflow-y-auto flex-1 divide-y divide-slate-800/80 p-2 space-y-3">
             {groupedCourts.length > 0 ? (
               groupedCourts.map(group => {
-                const catMeta = KENYA_COURT_CATEGORIES.find(c => c.category === group.category);
                 return (
                   <div key={group.category} className="space-y-1 pt-1.5 first:pt-0">
                     <div className="flex items-center justify-between px-2 py-1 sticky top-0 bg-[#081729]/95 backdrop-blur-xs z-10">
@@ -269,16 +268,23 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
                             key={court.id}
                             type="button"
                             onClick={() => handleSelect(court.name)}
-                            className={`p-2 rounded-xl text-left transition flex items-center justify-between group cursor-pointer ${
+                            className={`p-2.5 rounded-xl text-left transition flex items-center justify-between group cursor-pointer ${
                               isSelected
                                 ? 'bg-[#C9A227]/20 border border-[#C9A227] text-white'
                                 : 'hover:bg-slate-900/90 text-slate-300 hover:text-white border border-transparent'
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 truncate">
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
                               <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C9A227]' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                              <div className="font-semibold text-xs text-white truncate">
-                                {court.name}
+                              <div className="truncate">
+                                <div className="font-semibold text-xs text-white truncate">
+                                  {court.name}
+                                </div>
+                                {court.countyOrLocation && (
+                                  <div className="text-[10px] text-slate-400 truncate">
+                                    {court.countyOrLocation}
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -293,17 +299,26 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
                 );
               })
             ) : (
-              <div className="p-6 text-center text-slate-400 space-y-2">
+              <div className="p-6 text-center text-slate-400 space-y-3">
                 <p className="text-xs">No court stations match "{searchQuery}"</p>
                 {searchQuery.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(searchQuery.trim())}
-                    className="px-3 py-1.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-bold text-xs rounded-lg transition cursor-pointer inline-flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Use "{searchQuery.trim()}" as custom station
-                  </button>
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(searchQuery.trim())}
+                      className="px-3 py-1.5 bg-[#C9A227] hover:bg-[#B08D1E] text-slate-950 font-bold text-xs rounded-xl transition cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Use "{searchQuery.trim()}" as custom station
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="text-xs text-slate-400 hover:text-slate-200 underline"
+                    >
+                      Clear search
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -311,12 +326,12 @@ export const CourtStationPicker: React.FC<CourtStationPickerProps> = ({
 
           {/* Footer */}
           <div className="p-2.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Selected: <strong className="text-white font-medium">{value || 'None'}</strong></span>
+            <span className="truncate pr-2">Selected: <strong className="text-white font-medium">{value || 'None'}</strong></span>
             {value && (
               <button
                 type="button"
                 onClick={() => handleSelect('')}
-                className="text-red-400 hover:text-red-300 text-[10px] underline cursor-pointer"
+                className="text-red-400 hover:text-red-300 text-[10px] underline cursor-pointer shrink-0"
               >
                 Clear
               </button>
