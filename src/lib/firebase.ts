@@ -119,18 +119,20 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
 
   const isItemDeleted = (item: any) => {
     if (!item || !Array.isArray(deletedFirms) || deletedFirms.length === 0) return false;
-    const itemFirmId = (item.firmId || item.id || '').toString().toLowerCase();
-    const itemFirmCode = (item.firmCode || '').toString().toLowerCase();
-    const itemFirmName = (item.firmName || '').toString().toLowerCase();
+    const itemFirmId = (item.firmId || item.id || '').toString().toLowerCase().trim();
+    const itemFirmCode = (item.firmCode || '').toString().toLowerCase().trim();
+
+    // Never consider platform owner deleted
+    if (itemFirmId === 'platform-owner' || itemFirmId === 'platform' || itemFirmCode === 'platform') {
+      return false;
+    }
 
     return deletedFirms.some((d: any) => {
-      const dId = (d.id || '').toString().toLowerCase();
-      const dCode = (d.firmCode || '').toString().toLowerCase();
-      const dName = (d.firmName || '').toString().toLowerCase();
+      const dId = (d.id || '').toString().toLowerCase().trim();
+      const dCode = (d.firmCode || '').toString().toLowerCase().trim();
       return (
         (dId && (itemFirmId === dId || itemFirmCode === dId)) ||
-        (dCode && (itemFirmCode === dCode || itemFirmId === dCode)) ||
-        (dName && itemFirmName === dName)
+        (dCode && (itemFirmCode === dCode || itemFirmId === dCode))
       );
     });
   };
@@ -248,6 +250,7 @@ export async function saveDocumentToFirebase(collectionName: string, item: any) 
 /**
  * Specifically saves or updates a Law Firm Profile in Firebase Firestore immediately.
  * Persists to both 'firms' and 'law_firms' collections for redundancy and synchronicity.
+ * Automatically removes any prior tombstone records for this firm.
  */
 export async function saveFirmToFirebase(firm: any) {
   if (!firm) return;
@@ -259,6 +262,9 @@ export async function saveFirmToFirebase(firm: any) {
     id: firmId,
     updatedAt: new Date().toISOString()
   };
+
+  // Immediate tombstone unmark
+  await removeDeletedFirmFromFirebase(sanitizedFirm.id, sanitizedFirm.firmCode, sanitizedFirm.firmName);
 
   // Immediate concurrent write to both 'firms' and 'law_firms' in Firestore
   await Promise.allSettled([
@@ -274,6 +280,47 @@ export async function saveFirmToFirebase(firm: any) {
       body: JSON.stringify(sanitizedFirm)
     }).catch(() => {});
   } catch (e) {}
+}
+
+/**
+ * Removes any deleted firm tombstone from Firebase Firestore, backend API, and localStorage.
+ */
+export async function removeDeletedFirmFromFirebase(firmId?: string, firmCode?: string, firmName?: string) {
+  const cleanId = String(firmId || '').trim();
+  const cleanCode = String(firmCode || '').trim();
+
+  // 1. Remove from localStorage
+  try {
+    const raw = localStorage.getItem('lfr_deleted_firms_v2');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        const filtered = list.filter((r: any) => {
+          const rId = String(r.id || '').trim().toLowerCase();
+          const rCode = String(r.firmCode || '').trim().toLowerCase();
+          if (cleanId && (rId === cleanId.toLowerCase() || rCode === cleanId.toLowerCase())) return false;
+          if (cleanCode && (rCode === cleanCode.toLowerCase() || rId === cleanCode.toLowerCase())) return false;
+          return true;
+        });
+        localStorage.setItem('lfr_deleted_firms_v2', JSON.stringify(filtered));
+      }
+    }
+  } catch (e) {}
+
+  // 2. Delete tombstone doc from Firestore
+  if (cleanId) {
+    deleteDocumentFromFirebase('deleted_firms', cleanId).catch(() => {});
+  }
+  if (cleanCode && cleanCode !== cleanId) {
+    deleteDocumentFromFirebase('deleted_firms', cleanCode).catch(() => {});
+  }
+
+  // 3. Remove from backend API
+  if (cleanId || cleanCode) {
+    try {
+      fetch(`/api/deleted-firms/${encodeURIComponent(cleanId || cleanCode)}`, { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
+  }
 }
 
 /**
@@ -698,16 +745,17 @@ export async function authenticateWithFirebase(
       if (!Array.isArray(deletedFirms) || deletedFirms.length === 0) return false;
       const cleanFId = (fId || '').toLowerCase().trim();
       const cleanFCode = (fCode || '').toLowerCase().trim();
-      const cleanFName = (fName || '').toLowerCase().trim();
+
+      if (cleanFId === 'platform-owner' || cleanFId === 'platform' || cleanFCode === 'platform') {
+        return false;
+      }
 
       return deletedFirms.some((d: any) => {
         const dId = (d.id || '').toLowerCase().trim();
         const dCode = (d.firmCode || '').toLowerCase().trim();
-        const dName = (d.firmName || '').toLowerCase().trim();
         return (
           (dId && (cleanFId === dId || cleanFCode === dId)) ||
-          (dCode && (cleanFCode === dCode || cleanFId === dCode)) ||
-          (dName && cleanFName === dName)
+          (dCode && (cleanFCode === dCode || cleanFId === dCode))
         );
       });
     };

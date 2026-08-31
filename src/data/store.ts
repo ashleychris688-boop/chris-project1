@@ -92,16 +92,16 @@ export function getStoredDeletedFirms(): DeletedFirmRecord[] {
 }
 
 export function saveDeletedFirmRecord(firmId: string, firmCode?: string, firmName?: string): void {
-  if (!firmId && !firmCode && !firmName) return;
-  const current = getStoredDeletedFirms();
   const cleanId = String(firmId || '').trim();
   const cleanCode = String(firmCode || '').trim();
   const cleanName = String(firmName || '').trim();
+  if (!cleanId && !cleanCode) return;
+
+  const current = getStoredDeletedFirms();
 
   const exists = current.some(r => 
     (cleanId && r.id === cleanId) || 
-    (cleanCode && r.firmCode === cleanCode) ||
-    (cleanName && r.firmName?.toLowerCase() === cleanName.toLowerCase())
+    (cleanCode && r.firmCode === cleanCode)
   );
 
   if (!exists) {
@@ -115,25 +115,51 @@ export function saveDeletedFirmRecord(firmId: string, firmCode?: string, firmNam
   }
 }
 
-export function isFirmDeleted(firmId?: string, firmCode?: string, firmName?: string): boolean {
-  const targets = [firmId, firmCode, firmName]
-    .filter(Boolean)
-    .map(t => String(t).trim().toLowerCase())
-    .filter(t => t.length > 0);
+export function removeDeletedFirmRecord(firmId?: string, firmCode?: string, firmName?: string): void {
+  const current = getStoredDeletedFirms();
+  const cleanId = (firmId || '').trim().toLowerCase();
+  const cleanCode = (firmCode || '').trim().toLowerCase();
+  const cleanName = (firmName || '').trim().toLowerCase();
 
-  if (targets.length === 0) return false;
+  const filtered = current.filter(r => {
+    const rId = (r.id || '').trim().toLowerCase();
+    const rCode = (r.firmCode || '').trim().toLowerCase();
+    const rName = (r.firmName || '').trim().toLowerCase();
+
+    if (cleanId && (rId === cleanId || rCode === cleanId)) return false;
+    if (cleanCode && (rCode === cleanCode || rId === cleanCode)) return false;
+    if (cleanName && rName === cleanName) return false;
+    return true;
+  });
+
+  saveItem(STORAGE_KEYS.DELETED_FIRMS, filtered);
+}
+
+export function isFirmDeleted(firmId?: string, firmCode?: string, firmName?: string): boolean {
+  if (!firmId && !firmCode && !firmName) return false;
+
+  const cleanId = (firmId || '').trim().toLowerCase();
+  const cleanCode = (firmCode || '').trim().toLowerCase();
+
+  // Platform admin is never deleted
+  if (cleanId === 'platform-owner' || cleanId === 'platform' || cleanCode === 'platform') {
+    return false;
+  }
 
   const deletedList = getStoredDeletedFirms();
-  return deletedList.some(r => {
-    const rId = (r.id || '').toLowerCase().trim();
-    const rCode = (r.firmCode || '').toLowerCase().trim();
-    const rName = (r.firmName || '').toLowerCase().trim();
+  if (!Array.isArray(deletedList) || deletedList.length === 0) return false;
 
-    return targets.some(target => 
-      (rId && rId === target) ||
-      (rCode && rCode === target) ||
-      (rName && rName === target)
-    );
+  return deletedList.some(r => {
+    const rId = (r.id || '').trim().toLowerCase();
+    const rCode = (r.firmCode || '').trim().toLowerCase();
+
+    // Strict ID / Code matching only to prevent accidental name collisions
+    if (cleanId && rId && (cleanId === rId || cleanId === rCode)) return true;
+    if (cleanCode && rCode && (cleanCode === rCode || cleanCode === rId)) return true;
+    if (cleanId && rCode && cleanId === rCode) return true;
+    if (cleanCode && rId && cleanCode === rId) return true;
+
+    return false;
   });
 }
 
@@ -171,9 +197,7 @@ export function getStoredFirms(): LawFirmProfile[] {
     !DEMO_FIRM_IDS.has(f.id) && 
     f.firmCode !== 'OM-ADV-001' && 
     f.firmCode !== 'ABC-ADV-002' &&
-    !isFirmDeleted(f.id) &&
-    !isFirmDeleted(f.firmCode) &&
-    !isFirmDeleted(f.firmName)
+    !isFirmDeleted(f.id, f.firmCode)
   );
   if (Array.isArray(stored) && cleaned.length !== stored.length) {
     saveFirms(cleaned);
@@ -182,6 +206,14 @@ export function getStoredFirms(): LawFirmProfile[] {
 }
 
 export function saveFirms(firms: LawFirmProfile[]): void {
+  // Ensure any active saved firms are un-marked from tombstones
+  if (Array.isArray(firms)) {
+    firms.forEach(f => {
+      if (f && (f.id || f.firmCode)) {
+        removeDeletedFirmRecord(f.id, f.firmCode, f.firmName);
+      }
+    });
+  }
   saveItem(STORAGE_KEYS.FIRMS, firms);
 }
 
@@ -189,8 +221,7 @@ export function getStoredSettings(): SystemSettings {
   const settings = loadItem<SystemSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
   if (
     settings && (
-      isFirmDeleted(settings.firmCode) || 
-      isFirmDeleted(settings.firmName)
+      isFirmDeleted(settings.firmCode)
     )
   ) {
     saveSettings(INITIAL_SETTINGS);
@@ -227,11 +258,9 @@ export function getStoredUsers(): User[] {
       return false;
     }
 
-    // Filter out users of deleted firms
+    // Filter out users of deleted firms using strict ID/Code check
     if (
-      isFirmDeleted(u.firmId) || 
-      isFirmDeleted(u.firmCode) || 
-      (u.firmName && isFirmDeleted(u.firmName))
+      isFirmDeleted(u.firmId, u.firmCode)
     ) {
       return false;
     }
