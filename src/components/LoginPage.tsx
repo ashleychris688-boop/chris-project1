@@ -445,19 +445,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
           <div className="space-y-4">
             
-            {/* Firm ID Field */}
+            {/* Firm ID Field (Optional) */}
             <div>
-              <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider mb-1.5">
-                Law Firm ID / Registration Code
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-[#C9A227] uppercase tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-[#C9A227]" />
+                  <span>Law Firm ID / Code</span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-normal lowercase tracking-normal bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                  Optional if using Email
+                </span>
+              </div>
               <div className="relative">
                 <Building2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  required
                   value={firmIdInput}
                   onChange={e => setFirmIdInput(e.target.value)}
-                  placeholder="e.g. YOUR-FIRM-CODE or PLATFORM"
+                  placeholder="e.g. YOUR-FIRM-CODE (or leave blank)"
                   className="w-full pl-10 pr-3 py-3 bg-slate-950 border border-slate-700 text-slate-100 text-sm font-semibold rounded-xl focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition font-mono uppercase"
                 />
               </div>
@@ -465,8 +470,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             {/* User Name / Email / User ID Field */}
             <div>
-              <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider mb-1.5">
-                User Name / Email / User ID
+              <label className="block text-xs font-bold text-[#C9A227] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-[#C9A227]" />
+                <span>Email Address / Username / User ID</span>
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -475,7 +481,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   required
                   value={usernameInput}
                   onChange={e => setUsernameInput(e.target.value)}
-                  placeholder="e.g. admin, kamau, or 3TVRWijWagVJBVfuTcFXCDqDzR02"
+                  placeholder="e.g. anthonyomollo07@gmail.com, username, or ID"
                   className="w-full pl-10 pr-3 py-3 bg-slate-950 border border-slate-700 text-slate-100 text-sm font-semibold rounded-xl focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition"
                 />
               </div>
@@ -484,8 +490,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             {/* Password Field */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-[#C9A227] uppercase tracking-wider">
-                  Password
+                <label className="text-xs font-bold text-[#C9A227] uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-[#C9A227]" />
+                  <span>Password</span>
                 </label>
                 <button
                   type="button"
@@ -509,6 +516,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
             </div>
 
+            {/* Platform Owner Quick Fill Helper */}
+            <div className="flex items-center justify-between bg-slate-900/60 p-2 rounded-xl border border-slate-800 text-[11px] text-slate-300">
+              <span className="text-slate-400">Platform Owner Quick Sign-In:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUsernameInput('anthonyomollo07@gmail.com');
+                  setPasswordInput('password123');
+                  setFirmIdInput('PLATFORM');
+                }}
+                className="text-[#C9A227] hover:underline font-bold font-mono cursor-pointer"
+              >
+                anthonyomollo07@gmail.com
+              </button>
+            </div>
+
             {/* Remember Me Checkbox */}
             <div className="flex items-center justify-between pt-1">
               <button
@@ -521,11 +544,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 ) : (
                   <Square className="w-4 h-4 text-slate-500" />
                 )}
-                <span>Keep session signed in</span>
+                <span>Keep session signed in on this device</span>
               </button>
 
               <div className="text-[10px] text-slate-400 font-mono">
-                Multi-Tenant Firm Authentication
+                Cross-Device Sync
               </div>
             </div>
 
