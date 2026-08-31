@@ -74,12 +74,68 @@ const STORAGE_KEYS = {
   UNPROCESSED: 'lfr_unprocessed_records_v2',
   URGENT_ALERTS: 'lfr_urgent_alerts_v2',
   FILE_DOCUMENTS: 'lfr_file_documents_v2',
+  DELETED_FIRMS: 'lfr_deleted_firms_v2',
   LAST_ACTIVE_TIME: 'lfr_last_active_time_v2',
   CURRENT_TAB: 'lfr_current_tab_v2',
   VIEW_STATE: 'lfr_view_state_v2'
 };
 
+export interface DeletedFirmRecord {
+  id: string;
+  firmCode?: string;
+  firmName?: string;
+  deletedAt: string;
+}
 
+export function getStoredDeletedFirms(): DeletedFirmRecord[] {
+  return loadItem<DeletedFirmRecord[]>(STORAGE_KEYS.DELETED_FIRMS, []);
+}
+
+export function saveDeletedFirmRecord(firmId: string, firmCode?: string, firmName?: string): void {
+  if (!firmId && !firmCode && !firmName) return;
+  const current = getStoredDeletedFirms();
+  const cleanId = String(firmId || '').trim();
+  const cleanCode = String(firmCode || '').trim();
+  const cleanName = String(firmName || '').trim();
+
+  const exists = current.some(r => 
+    (cleanId && r.id === cleanId) || 
+    (cleanCode && r.firmCode === cleanCode) ||
+    (cleanName && r.firmName?.toLowerCase() === cleanName.toLowerCase())
+  );
+
+  if (!exists) {
+    const newRecord: DeletedFirmRecord = {
+      id: cleanId || cleanCode,
+      firmCode: cleanCode,
+      firmName: cleanName,
+      deletedAt: new Date().toISOString()
+    };
+    saveItem(STORAGE_KEYS.DELETED_FIRMS, [newRecord, ...current]);
+  }
+}
+
+export function isFirmDeleted(firmId?: string, firmCode?: string, firmName?: string): boolean {
+  const targets = [firmId, firmCode, firmName]
+    .filter(Boolean)
+    .map(t => String(t).trim().toLowerCase())
+    .filter(t => t.length > 0);
+
+  if (targets.length === 0) return false;
+
+  const deletedList = getStoredDeletedFirms();
+  return deletedList.some(r => {
+    const rId = (r.id || '').toLowerCase().trim();
+    const rCode = (r.firmCode || '').toLowerCase().trim();
+    const rName = (r.firmName || '').toLowerCase().trim();
+
+    return targets.some(target => 
+      (rId && rId === target) ||
+      (rCode && rCode === target) ||
+      (rName && rName === target)
+    );
+  });
+}
 
 function loadItem<T>(key: string, fallback: T): T {
   try {
@@ -111,9 +167,13 @@ export function getStoredFirms(): LawFirmProfile[] {
   const stored = loadItem<LawFirmProfile[]>(STORAGE_KEYS.FIRMS, INITIAL_FIRMS);
   const DEMO_FIRM_IDS = new Set(['firm-1', 'firm-2']);
   const cleaned = (Array.isArray(stored) ? stored : []).filter(f => 
+    f &&
     !DEMO_FIRM_IDS.has(f.id) && 
     f.firmCode !== 'OM-ADV-001' && 
-    f.firmCode !== 'ABC-ADV-002'
+    f.firmCode !== 'ABC-ADV-002' &&
+    !isFirmDeleted(f.id) &&
+    !isFirmDeleted(f.firmCode) &&
+    !isFirmDeleted(f.firmName)
   );
   if (Array.isArray(stored) && cleaned.length !== stored.length) {
     saveFirms(cleaned);
@@ -126,7 +186,17 @@ export function saveFirms(firms: LawFirmProfile[]): void {
 }
 
 export function getStoredSettings(): SystemSettings {
-  return loadItem(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
+  const settings = loadItem<SystemSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
+  if (
+    settings && (
+      isFirmDeleted(settings.firmCode) || 
+      isFirmDeleted(settings.firmName)
+    )
+  ) {
+    saveSettings(INITIAL_SETTINGS);
+    return INITIAL_SETTINGS;
+  }
+  return settings;
 }
 
 export function saveSettings(settings: SystemSettings): void {
@@ -157,6 +227,15 @@ export function getStoredUsers(): User[] {
       return false;
     }
 
+    // Filter out users of deleted firms
+    if (
+      isFirmDeleted(u.firmId) || 
+      isFirmDeleted(u.firmCode) || 
+      (u.firmName && isFirmDeleted(u.firmName))
+    ) {
+      return false;
+    }
+
     return Boolean(u.id || u.username || u.email);
   });
 
@@ -179,12 +258,25 @@ export function saveUsers(users: User[]): void {
 export function getStoredFiles(): RegistryFile[] {
   const stored = loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, []);
   if (Array.isArray(stored) && stored.length > 0) {
-    return stored;
+    const active = stored.filter(f => 
+      f && 
+      !isFirmDeleted(f.firmId) && 
+      !isFirmDeleted(f.firmCode)
+    );
+    if (active.length !== stored.length) {
+      saveFiles(active);
+    }
+    return active;
   }
   const legacy = loadItem<RegistryFile[]>('lfr_physical_files_v1', []);
   if (Array.isArray(legacy) && legacy.length > 0) {
-    saveFiles(legacy);
-    return legacy;
+    const active = legacy.filter(f => 
+      f && 
+      !isFirmDeleted(f.firmId) && 
+      !isFirmDeleted(f.firmCode)
+    );
+    saveFiles(active);
+    return active;
   }
   return [];
 }

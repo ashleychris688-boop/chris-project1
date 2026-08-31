@@ -110,6 +110,33 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
     return initialItems;
   }
 
+  // Load deleted firms to filter out any deleted items during sync
+  let deletedFirms: any[] = [];
+  try {
+    const raw = localStorage.getItem('lfr_deleted_firms_v2');
+    if (raw) deletedFirms = JSON.parse(raw);
+  } catch (e) {}
+
+  const isItemDeleted = (item: any) => {
+    if (!item || !Array.isArray(deletedFirms) || deletedFirms.length === 0) return false;
+    const itemFirmId = (item.firmId || item.id || '').toString().toLowerCase();
+    const itemFirmCode = (item.firmCode || '').toString().toLowerCase();
+    const itemFirmName = (item.firmName || '').toString().toLowerCase();
+
+    return deletedFirms.some((d: any) => {
+      const dId = (d.id || '').toString().toLowerCase();
+      const dCode = (d.firmCode || '').toString().toLowerCase();
+      const dName = (d.firmName || '').toString().toLowerCase();
+      return (
+        (dId && (itemFirmId === dId || itemFirmCode === dId)) ||
+        (dCode && (itemFirmCode === dCode || itemFirmId === dCode)) ||
+        (dName && itemFirmName === dName)
+      );
+    });
+  };
+
+  const filteredInitial = (initialItems || []).filter(item => !isItemDeleted(item));
+
   try {
     const colRef = collection(db, collectionName);
     const docsPromise = getDocs(colRef).catch((err) => {
@@ -129,30 +156,35 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
     ]);
 
     if (snapshot.empty) {
-      // Seed Firebase with initialItems asynchronously without blocking
-      for (const item of (initialItems || [])) {
+      // Seed Firebase with filteredInitial asynchronously without blocking
+      for (const item of filteredInitial) {
         if (isQuotaExceeded) break;
         saveDocumentToFirebase(collectionName, item);
       }
-      return initialItems;
+      return filteredInitial;
     } else {
       const remoteItems: T[] = [];
       const remoteKeySet = new Set<string>();
 
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as T;
-        const key = String(data.id || (data as any).firmCode || (data as any).internalFileNumber || (data as any).username || docSnap.id);
-        if (key) {
-          remoteKeySet.add(key);
+        if (!isItemDeleted(data)) {
+          const key = String(data.id || (data as any).firmCode || (data as any).internalFileNumber || (data as any).username || docSnap.id);
+          if (key) {
+            remoteKeySet.add(key);
+          }
+          remoteItems.push(data);
+        } else {
+          // If remote item belongs to deleted firm, delete it from Firestore!
+          deleteDoc(docSnap.ref).catch(() => {});
         }
-        remoteItems.push(data);
       });
 
       // Merge local items with remote items to guarantee NO locally added items are ever lost!
       const mergedMap = new Map<string, T>();
 
       // 1. Seed with local items
-      (initialItems || []).forEach(localItem => {
+      filteredInitial.forEach(localItem => {
         if (!localItem) return;
         const key = String(localItem.id || (localItem as any).firmCode || (localItem as any).internalFileNumber || (localItem as any).username || '');
         if (key) {
@@ -175,7 +207,7 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
       });
 
       // 3. For any local item that wasn't in remote Firestore, upload it in the background
-      (initialItems || []).forEach(localItem => {
+      filteredInitial.forEach(localItem => {
         if (!localItem) return;
         const key = String(localItem.id || (localItem as any).firmCode || (localItem as any).internalFileNumber || (localItem as any).username || '');
         if (key && !remoteKeySet.has(key)) {
@@ -191,7 +223,7 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
     } else {
       console.warn(`Firebase sync for ${collectionName} timed out or failed, using local storage fallback.`);
     }
-    return initialItems;
+    return filteredInitial;
   }
 }
 
@@ -245,13 +277,105 @@ export async function saveFirmToFirebase(firm: any) {
 }
 
 /**
- * Specifically deletes a Law Firm Profile from Firebase Firestore immediately.
- * Erases from both 'firms' and 'law_firms' collections, and purges all associated user accounts.
+ * Records a deleted firm tombstone to Firebase Firestore, backend API, and localStorage.
  */
-export async function deleteFirmFromFirebase(firmId: string, firmCode?: string, associatedUserIds?: string[]) {
-  if (!firmId) return;
+export async function recordDeletedFirmToFirebase(firmId: string, firmCode?: string, firmName?: string) {
+  if (!firmId && !firmCode && !firmName) return;
+
+  const cleanId = String(firmId || firmCode || '').trim();
+  const cleanCode = String(firmCode || '').trim();
+  const cleanName = String(firmName || '').trim();
+
+  const record = {
+    id: cleanId,
+    firmCode: cleanCode,
+    firmName: cleanName,
+    deletedAt: new Date().toISOString()
+  };
+
+  // 1. Save to Firestore deleted_firms collection
+  await saveDocumentToFirebase('deleted_firms', record);
+
+  // 2. Also register in backend API
+  try {
+    fetch('/api/deleted-firms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record)
+    }).catch(() => {});
+  } catch (e) {}
+
+  // 3. Save to localStorage
+  try {
+    const raw = localStorage.getItem('lfr_deleted_firms_v2');
+    const list = raw ? JSON.parse(raw) : [];
+    if (!list.some((r: any) => r.id === cleanId || (cleanCode && r.firmCode === cleanCode))) {
+      list.unshift(record);
+      localStorage.setItem('lfr_deleted_firms_v2', JSON.stringify(list));
+    }
+  } catch (e) {}
+}
+
+/**
+ * Fetches all deleted firm records from Firestore, backend, and localStorage.
+ */
+export async function fetchDeletedFirmsFromFirebase(): Promise<any[]> {
+  const deletedMap = new Map<string, any>();
+
+  // 1. LocalStorage
+  try {
+    const raw = localStorage.getItem('lfr_deleted_firms_v2');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        list.forEach((r: any) => {
+          if (r && r.id) deletedMap.set(r.id, r);
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 2. Firestore
+  try {
+    const snap = await getDocs(collection(db, 'deleted_firms')).catch(() => ({ forEach: () => {} } as any));
+    snap.forEach((docSnap: any) => {
+      const data = docSnap.data();
+      if (data && (data.id || docSnap.id)) {
+        const id = data.id || docSnap.id;
+        deletedMap.set(id, { id, ...data });
+      }
+    });
+  } catch (err) {}
+
+  // 3. Backend API
+  try {
+    const res = await fetch('/api/deleted-firms');
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list)) {
+        list.forEach((r: any) => {
+          if (r && (r.id || r.firmCode)) {
+            deletedMap.set(r.id || r.firmCode, r);
+          }
+        });
+      }
+    }
+  } catch (err) {}
+
+  return Array.from(deletedMap.values());
+}
+
+/**
+ * Specifically deletes a Law Firm Profile from Firebase Firestore immediately.
+ * Erases from both 'firms' and 'law_firms' collections, records tombstones, and purges all associated user accounts.
+ */
+export async function deleteFirmFromFirebase(firmId: string, firmCode?: string, associatedUserIds?: string[], firmName?: string) {
+  if (!firmId && !firmCode) return;
 
   const targetIds = Array.from(new Set([firmId, firmCode].filter(Boolean) as string[]));
+
+  // Record tombstone first
+  await recordDeletedFirmToFirebase(firmId, firmCode, firmName);
 
   const deletePromises: Promise<any>[] = targetIds.flatMap(id => [
     deleteDocumentFromFirebase('firms', id),
@@ -563,11 +687,30 @@ export async function authenticateWithFirebase(
   const rawInput = (usernameOrEmail || '').trim();
 
   try {
-    // 1. Fetch live users and firms from Firebase Firestore & backend concurrently
-    const [liveUsers, liveFirms] = await Promise.all([
+    // 1. Fetch live users, firms, and deleted tombstones from Firebase Firestore & backend concurrently
+    const [liveUsers, liveFirms, deletedFirms] = await Promise.all([
       fetchUsersFromFirebase(),
-      fetchFirmsFromFirebase()
+      fetchFirmsFromFirebase(),
+      fetchDeletedFirmsFromFirebase()
     ]);
+
+    const isFirmDeletedCheck = (fId?: string, fCode?: string, fName?: string) => {
+      if (!Array.isArray(deletedFirms) || deletedFirms.length === 0) return false;
+      const cleanFId = (fId || '').toLowerCase().trim();
+      const cleanFCode = (fCode || '').toLowerCase().trim();
+      const cleanFName = (fName || '').toLowerCase().trim();
+
+      return deletedFirms.some((d: any) => {
+        const dId = (d.id || '').toLowerCase().trim();
+        const dCode = (d.firmCode || '').toLowerCase().trim();
+        const dName = (d.firmName || '').toLowerCase().trim();
+        return (
+          (dId && (cleanFId === dId || cleanFCode === dId)) ||
+          (dCode && (cleanFCode === dCode || cleanFId === dCode)) ||
+          (dName && cleanFName === dName)
+        );
+      });
+    };
 
     // 2. Search for matching registered user in live pool first
     let matchedUser = liveUsers.find((u: any) => {
@@ -641,6 +784,14 @@ export async function authenticateWithFirebase(
         return {
           success: false,
           error: `Invalid password entered for '${matchedUser.username || matchedUser.email}'.`
+        };
+      }
+
+      // Check if user's firm has been deleted
+      if (!isSuper && isFirmDeletedCheck(matchedUser.firmId, matchedUser.firmCode, matchedUser.firmName)) {
+        return {
+          success: false,
+          error: 'This law firm workspace has been permanently removed by the platform administrator.'
         };
       }
 

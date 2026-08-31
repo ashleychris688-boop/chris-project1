@@ -51,8 +51,10 @@ import {
   isSessionExpired,
   getStoredActiveTab, saveStoredActiveTab,
   getStoredViewState, saveStoredViewState,
-  resetToDefaults, clearAllDataForProduction
+  resetToDefaults, clearAllDataForProduction,
+  getStoredDeletedFirms, saveDeletedFirmRecord, isFirmDeleted
 } from './data/store';
+import { INITIAL_SETTINGS } from './data/initialData';
 
 import { 
   saveDocumentToFirebase, 
@@ -64,6 +66,8 @@ import {
   deleteUserFromFirebase,
   fetchUsersFromFirebase,
   fetchFirmsFromFirebase,
+  fetchDeletedFirmsFromFirebase,
+  recordDeletedFirmToFirebase,
   subscribeToUsers,
   subscribeToFirms
 } from './lib/firebase';
@@ -1073,20 +1077,44 @@ export default function App() {
       const localFirms = getStoredFirms();
       Promise.all([
         syncCollectionToFirebase('firms', localFirms),
-        syncCollectionToFirebase('law_firms', [])
-      ]).then(([remoteFirms, remoteLawFirms]) => {
+        syncCollectionToFirebase('law_firms', []),
+        fetchDeletedFirmsFromFirebase().catch(() => [])
+      ]).then(([remoteFirms, remoteLawFirms, remoteDeletedFirms]) => {
+        // Save any remote deleted firms to local registry
+        if (Array.isArray(remoteDeletedFirms)) {
+          remoteDeletedFirms.forEach(d => {
+            if (d && (d.id || d.firmCode)) {
+              saveDeletedFirmRecord(d.id, d.firmCode, d.firmName);
+            }
+          });
+        }
+
         const combinedFirms = [...(remoteFirms || []), ...(remoteLawFirms || [])];
         const firmMap = new Map<string, LawFirmProfile>();
         localFirms.forEach(f => {
-          if (f && (f.id || f.firmCode)) firmMap.set(f.id || f.firmCode, f);
+          if (f && (f.id || f.firmCode) && !isFirmDeleted(f.id, f.firmCode, f.firmName)) {
+            firmMap.set(f.id || f.firmCode, f);
+          }
         });
         combinedFirms.forEach(f => {
-          if (f && (f.id || f.firmCode)) firmMap.set(f.id || f.firmCode, f);
+          if (f && (f.id || f.firmCode) && !isFirmDeleted(f.id, f.firmCode, f.firmName)) {
+            firmMap.set(f.id || f.firmCode, f);
+          }
         });
         const mergedFirms = Array.from(firmMap.values());
-        if (mergedFirms.length > 0) {
-          setFirmsState(mergedFirms);
-          saveFirms(mergedFirms);
+        setFirmsState(mergedFirms);
+        saveFirms(mergedFirms);
+
+        // Check if current active user belongs to a deleted firm
+        const activeUser = getCurrentUser();
+        if (activeUser && activeUser.role !== 'Super Admin' && isFirmDeleted(activeUser.firmId, activeUser.firmCode, activeUser.firmName)) {
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+          setUser(null);
+          setAuth(false);
+          setViewState('landing');
+          saveStoredViewState('landing');
+          showToast('error', 'Workspace Removed', 'This law firm workspace was deleted by the platform administrator.');
         }
       }).catch(err => console.warn('Law firms sync error:', err));
 
@@ -1096,10 +1124,14 @@ export default function App() {
         if (remoteUsers && remoteUsers.length > 0) {
           const userMap = new Map<string, User>();
           localUsers.forEach(u => {
-            if (u && (u.id || u.username)) userMap.set(u.id || u.username, u);
+            if (u && (u.id || u.username) && (u.role === 'Super Admin' || !isFirmDeleted(u.firmId, u.firmCode, u.firmName))) {
+              userMap.set(u.id || u.username, u);
+            }
           });
           remoteUsers.forEach(u => {
-            if (u && (u.id || u.username)) userMap.set(u.id || u.username, u);
+            if (u && (u.id || u.username) && (u.role === 'Super Admin' || !isFirmDeleted(u.firmId, u.firmCode, u.firmName))) {
+              userMap.set(u.id || u.username, u);
+            }
           });
           const mergedUsers = Array.from(userMap.values());
           setUsersState(mergedUsers);
@@ -1108,6 +1140,24 @@ export default function App() {
       }).catch(err => console.warn('Users sync error:', err));
 
     }).catch(err => console.warn('Firebase sync error:', err));
+
+    // Periodic check for firm deletion to instantly evict deleted workspaces on proprietor side
+    const deletionInterval = setInterval(() => {
+      const activeUser = getCurrentUser();
+      if (activeUser && activeUser.role !== 'Super Admin') {
+        if (isFirmDeleted(activeUser.firmId, activeUser.firmCode, activeUser.firmName)) {
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+          setUser(null);
+          setAuth(false);
+          setViewState('landing');
+          saveStoredViewState('landing');
+          showToast('error', 'Workspace Terminated', 'This law firm workspace has been permanently removed.');
+        }
+      }
+    }, 4000);
+
+    return () => clearInterval(deletionInterval);
   }, []);
 
   const handleRestoreDefaultData = () => {
@@ -1154,17 +1204,26 @@ export default function App() {
 
   const handleDeleteFirm = (firmId: string) => {
     const targetFirm = firms.find(f => f.id === firmId || f.firmCode === firmId);
-    const targetCode = targetFirm?.firmCode;
+    const targetCode = targetFirm?.firmCode || (firmId.startsWith('firm-') ? '' : firmId);
     const targetId = targetFirm?.id || firmId;
+    const targetName = targetFirm?.firmName || '';
 
-    // 1. Remove the firm
-    const updatedFirms = firms.filter(f => f.id !== targetId && f.firmCode !== targetId && (!targetCode || (f.id !== targetCode && f.firmCode !== targetCode)));
+    // 1. Record in deleted firms tombstone registry
+    saveDeletedFirmRecord(targetId, targetCode, targetName);
+
+    // 2. Remove the firm from local state and storage
+    const updatedFirms = firms.filter(f => 
+      f.id !== targetId && 
+      f.firmCode !== targetId && 
+      (!targetCode || (f.id !== targetCode && f.firmCode !== targetCode)) &&
+      (!targetName || f.firmName?.toLowerCase() !== targetName.toLowerCase())
+    );
     setFirmsState(updatedFirms);
     saveFirms(updatedFirms);
 
-    // 2. Remove ALL user accounts belonging to this deleted law firm
+    // 3. Remove ALL user accounts belonging to this deleted law firm
     const usersToDelete = users.filter(u => 
-      (u.firmId === targetId || u.firmCode === targetId || (targetCode && (u.firmId === targetCode || u.firmCode === targetCode))) &&
+      (u.firmId === targetId || u.firmCode === targetId || (targetCode && (u.firmId === targetCode || u.firmCode === targetCode)) || (targetName && u.firmName?.toLowerCase() === targetName.toLowerCase())) &&
       u.role !== 'Super Admin' && u.role !== 'Platform Owner' && u.id !== '3TVRWijWagVJBVfuTcFXCDqDzR02' && u.username !== 'superadmin'
     );
     const updatedUsers = users.filter(u => 
@@ -1172,32 +1231,67 @@ export default function App() {
       u.role === 'Platform Owner' || 
       u.id === '3TVRWijWagVJBVfuTcFXCDqDzR02' || 
       u.username === 'superadmin' ||
-      (u.firmId !== targetId && u.firmCode !== targetId && (!targetCode || (u.firmId !== targetCode && u.firmCode !== targetCode)))
+      (
+        u.firmId !== targetId && 
+        u.firmCode !== targetId && 
+        (!targetCode || (u.firmId !== targetCode && u.firmCode !== targetCode)) &&
+        (!targetName || u.firmName?.toLowerCase() !== targetName.toLowerCase())
+      )
     );
     setUsersState(updatedUsers);
     saveUsers(updatedUsers);
 
-    // 3. Remove all files, court sessions, movements, etc. belonging to this firm
-    const updatedFiles = files.filter(f => f.firmId !== targetId && (!targetCode || f.firmCode !== targetCode));
+    // 4. Remove all files, court sessions, movements, etc. belonging to this firm
+    const updatedFiles = files.filter(f => 
+      f.firmId !== targetId && 
+      (!targetCode || f.firmCode !== targetCode) &&
+      (!targetName || f.firmName?.toLowerCase() !== targetName.toLowerCase())
+    );
     setFilesState(updatedFiles);
     saveFiles(updatedFiles);
 
-    // 4. Logout if the active session belongs to this deleted firm
-    if (currentUser?.firmId === targetId || (targetCode && currentUser?.firmCode === targetCode)) {
+    // 5. Reset firm settings if they match the deleted firm
+    if (
+      settings.firmCode === targetCode || 
+      settings.firmCode === targetId || 
+      (targetName && settings.firmName?.toLowerCase() === targetName.toLowerCase())
+    ) {
+      setSettingsState(INITIAL_SETTINGS);
+      saveSettings(INITIAL_SETTINGS);
+    }
+
+    // 6. Terminate active session if it belongs to this deleted firm
+    const isCurrentSessionDeleted = (
+      currentUser?.firmId === targetId || 
+      (targetCode && currentUser?.firmCode === targetCode) ||
+      (targetName && currentUser?.firmName?.toLowerCase() === targetName.toLowerCase())
+    );
+
+    if (isCurrentSessionDeleted && currentUser?.role !== 'Super Admin') {
+      setCurrentUser(null);
+      setIsAuthenticated(false);
       setUser(null);
       setAuth(false);
       setViewState('landing');
+      saveStoredViewState('landing');
+      showToast('error', 'Workspace Removed', `The workspace for "${targetName || targetId}" has been deleted.`);
     }
 
-    // 5. Delete firm and its user accounts from Firebase Firestore and backend API
-    deleteFirmFromFirebase(targetId, targetCode, usersToDelete.map(u => u.id));
+    // 7. Delete firm and its user accounts from Firebase Firestore and backend API
+    deleteFirmFromFirebase(targetId, targetCode, usersToDelete.map(u => u.id), targetName);
+
+    showToast(
+      'success',
+      'Law Firm Erased',
+      `Firm "${targetName || targetId}" and all ${usersToDelete.length} associated accounts have been permanently purged.`
+    );
 
     addAuditLog(
       currentUser?.fullName || 'Platform Owner',
       'Platform Owner',
       'Delete Law Firm Workspace & Users',
       'SuperAdmin',
-      `Erased law firm "${targetFirm?.firmName || targetId}" (${targetCode || targetId}) and purged all ${usersToDelete.length} associated staff user accounts.`
+      `Erased law firm "${targetName || targetId}" (${targetCode || targetId}) and purged all ${usersToDelete.length} associated staff user accounts.`
     );
     setAuditLogsState(getStoredAuditLogs());
   };

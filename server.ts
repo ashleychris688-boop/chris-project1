@@ -39,6 +39,7 @@ function savePersistedState() {
     const payload = {
       dbFirms,
       dbUsers,
+      dbDeletedFirms,
       dbFiles,
       dbCourtSessions,
       dbClaims,
@@ -54,7 +55,10 @@ function savePersistedState() {
 const savedData = loadPersistedState();
 
 // In-memory data initialized from persistent store or defaults
-let dbFirms: any[] = savedData?.dbFirms || [];
+let dbDeletedFirms: any[] = savedData?.dbDeletedFirms || [];
+let dbFirms: any[] = (savedData?.dbFirms || []).filter((f: any) => 
+  !dbDeletedFirms.some((d: any) => d.id === f.id || d.firmCode === f.firmCode || d.firmName === f.firmName)
+);
 
 let dbUsers: any[] = savedData?.dbUsers || [
   {
@@ -421,6 +425,16 @@ app.post("/api/auth/login", (req, res) => {
     return res.status(401).json({ success: false, message: "Invalid email, username or password." });
   }
 
+  // Check if user belongs to a deleted firm
+  const isUserFirmDeleted = dbDeletedFirms.some(d => 
+    (user.firmId && d.id === user.firmId) || 
+    (user.firmCode && d.firmCode === user.firmCode) ||
+    (user.firmName && d.firmName?.toLowerCase() === user.firmName?.toLowerCase())
+  );
+  if (isUserFirmDeleted && user.role !== 'Super Admin') {
+    return res.status(403).json({ success: false, message: "This law firm workspace has been permanently removed by the platform administrator." });
+  }
+
   if (user.status === 'Suspended') {
     return res.status(403).json({ success: false, message: "This staff account is currently suspended." });
   }
@@ -481,9 +495,34 @@ app.get("/api/stats", (req, res) => {
 });
 
 // 4. CRUD Endpoints
+app.get("/api/deleted-firms", (req, res) => res.json(dbDeletedFirms));
+app.post("/api/deleted-firms", (req, res) => {
+  const record = {
+    id: req.body.id || req.body.firmCode || `deleted-${Date.now()}`,
+    firmCode: req.body.firmCode || '',
+    firmName: req.body.firmName || '',
+    deletedAt: req.body.deletedAt || new Date().toISOString()
+  };
+  const exists = dbDeletedFirms.some(d => d.id === record.id || (record.firmCode && d.firmCode === record.firmCode));
+  if (!exists) {
+    dbDeletedFirms.unshift(record);
+  }
+  // Immediately purge firm, users, and data
+  dbFirms = dbFirms.filter(f => f.id !== record.id && f.firmCode !== record.firmCode && f.firmCode !== record.id);
+  dbUsers = dbUsers.filter(u => u.firmId !== record.id && u.firmCode !== record.firmCode && u.firmId !== record.id);
+  dbFiles = dbFiles.filter((f: any) => f.firmId !== record.id && f.firmCode !== record.firmCode && f.firmId !== record.firmCode);
+  savePersistedState();
+  res.status(201).json({ success: true, record });
+});
+
 app.get("/api/firms", (req, res) => res.json(dbFirms));
 app.post("/api/firms", (req, res) => {
   const newFirm = { id: req.body.id || `firm-${Date.now()}`, ...req.body };
+  // Ensure not resurrecting a deleted firm
+  const isDeleted = dbDeletedFirms.some(d => d.id === newFirm.id || d.firmCode === newFirm.firmCode || d.firmName === newFirm.firmName);
+  if (isDeleted) {
+    return res.status(400).json({ error: "Cannot add a firm that is currently in the deleted firms registry." });
+  }
   const idx = dbFirms.findIndex(f => f.id === newFirm.id || (f.firmCode && f.firmCode === newFirm.firmCode));
   if (idx >= 0) {
     dbFirms[idx] = { ...dbFirms[idx], ...newFirm };
@@ -495,10 +534,27 @@ app.post("/api/firms", (req, res) => {
 });
 app.delete("/api/firms/:id", (req, res) => {
   const { id } = req.params;
-  dbFirms = dbFirms.filter(f => f.id !== id && f.firmCode !== id);
-  dbUsers = dbUsers.filter(u => u.firmId !== id && u.firmCode !== id);
+  const targetFirm = dbFirms.find(f => f.id === id || f.firmCode === id);
+  const targetCode = targetFirm?.firmCode || (id.startsWith('firm-') ? '' : id);
+  const targetName = targetFirm?.firmName || '';
+
+  // Record in dbDeletedFirms
+  const exists = dbDeletedFirms.some(d => d.id === id || (targetCode && d.firmCode === targetCode));
+  if (!exists) {
+    dbDeletedFirms.unshift({
+      id,
+      firmCode: targetCode,
+      firmName: targetName,
+      deletedAt: new Date().toISOString()
+    });
+  }
+
+  dbFirms = dbFirms.filter(f => f.id !== id && f.firmCode !== id && f.firmCode !== targetCode);
+  dbUsers = dbUsers.filter(u => u.firmId !== id && u.firmCode !== id && u.firmCode !== targetCode);
+  dbFiles = dbFiles.filter((f: any) => f.firmId !== id && f.firmCode !== id && f.firmCode !== targetCode);
+  dbCourtSessions = dbCourtSessions.filter((s: any) => s.firmId !== id && s.firmCode !== id && s.firmCode !== targetCode);
   savePersistedState();
-  res.json({ success: true });
+  res.json({ success: true, deletedId: id });
 });
 
 app.get("/api/users", (req, res) => res.json(dbUsers));

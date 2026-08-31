@@ -104,7 +104,9 @@ export interface MatterParty {
 
 export interface RegistryFile {
   id: string;
+  firmId?: string;
   firmCode?: string;
+  firmName?: string;
   internalFileNumber: string; // e.g. LFR/2026/0142
   courtCaseNumber: string;    // e.g. Milimani HCCC No. 428 of 2025
   clientName: string;
