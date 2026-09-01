@@ -75,9 +75,13 @@ import {
   subscribeToFirms,
   subscribeToFiles,
   subscribeToMovements,
+  subscribeToCourtSessions,
   subscribeToCorumEntries,
   subscribeToCourtOutcomes,
-  subscribeToUnprocessedRecords
+  subscribeToUnprocessedRecords,
+  performFullCloudSync,
+  saveFileToFirebase,
+  deleteFileFromFirebase
 } from './lib/firebase';
 import { ShieldAlert } from 'lucide-react';
 
@@ -221,77 +225,90 @@ export default function App() {
   const currentFirmId = (currentUser?.firmId || '').trim().toUpperCase();
   const isSuperAdminView = currentUser?.role === 'Super Admin' && activeTab === 'super-admin';
 
-  const matchesFirm = (itemFirmCode?: string, itemFirmId?: string) => {
+  const matchesFirm = (itemFirmCode?: string, itemFirmId?: string, itemFileNumber?: string) => {
     if (isSuperAdminView) return true;
     const code = (itemFirmCode || '').trim().toUpperCase();
     const id = (itemFirmId || '').trim().toUpperCase();
+    const fileNum = (itemFileNumber || '').trim().toUpperCase();
+    const prefix = (settings.fileNumberPrefix || '').trim().toUpperCase();
 
-    if (code && code === currentFirmCodeUpper) return true;
-    if (id && currentFirmId && id === currentFirmId) return true;
-    if (code && currentFirmId && code === currentFirmId) return true;
-    if (id && id === currentFirmCodeUpper) return true;
+    // 1. Direct match on firmCode or firmId
+    if (code && (code === currentFirmCodeUpper || (currentFirmId && code === currentFirmId))) return true;
+    if (id && (id === currentFirmId || id === currentFirmCodeUpper)) return true;
 
-    // Fallback for default demo / initial firm
-    if (!code && !id && (currentFirmCodeUpper === 'LFR-001' || currentFirmCodeUpper === 'DEFAULT')) return true;
-    if ((code === 'LFR-001' || code === 'DEFAULT') && (currentFirmCodeUpper === 'LFR-001' || currentFirmCodeUpper === 'DEFAULT')) return true;
+    // 2. Prefix match on internal file number (e.g. "NGA/154/2026" matches prefix "NGA" or "NGA-001")
+    if (fileNum) {
+      if (prefix && fileNum.startsWith(prefix)) return true;
+      if (currentFirmCodeUpper && fileNum.startsWith(currentFirmCodeUpper.replace(/[-_].*$/, ''))) return true;
+    }
+
+    // 3. Fallback for unscoped files or default workspaces
+    if (!code && !id) {
+      // Unscoped file is visible in current firm workspace so newly synced files are never hidden
+      return true;
+    }
+    if ((code === 'LFR-001' || code === 'DEFAULT' || code === 'GLOBAL') && 
+        (currentFirmCodeUpper === 'LFR-001' || currentFirmCodeUpper === 'DEFAULT' || currentFirmCodeUpper === 'PLATFORM' || firms.length <= 1)) {
+      return true;
+    }
 
     return false;
   };
 
   const activeFirmFiles = useMemo(() => {
     if (isSuperAdminView) return files;
-    return files.filter(f => matchesFirm(f.firmCode, (f as any).firmId));
-  }, [files, currentFirmCodeUpper, currentFirmId, isSuperAdminView]);
+    return files.filter(f => matchesFirm(f.firmCode, (f as any).firmId, f.internalFileNumber));
+  }, [files, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCourtSessions = useMemo(() => {
     if (isSuperAdminView) return courtSessions;
-    return courtSessions.filter(s => matchesFirm(s.firmCode));
-  }, [courtSessions, currentFirmCodeUpper, isSuperAdminView]);
+    return courtSessions.filter(s => matchesFirm(s.firmCode, undefined, s.fileNumber));
+  }, [courtSessions, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCourtOutcomes = useMemo(() => {
     if (isSuperAdminView) return courtOutcomes;
-    return courtOutcomes.filter(o => matchesFirm(o.firmCode));
-  }, [courtOutcomes, currentFirmCodeUpper, isSuperAdminView]);
+    return courtOutcomes.filter(o => matchesFirm(o.firmCode, undefined, o.fileNumber));
+  }, [courtOutcomes, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCorumEntries = useMemo(() => {
     if (isSuperAdminView) return corumEntries;
-    return corumEntries.filter(c => matchesFirm(c.firmCode));
-  }, [corumEntries, currentFirmCodeUpper, isSuperAdminView]);
+    return corumEntries.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+  }, [corumEntries, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmFileDocuments = useMemo(() => {
     if (isSuperAdminView) return fileDocuments;
-    return fileDocuments.filter(d => matchesFirm(d.firmCode));
-  }, [fileDocuments, currentFirmCodeUpper, isSuperAdminView]);
+    return fileDocuments.filter(d => matchesFirm(d.firmCode, undefined, d.fileId));
+  }, [fileDocuments, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmMovements = useMemo(() => {
     if (isSuperAdminView) return movements;
-    return movements.filter(m => matchesFirm(m.firmCode));
-  }, [movements, currentFirmCodeUpper, isSuperAdminView]);
+    return movements.filter(m => matchesFirm(m.firmCode, undefined, m.fileNumber));
+  }, [movements, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmClaims = useMemo(() => {
     if (isSuperAdminView) return claims;
-    return claims.filter(c => matchesFirm(c.firmCode));
-  }, [claims, currentFirmCodeUpper, isSuperAdminView]);
+    return claims.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+  }, [claims, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCheques = useMemo(() => {
     if (isSuperAdminView) return cheques;
-    return cheques.filter(c => matchesFirm(c.firmCode));
-  }, [cheques, currentFirmCodeUpper, isSuperAdminView]);
+    return cheques.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+  }, [cheques, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCommissions = useMemo(() => {
     if (isSuperAdminView) return commissions;
-    return commissions.filter(c => matchesFirm(c.firmCode));
-  }, [commissions, currentFirmCodeUpper, isSuperAdminView]);
+    return commissions.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+  }, [commissions, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmBringUpItems = useMemo(() => {
     if (isSuperAdminView) return bringUpItems;
-    return bringUpItems.filter(b => matchesFirm(b.firmCode));
-  }, [bringUpItems, currentFirmCodeUpper, isSuperAdminView]);
+    return bringUpItems.filter(b => matchesFirm(b.firmCode, undefined, b.fileNumber));
+  }, [bringUpItems, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmTasks = useMemo(() => {
     if (isSuperAdminView) return tasks;
-    return tasks.filter(t => matchesFirm(t.firmCode));
-  }, [tasks, currentFirmCodeUpper, isSuperAdminView]);
+    return tasks.filter(t => matchesFirm(t.firmCode, undefined, t.fileNumber));
+  }, [tasks, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmUnprocessedRecords = useMemo(() => {
     if (isSuperAdminView) return unprocessedRecords;
@@ -602,7 +619,7 @@ export default function App() {
     }
   };
 
-  // Last Firebase Local Storage Snapshot Redundancy Sync Time
+  // Last Firebase Cloud Sync Time
   const [lastSnapshotSyncTime, setLastSnapshotSyncTime] = useState<string>('');
 
   const performFirebaseSnapshotSync = async () => {
@@ -610,10 +627,42 @@ export default function App() {
       return;
     }
     const firmCode = currentUser?.firmCode || 'LFR-001';
-    const res = await triggerLocalStorageFirebaseSnapshot(firmCode);
-    if (res && res.timestamp) {
-      const formatted = new Date(res.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      setLastSnapshotSyncTime(formatted);
+    
+    try {
+      const syncResult = await performFullCloudSync(firmCode);
+      if (syncResult) {
+        if (syncResult.files && syncResult.files.length > 0) {
+          setFilesState(syncResult.files);
+          saveFiles(syncResult.files);
+        }
+        if (syncResult.users && syncResult.users.length > 0) {
+          setUsersState(syncResult.users);
+          saveUsers(syncResult.users);
+        }
+        if (syncResult.firms && syncResult.firms.length > 0) {
+          setFirmsState(syncResult.firms);
+          saveFirms(syncResult.firms);
+        }
+        if (syncResult.courtSessions && syncResult.courtSessions.length > 0) {
+          setCourtSessionsState(syncResult.courtSessions);
+          saveCourtSessions(syncResult.courtSessions);
+        }
+        const formatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setLastSnapshotSyncTime(formatted);
+        showToast(
+          'success',
+          'Cross-Device Cloud Sync Complete',
+          `Successfully synchronized ${syncResult.files?.length || 0} physical files and court records with Firestore cloud database.`,
+          3500
+        );
+      }
+    } catch (e) {
+      console.warn('Manual cloud sync fallback:', e);
+      const res = await triggerLocalStorageFirebaseSnapshot(firmCode);
+      if (res && res.timestamp) {
+        const formatted = new Date(res.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setLastSnapshotSyncTime(formatted);
+      }
     }
   };
 
@@ -811,6 +860,27 @@ export default function App() {
       }
     });
 
+    // Real-time snapshot listener for court sessions
+    const unsubSessions = subscribeToCourtSessions((liveSessions) => {
+      if (!isMounted) return;
+      if (liveSessions && liveSessions.length > 0) {
+        setCourtSessionsState(prev => {
+          const map = new Map<string, CourtSession>();
+          prev.forEach(s => {
+            const k = s.id || `${s.fileNumber}-${s.hearingDate}`;
+            if (k) map.set(k, s);
+          });
+          liveSessions.forEach((s: any) => {
+            const k = s.id || `${s.fileNumber}-${s.hearingDate}`;
+            if (k) map.set(k, s);
+          });
+          const merged = Array.from(map.values());
+          saveCourtSessions(merged);
+          return merged;
+        });
+      }
+    });
+
     // Real-time snapshot listener for unprocessed records
     const unsubUnprocessed = subscribeToUnprocessedRecords((liveRecords) => {
       if (!isMounted) return;
@@ -840,6 +910,7 @@ export default function App() {
       unsubMovements();
       unsubCorum();
       unsubOutcomes();
+      unsubSessions();
       unsubUnprocessed();
     };
   }, []);
@@ -1691,11 +1762,15 @@ export default function App() {
 
   // State update handlers
   const handleAddFile = (newFile: RegistryFile) => {
-    const fileWithFirm = { ...newFile, firmCode: newFile.firmCode || currentFirmCode };
-    const updated = [fileWithFirm, ...files];
+    const fileWithFirm: RegistryFile = { 
+      ...newFile, 
+      firmCode: newFile.firmCode || currentFirmCode || settings.firmCode || 'LFR-001',
+      firmId: (newFile as any).firmId || currentFirmId || currentUser?.firmId || `firm-${currentFirmCode}`
+    };
+    const updated = [fileWithFirm, ...files.filter(f => f.id !== fileWithFirm.id && f.internalFileNumber !== fileWithFirm.internalFileNumber)];
     setFilesState(updated);
     saveFiles(updated);
-    saveDocumentToFirebase('files', fileWithFirm);
+    saveFileToFirebase(fileWithFirm);
     try {
       fetch('/api/files', {
         method: 'POST',
@@ -1717,15 +1792,20 @@ export default function App() {
   };
 
   const handleUpdateFile = (file: RegistryFile) => {
-    const updated = files.map(f => f.id === file.id ? file : f);
+    const fileWithFirm: RegistryFile = {
+      ...file,
+      firmCode: file.firmCode || currentFirmCode || settings.firmCode || 'LFR-001',
+      firmId: (file as any).firmId || currentFirmId || currentUser?.firmId || `firm-${currentFirmCode}`
+    };
+    const updated = files.map(f => (f.id === fileWithFirm.id || f.internalFileNumber === fileWithFirm.internalFileNumber) ? fileWithFirm : f);
     setFilesState(updated);
     saveFiles(updated);
-    saveDocumentToFirebase('files', file);
+    saveFileToFirebase(fileWithFirm);
     try {
       fetch('/api/files', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(file)
+        body: JSON.stringify(fileWithFirm)
       }).catch(() => {});
     } catch (e) {}
 

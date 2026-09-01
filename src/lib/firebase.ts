@@ -229,15 +229,23 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
   }
 }
 
+export function sanitizeDocId(rawId: string): string {
+  if (!rawId) return `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  return String(rawId).replace(/[\/\s#?\[\]]/g, '_').trim();
+}
+
 export async function saveDocumentToFirebase(collectionName: string, item: any) {
   if (isQuotaExceeded || !item) return;
 
-  const docId = item.id || item.firmCode || item.internalFileNumber || item.fileId || item.fileNumber || item.username;
-  if (!docId) return;
+  const rawDocId = item.id || item.firmCode || item.internalFileNumber || item.fileId || item.fileNumber || item.username;
+  if (!rawDocId) return;
+
+  const docId = sanitizeDocId(rawDocId);
+  const sanitizedItem = { ...item, id: item.id || docId };
 
   try {
-    const docRef = doc(db, collectionName, String(docId));
-    await setDoc(docRef, item, { merge: true });
+    const docRef = doc(db, collectionName, docId);
+    await setDoc(docRef, sanitizedItem, { merge: true });
   } catch (err) {
     if (isQuotaError(err)) {
       handleQuotaExceeded(err);
@@ -486,11 +494,12 @@ export async function deleteUserFromFirebase(userId: string) {
   await deleteDocumentFromFirebase('users', userId);
 }
 
-export async function deleteDocumentFromFirebase(collectionName: string, docId: string) {
-  if (isQuotaExceeded || !docId) return;
+export async function deleteDocumentFromFirebase(collectionName: string, rawDocId: string) {
+  if (isQuotaExceeded || !rawDocId) return;
+  const docId = sanitizeDocId(rawDocId);
 
   try {
-    const docRef = doc(db, collectionName, String(docId));
+    const docRef = doc(db, collectionName, docId);
     await deleteDoc(docRef);
   } catch (err) {
     if (isQuotaError(err)) {
@@ -499,6 +508,11 @@ export async function deleteDocumentFromFirebase(collectionName: string, docId: 
       console.warn(`Failed deleting ${docId} from Firebase ${collectionName}:`, err);
     }
   }
+}
+
+export async function deleteFileFromFirebase(fileId: string) {
+  if (!fileId) return;
+  await deleteDocumentFromFirebase('files', fileId);
 }
 
 // Data Redundancy: Periodically triggers a full snapshot of Local Storage and syncs to Firebase
@@ -1210,5 +1224,160 @@ export function subscribeToUnprocessedRecords(onUpdate: (records: any[]) => void
     return () => {};
   }
 }
+
+/**
+ * Real-time listener for court sessions collection across devices
+ */
+export function subscribeToCourtSessions(onUpdate: (sessions: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'court_sessions');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const sessions: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          sessions.push({ id: docSnap.id, ...data });
+        }
+      });
+      if (sessions.length > 0) {
+        onUpdate(sessions);
+      }
+    }, (err) => {
+      console.warn('[Firebase] Court sessions snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Specifically saves or updates a Physical Registry File in Firebase Firestore immediately.
+ * Also synchronizes to the local backend API for complete cross-device parity.
+ */
+export async function saveFileToFirebase(file: any) {
+  if (!file) return;
+  const rawId = file.id || file.internalFileNumber;
+  if (!rawId) return;
+
+  const docId = sanitizeDocId(rawId);
+  const sanitizedFile = {
+    ...file,
+    id: docId,
+    updatedAt: new Date().toISOString()
+  };
+
+  // Immediate write to Firestore 'files' collection
+  await saveDocumentToFirebase('files', sanitizedFile);
+
+  // Synchronize to backend API
+  try {
+    fetch('/api/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sanitizedFile)
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Master Cloud Sync: Pushes all local storage collections to Firebase Firestore,
+ * and fetches the latest live data from Firestore and backend API, returning a consolidated dataset.
+ */
+export async function performFullCloudSync(firmCode = 'LFR-001'): Promise<{
+  success: boolean;
+  message: string;
+  files?: any[];
+  users?: any[];
+  firms?: any[];
+  courtSessions?: any[];
+}> {
+  if (isQuotaExceeded) {
+    return {
+      success: false,
+      message: 'Firestore quota currently exceeded; using local storage.'
+    };
+  }
+
+  const parse = (key: string) => {
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const localFiles = parse('lfr_files_v2');
+  const localUsers = parse('lfr_users_v2');
+  const localFirms = parse('lfr_firms_v2');
+  const localMovements = parse('lfr_movements_v2');
+  const localSessions = parse('lfr_court_sessions_v2');
+  const localOutcomes = parse('lfr_court_outcomes_v2');
+  const localCorums = parse('lfr_corum_entries_v2');
+  const localUnprocessed = parse('lfr_unprocessed_records_v2');
+
+  // 1. PUSH: upload all local files & records to Firestore
+  const uploadPromises: Promise<any>[] = [];
+  localFiles.forEach((f: any) => {
+    if (f) uploadPromises.push(saveFileToFirebase(f));
+  });
+  localFirms.forEach((fm: any) => {
+    if (fm) uploadPromises.push(saveFirmToFirebase(fm));
+  });
+  localUsers.forEach((u: any) => {
+    if (u) uploadPromises.push(saveUserToFirebase(u));
+  });
+  localMovements.forEach((m: any) => {
+    if (m) uploadPromises.push(saveDocumentToFirebase('movements', m));
+  });
+  localSessions.forEach((s: any) => {
+    if (s) uploadPromises.push(saveDocumentToFirebase('court_sessions', s));
+  });
+  localOutcomes.forEach((o: any) => {
+    if (o) uploadPromises.push(saveDocumentToFirebase('court_outcomes', o));
+  });
+  localCorums.forEach((c: any) => {
+    if (c) uploadPromises.push(saveDocumentToFirebase('corum_entries', c));
+  });
+  localUnprocessed.forEach((r: any) => {
+    if (r) uploadPromises.push(saveDocumentToFirebase('unprocessed_records', r));
+  });
+
+  await Promise.allSettled(uploadPromises);
+
+  // Also sync snapshot metadata to Firebase and backend
+  await triggerLocalStorageFirebaseSnapshot(firmCode);
+
+  // Sync to backend /api/sync/all
+  try {
+    fetch('/api/sync/all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        files: localFiles,
+        users: localUsers,
+        firms: localFirms,
+        courtSessions: localSessions
+      })
+    }).catch(() => {});
+  } catch (e) {}
+
+  // 2. PULL: fetch latest remote files, users, and firms from Firestore
+  const [liveFiles, liveUsers, liveFirms] = await Promise.all([
+    fetchFilesFromFirebase(),
+    fetchUsersFromFirebase(),
+    fetchFirmsFromFirebase()
+  ]);
+
+  return {
+    success: true,
+    message: `Synchronized ${liveFiles.length} files, ${liveUsers.length} users, and ${liveFirms.length} firms across all connected devices.`,
+    files: liveFiles,
+    users: liveUsers,
+    firms: liveFirms
+  };
+}
+
 
 

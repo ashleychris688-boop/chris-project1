@@ -76,9 +76,10 @@ let dbUsers: any[] = savedData?.dbUsers || [
   }
 ];
 
-let dbFiles = [
+let dbFiles: any[] = savedData?.dbFiles || [
   {
     id: "f-101",
+    firmCode: "LFR-001",
     internalFileNumber: "LFR/2026/0142",
     courtCaseNumber: "Milimani HCCC No. 428 of 2025",
     clientName: "Apex Hauliers Kenya Ltd",
@@ -99,6 +100,7 @@ let dbFiles = [
   },
   {
     id: "f-102",
+    firmCode: "LFR-001",
     internalFileNumber: "LFR/2026/0119",
     courtCaseNumber: "Milimani CMCC No. 1042 of 2024",
     clientName: "Dr. Beatrice Wanjiru",
@@ -119,6 +121,7 @@ let dbFiles = [
   },
   {
     id: "f-103",
+    firmCode: "LFR-001",
     internalFileNumber: "LFR/2026/0204",
     courtCaseNumber: "Mombasa HCCC No. 89 of 2025",
     clientName: "Bahari Logistics Ltd",
@@ -139,6 +142,7 @@ let dbFiles = [
   },
   {
     id: "f-104",
+    firmCode: "LFR-001",
     internalFileNumber: "LFR/2026/0088",
     courtCaseNumber: "Milimani CMCC No. 512 of 2024",
     clientName: "John Kiprono",
@@ -199,7 +203,7 @@ let dbFiles = [
   }
 ];
 
-let dbCourtSessions = [
+let dbCourtSessions: any[] = savedData?.dbCourtSessions || [
   {
     id: "cs-101",
     fileId: "f-101",
@@ -247,7 +251,7 @@ let dbCourtSessions = [
   }
 ];
 
-let dbClaims = [
+let dbClaims: any[] = savedData?.dbClaims || [
   {
     id: "ic-101",
     fileId: "f-101",
@@ -293,7 +297,7 @@ let dbClaims = [
   }
 ];
 
-let dbCheques = [
+let dbCheques: any[] = savedData?.dbCheques || [
   {
     id: "chq-1",
     fileId: "f-102",
@@ -322,7 +326,7 @@ let dbCheques = [
   }
 ];
 
-let dbCommissions = [
+let dbCommissions: any[] = savedData?.dbCommissions || [
   {
     id: "com-1",
     fileId: "f-101",
@@ -618,6 +622,69 @@ app.post("/api/files", (req, res) => {
   }
   savePersistedState();
   res.status(201).json(newFile);
+});
+
+app.post("/api/files/bulk", (req, res) => {
+  const incoming = req.body.files;
+  if (Array.isArray(incoming)) {
+    incoming.forEach((file: any) => {
+      const idx = dbFiles.findIndex(f => f.id === file.id || f.internalFileNumber === file.internalFileNumber);
+      if (idx >= 0) {
+        dbFiles[idx] = { ...dbFiles[idx], ...file };
+      } else {
+        dbFiles.unshift(file);
+      }
+    });
+    savePersistedState();
+  }
+  res.json({ success: true, count: dbFiles.length });
+});
+
+app.post("/api/sync/all", (req, res) => {
+  const { files, courtSessions, claims, cheques, commissions, users, firms } = req.body;
+  if (Array.isArray(files)) {
+    files.forEach((f: any) => {
+      const idx = dbFiles.findIndex(x => x.id === f.id || x.internalFileNumber === f.internalFileNumber);
+      if (idx >= 0) dbFiles[idx] = { ...dbFiles[idx], ...f };
+      else dbFiles.unshift(f);
+    });
+  }
+  if (Array.isArray(users)) {
+    users.forEach((u: any) => {
+      const idx = dbUsers.findIndex(x => x.id === u.id || (u.email && x.email?.toLowerCase() === u.email.toLowerCase()));
+      if (idx >= 0) dbUsers[idx] = { ...dbUsers[idx], ...u };
+      else dbUsers.push(u);
+    });
+  }
+  if (Array.isArray(firms)) {
+    firms.forEach((fm: any) => {
+      const idx = dbFirms.findIndex(x => x.id === fm.id || (fm.firmCode && x.firmCode === fm.firmCode));
+      if (idx >= 0) dbFirms[idx] = { ...dbFirms[idx], ...fm };
+      else dbFirms.unshift(fm);
+    });
+  }
+  if (Array.isArray(courtSessions)) {
+    dbCourtSessions = courtSessions;
+  }
+  if (Array.isArray(claims)) {
+    dbClaims = claims;
+  }
+  if (Array.isArray(cheques)) {
+    dbCheques = cheques;
+  }
+  if (Array.isArray(commissions)) {
+    dbCommissions = commissions;
+  }
+  savePersistedState();
+  res.json({
+    success: true,
+    counts: {
+      files: dbFiles.length,
+      users: dbUsers.length,
+      firms: dbFirms.length,
+      courtSessions: dbCourtSessions.length
+    }
+  });
 });
 
 app.get("/api/court-sessions", (req, res) => res.json(dbCourtSessions));
