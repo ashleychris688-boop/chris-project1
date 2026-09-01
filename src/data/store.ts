@@ -465,8 +465,98 @@ export function saveFileDocuments(docs: FileDocumentAttachment[]): void {
   saveItem(STORAGE_KEYS.FILE_DOCUMENTS, docs);
 }
 
+/**
+ * Verifies if an object contains the minimum required user properties.
+ * Checks for non-empty string ID, role, and mandatory identifier/firmCode attributes.
+ */
+export function isValidUserObject(user: any): user is User {
+  if (!user || typeof user !== 'object' || Array.isArray(user)) return false;
+  
+  const id = typeof user.id === 'string' ? user.id.trim() : '';
+  const role = typeof user.role === 'string' ? user.role.trim() : '';
+  const username = typeof user.username === 'string' ? user.username.trim() : '';
+  const email = typeof user.email === 'string' ? user.email.trim() : '';
+  const firmCode = typeof user.firmCode === 'string' ? user.firmCode.trim() : '';
+  const firmId = typeof user.firmId === 'string' ? user.firmId.trim() : '';
+
+  // An object must have an ID or valid username/email, and a role
+  if (!id && !username && !email) return false;
+  if (!role) return false;
+
+  // Platform admin exception (firmCode is PLATFORM or firmId is platform-owner)
+  if (role === 'Super Admin' || role === 'Platform Owner' || id === '3TVRWijWagVJBVfuTcFXCDqDzR02') {
+    return true;
+  }
+
+  // Mandatory fields for general users: ID, and firmCode or firmId
+  return Boolean((id || username) && (firmCode || firmId));
+}
+
+/**
+ * Validates and repairs an incomplete user object using matching stored users or default firm settings.
+ * Prevents corrupted or partial objects from causing session failures.
+ */
+export function validateAndRepairUser(user: any): User | null {
+  if (!user || typeof user !== 'object' || Array.isArray(user)) return null;
+
+  const id = String(user.id || user.uid || user.username || '').trim();
+  const username = String(user.username || id || '').trim();
+  const email = String(user.email || '').trim();
+  const role = (user.role || 'Advocate') as any;
+
+  if (!id && !username && !email) return null;
+
+  const isSuperAdmin = role === 'Super Admin' || role === 'Platform Owner' || id === '3TVRWijWagVJBVfuTcFXCDqDzR02';
+
+  // Try to find matching full user in stored users
+  try {
+    const rawStored = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (rawStored) {
+      const storedUsers = JSON.parse(rawStored);
+      if (Array.isArray(storedUsers)) {
+        const found = storedUsers.find((u: any) => 
+          u && ((id && u.id === id) || (username && u.username === username) || (email && u.email?.toLowerCase() === email.toLowerCase()))
+        );
+        if (found && found.id && (found.firmCode || isSuperAdmin)) {
+          return {
+            ...found,
+            ...user,
+            id: found.id || id,
+            firmCode: found.firmCode || user.firmCode || (isSuperAdmin ? 'PLATFORM' : 'LFR-001'),
+            firmId: found.firmId || user.firmId || (isSuperAdmin ? 'platform-owner' : 'firm-001'),
+            role: found.role || role
+          };
+        }
+      }
+    }
+  } catch (e) {}
+
+  const defaultFirmCode = isSuperAdmin ? 'PLATFORM' : (user.firmCode || user.firmId || 'LFR-001');
+  const defaultFirmId = isSuperAdmin ? 'platform-owner' : (user.firmId || user.firmCode || 'firm-001');
+
+  const repaired: User = {
+    id: id || `usr-${Date.now()}`,
+    firmId: user.firmId || defaultFirmId,
+    firmCode: user.firmCode || defaultFirmCode,
+    firmName: user.firmName || (isSuperAdmin ? 'Platform Administration' : 'Law Firm Registry'),
+    username: username || id,
+    fullName: user.fullName || username || 'Authorized User',
+    role: role,
+    email: email || `${username || id}@registry.law`,
+    phone: user.phone || '+254 700 000 000',
+    status: user.status || 'Active',
+    lastLogin: user.lastLogin || new Date().toISOString(),
+    permissions: Array.isArray(user.permissions) ? user.permissions : []
+  };
+
+  return repaired;
+}
+
 export function getCurrentUser(): User | null {
-  return loadItem(STORAGE_KEYS.CURRENT_USER, null);
+  const user = loadItem<any>(STORAGE_KEYS.CURRENT_USER, null);
+  if (!user) return null;
+  const repaired = validateAndRepairUser(user);
+  return repaired;
 }
 
 export function setCurrentUser(user: User | null): void {
@@ -489,10 +579,30 @@ export function setLastActiveTime(timestamp: number = Date.now()): void {
   saveItem(STORAGE_KEYS.LAST_ACTIVE_TIME, timestamp);
 }
 
-export function isSessionExpired(maxInactiveMs: number = 3600000): boolean {
+/**
+ * Evaluates whether the current user session has expired due to inactivity.
+ * Includes user object verification to ensure incomplete or corrupted objects
+ * do NOT falsely trigger an automatic logout sequence.
+ */
+export function isSessionExpired(maxInactiveMs: number = 3600000, user?: User | null): boolean {
+  const targetUser = user !== undefined ? user : getCurrentUser();
+  if (!targetUser) return false;
+
+  // Validate mandatory fields (id, role, firmCode)
+  if (!isValidUserObject(targetUser)) {
+    // Corrupted or incomplete user object - do not trigger session expiration logout
+    return false;
+  }
+
   const lastActive = getLastActiveTime();
-  if (!lastActive) return false;
-  return (Date.now() - lastActive) > maxInactiveMs;
+  if (!lastActive || typeof lastActive !== 'number' || isNaN(lastActive)) {
+    return false;
+  }
+
+  const elapsed = Date.now() - lastActive;
+  if (elapsed < 0) return false;
+
+  return elapsed > maxInactiveMs;
 }
 
 export function getStoredActiveTab(): string {

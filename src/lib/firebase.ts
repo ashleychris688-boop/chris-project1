@@ -194,14 +194,14 @@ export async function syncCollectionToFirebase<T extends { id?: string }>(
         }
       });
 
-      // 2. Put / merge remote items, preferring the most recent or combining missing fields
+      // 2. Put / merge remote items, preferring remote Firestore data over local cache
       remoteItems.forEach(remoteItem => {
         if (!remoteItem) return;
         const key = String(remoteItem.id || (remoteItem as any).firmCode || (remoteItem as any).internalFileNumber || (remoteItem as any).username || '');
         if (key) {
           if (mergedMap.has(key)) {
             const existingLocal = mergedMap.get(key);
-            mergedMap.set(key, { ...remoteItem, ...existingLocal });
+            mergedMap.set(key, { ...existingLocal, ...remoteItem });
           } else {
             mergedMap.set(key, remoteItem);
           }
@@ -714,6 +714,73 @@ export async function fetchFirmsFromFirebase(): Promise<any[]> {
 }
 
 /**
+ * Directly fetches all registered Physical Files from Firebase Firestore and backend API in real-time.
+ */
+export async function fetchFilesFromFirebase(): Promise<any[]> {
+  const filesMap = new Map<string, any>();
+
+  // Check deleted firms
+  let deletedFirms: any[] = [];
+  try {
+    const raw = localStorage.getItem('lfr_deleted_firms_v2');
+    if (raw) deletedFirms = JSON.parse(raw);
+  } catch (e) {}
+
+  const isFirmDeleted = (f: any) => {
+    if (!f || !Array.isArray(deletedFirms) || deletedFirms.length === 0) return false;
+    const fId = (f.firmId || '').toString().toLowerCase().trim();
+    const fCode = (f.firmCode || '').toString().toLowerCase().trim();
+    if (fId === 'platform-owner' || fId === 'platform' || fCode === 'platform') return false;
+    return deletedFirms.some((d: any) => {
+      const dId = (d.id || '').toString().toLowerCase().trim();
+      const dCode = (d.firmCode || '').toString().toLowerCase().trim();
+      return (dId && (fId === dId || fCode === dId)) || (dCode && (fCode === dCode || fId === dCode));
+    });
+  };
+
+  // 1. Fetch from Firestore
+  try {
+    const colRef = collection(db, 'files');
+    const snap = await getDocs(colRef);
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data && !isFirmDeleted(data)) {
+        const id = docSnap.id || data.id || data.internalFileNumber;
+        filesMap.set(id, { id: docSnap.id, ...data });
+      }
+    });
+  } catch (err) {
+    console.warn('[Firebase] Firestore files fetch note:', err);
+  }
+
+  // 2. Fetch from backend API
+  try {
+    const res = await fetch('/api/files');
+    if (res.ok) {
+      const apiFiles = await res.json();
+      if (Array.isArray(apiFiles)) {
+        apiFiles.forEach((f: any) => {
+          if (f && !isFirmDeleted(f)) {
+            const key = f.id || f.internalFileNumber;
+            if (key) {
+              if (filesMap.has(key)) {
+                filesMap.set(key, { ...filesMap.get(key), ...f });
+              } else {
+                filesMap.set(key, f);
+              }
+            }
+          }
+        });
+      }
+    }
+  } catch (err) {
+    // backend not available or offline
+  }
+
+  return Array.from(filesMap.values());
+}
+
+/**
  * Cross-device Authentication Engine:
  * Validates login credentials against live Firebase Firestore collections ('users' and 'firms'/'law_firms')
  * and backend authentication store.
@@ -989,6 +1056,154 @@ export function subscribeToFirms(onUpdate: (firms: any[]) => void): () => void {
       }
     }, (err) => {
       console.warn('[Firebase] Firms snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for physical files collection across devices
+ */
+export function subscribeToFiles(onUpdate: (files: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'files');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      let deletedFirms: any[] = [];
+      try {
+        const raw = localStorage.getItem('lfr_deleted_firms_v2');
+        if (raw) deletedFirms = JSON.parse(raw);
+      } catch (e) {}
+
+      const isFirmDeleted = (f: any) => {
+        if (!f || !Array.isArray(deletedFirms) || deletedFirms.length === 0) return false;
+        const fId = (f.firmId || '').toString().toLowerCase().trim();
+        const fCode = (f.firmCode || '').toString().toLowerCase().trim();
+        if (fId === 'platform-owner' || fId === 'platform' || fCode === 'platform') return false;
+        return deletedFirms.some((d: any) => {
+          const dId = (d.id || '').toString().toLowerCase().trim();
+          const dCode = (d.firmCode || '').toString().toLowerCase().trim();
+          return (dId && (fId === dId || fCode === dId)) || (dCode && (fCode === dCode || fId === dCode));
+        });
+      };
+
+      const files: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && !isFirmDeleted(data)) {
+          files.push({ id: docSnap.id, ...data });
+        }
+      });
+      if (files.length > 0) {
+        onUpdate(files);
+      }
+    }, (err) => {
+      console.warn('[Firebase] Files snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for file movements collection across devices
+ */
+export function subscribeToMovements(onUpdate: (movements: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'movements');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const movements: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          movements.push({ id: docSnap.id, ...data });
+        }
+      });
+      if (movements.length > 0) {
+        onUpdate(movements);
+      }
+    }, (err) => {
+      console.warn('[Firebase] Movements snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for corum entries collection across devices
+ */
+export function subscribeToCorumEntries(onUpdate: (entries: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'corum_entries');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const entries: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          entries.push({ id: docSnap.id, ...data });
+        }
+      });
+      if (entries.length > 0) {
+        onUpdate(entries);
+      }
+    }, (err) => {
+      console.warn('[Firebase] Corum entries snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for court outcomes collection across devices
+ */
+export function subscribeToCourtOutcomes(onUpdate: (outcomes: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'court_outcomes');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const outcomes: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          outcomes.push({ id: docSnap.id, ...data });
+        }
+      });
+      if (outcomes.length > 0) {
+        onUpdate(outcomes);
+      }
+    }, (err) => {
+      console.warn('[Firebase] Court outcomes snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for unprocessed intake records collection across devices
+ */
+export function subscribeToUnprocessedRecords(onUpdate: (records: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'unprocessed_records');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const records: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          records.push({ id: docSnap.id, ...data });
+        }
+      });
+      if (records.length > 0) {
+        onUpdate(records);
+      }
+    }, (err) => {
+      console.warn('[Firebase] Unprocessed records snapshot listener error:', err);
     });
     return unsubscribe;
   } catch (e) {

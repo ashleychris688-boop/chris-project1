@@ -1062,6 +1062,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
     const newFile: RegistryFile = {
       id: `f-${Date.now()}`,
+      firmCode: currentFirm?.firmCode || currentUser?.firmCode || 'LFR-001',
       internalFileNumber: chosenNum,
       courtCaseNumber: formData.courtCaseNumber,
       clientName: formData.clientName,

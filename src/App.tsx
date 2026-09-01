@@ -49,6 +49,7 @@ import {
   getIsAuthenticated, setIsAuthenticated,
   getLastActiveTime, setLastActiveTime,
   isSessionExpired,
+  isValidUserObject, validateAndRepairUser,
   getStoredActiveTab, saveStoredActiveTab,
   getStoredViewState, saveStoredViewState,
   resetToDefaults, clearAllDataForProduction,
@@ -66,11 +67,17 @@ import {
   deleteUserFromFirebase,
   fetchUsersFromFirebase,
   fetchFirmsFromFirebase,
+  fetchFilesFromFirebase,
   fetchDeletedFirmsFromFirebase,
   recordDeletedFirmToFirebase,
   removeDeletedFirmFromFirebase,
   subscribeToUsers,
-  subscribeToFirms
+  subscribeToFirms,
+  subscribeToFiles,
+  subscribeToMovements,
+  subscribeToCorumEntries,
+  subscribeToCourtOutcomes,
+  subscribeToUnprocessedRecords
 } from './lib/firebase';
 import { ShieldAlert } from 'lucide-react';
 
@@ -107,11 +114,11 @@ import { BulkImportModal } from './components/BulkImportModal';
 
 
 export default function App() {
-  // Navigation & Authentication state with session persistence on page refresh & 1-hour timeout
+  // Navigation & Authentication state with session persistence on page refresh, validation of mandatory fields & 1-hour timeout
   const [currentUser, setUser] = useState<User | null>(() => {
     const user = getCurrentUser();
     const isAuth = getIsAuthenticated();
-    if (user && isAuth && !isSessionExpired(3600000)) {
+    if (user && isAuth && isValidUserObject(user) && !isSessionExpired(3600000, user)) {
       return user;
     }
     return null;
@@ -120,13 +127,13 @@ export default function App() {
   const [isAuthenticated, setAuth] = useState<boolean>(() => {
     const user = getCurrentUser();
     const isAuth = getIsAuthenticated();
-    return Boolean(user && isAuth && !isSessionExpired(3600000));
+    return Boolean(user && isAuth && isValidUserObject(user) && !isSessionExpired(3600000, user));
   });
 
   const [viewState, setViewState] = useState<'landing' | 'login' | 'app'>(() => {
     const user = getCurrentUser();
     const isAuth = getIsAuthenticated();
-    if (user && isAuth && !isSessionExpired(3600000)) {
+    if (user && isAuth && isValidUserObject(user) && !isSessionExpired(3600000, user)) {
       return 'app';
     }
     const savedView = getStoredViewState();
@@ -211,18 +218,30 @@ export default function App() {
   // Firm Multi-Tenancy Scoping
   const currentFirmCode = (currentUser?.firmCode || settings.firmCode || 'LFR-001').trim();
   const currentFirmCodeUpper = currentFirmCode.toUpperCase();
+  const currentFirmId = (currentUser?.firmId || '').trim().toUpperCase();
   const isSuperAdminView = currentUser?.role === 'Super Admin' && activeTab === 'super-admin';
 
-  const matchesFirm = (itemFirmCode?: string) => {
+  const matchesFirm = (itemFirmCode?: string, itemFirmId?: string) => {
     if (isSuperAdminView) return true;
-    const code = (itemFirmCode || 'LFR-001').trim().toUpperCase();
-    return code === currentFirmCodeUpper || (!itemFirmCode && currentFirmCodeUpper === 'LFR-001');
+    const code = (itemFirmCode || '').trim().toUpperCase();
+    const id = (itemFirmId || '').trim().toUpperCase();
+
+    if (code && code === currentFirmCodeUpper) return true;
+    if (id && currentFirmId && id === currentFirmId) return true;
+    if (code && currentFirmId && code === currentFirmId) return true;
+    if (id && id === currentFirmCodeUpper) return true;
+
+    // Fallback for default demo / initial firm
+    if (!code && !id && (currentFirmCodeUpper === 'LFR-001' || currentFirmCodeUpper === 'DEFAULT')) return true;
+    if ((code === 'LFR-001' || code === 'DEFAULT') && (currentFirmCodeUpper === 'LFR-001' || currentFirmCodeUpper === 'DEFAULT')) return true;
+
+    return false;
   };
 
   const activeFirmFiles = useMemo(() => {
     if (isSuperAdminView) return files;
-    return files.filter(f => matchesFirm(f.firmCode));
-  }, [files, currentFirmCodeUpper, isSuperAdminView]);
+    return files.filter(f => matchesFirm(f.firmCode, (f as any).firmId));
+  }, [files, currentFirmCodeUpper, currentFirmId, isSuperAdminView]);
 
   const activeFirmCourtSessions = useMemo(() => {
     if (isSuperAdminView) return courtSessions;
@@ -623,13 +642,13 @@ export default function App() {
     };
   }, [currentUser?.firmCode]);
 
-  // Real-Time Cross-Device User & Firm Sync from Firebase Firestore
+  // Real-Time Cross-Device User, Firm & File Sync from Firebase Firestore
   useEffect(() => {
     let isMounted = true;
 
     // Direct initial pull from Firebase Firestore
-    Promise.all([fetchUsersFromFirebase(), fetchFirmsFromFirebase()])
-      .then(([liveUsers, liveFirms]) => {
+    Promise.all([fetchUsersFromFirebase(), fetchFirmsFromFirebase(), fetchFilesFromFirebase()])
+      .then(([liveUsers, liveFirms, liveFiles]) => {
         if (!isMounted) return;
         if (liveUsers && liveUsers.length > 0) {
           setUsersState(prev => {
@@ -648,6 +667,25 @@ export default function App() {
             liveFirms.forEach((f: any) => map.set(f.id, f));
             const merged = Array.from(map.values());
             saveFirms(merged);
+            return merged;
+          });
+        }
+        if (liveFiles && liveFiles.length > 0) {
+          setFilesState(prev => {
+            const map = new Map<string, RegistryFile>();
+            prev.forEach(f => {
+              const k = f.id || f.internalFileNumber;
+              if (k) map.set(k, f);
+            });
+            liveFiles.forEach((f: any) => {
+              const k = f.id || f.internalFileNumber;
+              if (k) {
+                const existing = map.get(k);
+                map.set(k, { ...existing, ...f });
+              }
+            });
+            const merged = Array.from(map.values());
+            saveFiles(merged);
             return merged;
           });
         }
@@ -686,10 +724,123 @@ export default function App() {
       }
     });
 
+    // Real-time snapshot listener for files across devices
+    const unsubFiles = subscribeToFiles((liveFiles) => {
+      if (!isMounted) return;
+      if (liveFiles && liveFiles.length > 0) {
+        setFilesState(prev => {
+          const map = new Map<string, RegistryFile>();
+          prev.forEach(f => {
+            const k = f.id || f.internalFileNumber;
+            if (k) map.set(k, f);
+          });
+          liveFiles.forEach((f: any) => {
+            const k = f.id || f.internalFileNumber;
+            if (k) {
+              const existing = map.get(k);
+              map.set(k, { ...existing, ...f });
+            }
+          });
+          const merged = Array.from(map.values());
+          saveFiles(merged);
+          return merged;
+        });
+      }
+    });
+
+    // Real-time snapshot listener for file movements
+    const unsubMovements = subscribeToMovements((liveMovements) => {
+      if (!isMounted) return;
+      if (liveMovements && liveMovements.length > 0) {
+        setMovementsState(prev => {
+          const map = new Map<string, FileMovement>();
+          prev.forEach(m => {
+            const k = m.id || `${m.fileNumber}-${m.movementDate}`;
+            if (k) map.set(k, m);
+          });
+          liveMovements.forEach((m: any) => {
+            const k = m.id || `${m.fileNumber}-${m.movementDate}`;
+            if (k) map.set(k, m);
+          });
+          const merged = Array.from(map.values());
+          saveMovements(merged);
+          return merged;
+        });
+      }
+    });
+
+    // Real-time snapshot listener for corum entries
+    const unsubCorum = subscribeToCorumEntries((liveCorum) => {
+      if (!isMounted) return;
+      if (liveCorum && liveCorum.length > 0) {
+        setCorumEntriesState(prev => {
+          const map = new Map<string, CorumEntry>();
+          prev.forEach(c => {
+            const k = c.id || `${c.fileNumber}-${c.sessionDate}`;
+            if (k) map.set(k, c);
+          });
+          liveCorum.forEach((c: any) => {
+            const k = c.id || `${c.fileNumber}-${c.sessionDate}`;
+            if (k) map.set(k, c);
+          });
+          const merged = Array.from(map.values());
+          saveCorumEntries(merged);
+          return merged;
+        });
+      }
+    });
+
+    // Real-time snapshot listener for court outcomes
+    const unsubOutcomes = subscribeToCourtOutcomes((liveOutcomes) => {
+      if (!isMounted) return;
+      if (liveOutcomes && liveOutcomes.length > 0) {
+        setCourtOutcomesState(prev => {
+          const map = new Map<string, CourtOutcome>();
+          prev.forEach(o => {
+            const k = o.id || `${o.fileNumber}-${o.date}`;
+            if (k) map.set(k, o);
+          });
+          liveOutcomes.forEach((o: any) => {
+            const k = o.id || `${o.fileNumber}-${o.date}`;
+            if (k) map.set(k, o);
+          });
+          const merged = Array.from(map.values());
+          saveCourtOutcomes(merged);
+          return merged;
+        });
+      }
+    });
+
+    // Real-time snapshot listener for unprocessed records
+    const unsubUnprocessed = subscribeToUnprocessedRecords((liveRecords) => {
+      if (!isMounted) return;
+      if (liveRecords && liveRecords.length > 0) {
+        setUnprocessedRecordsState(prev => {
+          const map = new Map<string, UnprocessedClientRecord>();
+          prev.forEach(r => {
+            const k = r.id || r.clientName;
+            if (k) map.set(k, r);
+          });
+          liveRecords.forEach((r: any) => {
+            const k = r.id || r.clientName;
+            if (k) map.set(k, r);
+          });
+          const merged = Array.from(map.values());
+          saveUnprocessedRecords(merged);
+          return merged;
+        });
+      }
+    });
+
     return () => {
       isMounted = false;
       unsubUsers();
       unsubFirms();
+      unsubFiles();
+      unsubMovements();
+      unsubCorum();
+      unsubOutcomes();
+      unsubUnprocessed();
     };
   }, []);
 
@@ -956,8 +1107,19 @@ export default function App() {
     const isAuth = getIsAuthenticated();
     
     if (storedUser && isAuth) {
-      if (isSessionExpired(3600000)) {
-        // Session expired after 1 hour of inactivity
+      if (!isValidUserObject(storedUser)) {
+        // Attempt safe repair for incomplete/corrupted fields (like firmCode and id)
+        const repaired = validateAndRepairUser(storedUser);
+        if (repaired && isValidUserObject(repaired)) {
+          setUser(repaired);
+          setCurrentUser(repaired);
+          setAuth(true);
+          setIsAuthenticated(true);
+          setViewState('app');
+          setLastActiveTime(Date.now());
+        }
+      } else if (isSessionExpired(3600000, storedUser)) {
+        // Session genuinely expired after 1 hour of inactivity
         setIsAuthenticated(false);
         setCurrentUser(null);
         setUser(null);
@@ -1170,19 +1332,26 @@ export default function App() {
     // Periodic check for firm deletion to instantly evict deleted workspaces on proprietor side
     const deletionInterval = setInterval(() => {
       const activeUser = getCurrentUser();
-      if (activeUser && activeUser.role !== 'Super Admin') {
-        const storedFirmsList = getStoredFirms();
-        const firmIsActive = storedFirmsList.some(f => 
-          (activeUser.firmId && (f.id === activeUser.firmId || f.firmCode === activeUser.firmId)) ||
-          (activeUser.firmCode && (f.firmCode === activeUser.firmCode || f.id === activeUser.firmCode))
-        );
+      if (activeUser && isValidUserObject(activeUser) && activeUser.role !== 'Super Admin') {
+        const firmCode = (activeUser.firmCode || '').trim();
+        const firmId = (activeUser.firmId || '').trim();
 
-        if (firmIsActive) {
-          removeDeletedFirmRecord(activeUser.firmId, activeUser.firmCode, activeUser.firmName);
+        if (!firmCode && !firmId) {
           return;
         }
 
-        if (isFirmDeleted(activeUser.firmId, activeUser.firmCode)) {
+        const storedFirmsList = getStoredFirms();
+        const firmIsActive = storedFirmsList.some(f => 
+          (firmId && (f.id === firmId || f.firmCode === firmId)) ||
+          (firmCode && (f.firmCode === firmCode || f.id === firmCode))
+        );
+
+        if (firmIsActive) {
+          removeDeletedFirmRecord(firmId, firmCode, activeUser.firmName);
+          return;
+        }
+
+        if (isFirmDeleted(firmId, firmCode)) {
           setCurrentUser(null);
           setIsAuthenticated(false);
           setUser(null);
@@ -1527,6 +1696,13 @@ export default function App() {
     setFilesState(updated);
     saveFiles(updated);
     saveDocumentToFirebase('files', fileWithFirm);
+    try {
+      fetch('/api/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fileWithFirm)
+      }).catch(() => {});
+    } catch (e) {}
 
     showToast(
       'success',
@@ -1545,6 +1721,13 @@ export default function App() {
     setFilesState(updated);
     saveFiles(updated);
     saveDocumentToFirebase('files', file);
+    try {
+      fetch('/api/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(file)
+      }).catch(() => {});
+    } catch (e) {}
 
     const isSingleEdit = file.isEdited && file.editCount === 1;
 
