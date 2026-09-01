@@ -56,9 +56,7 @@ const savedData = loadPersistedState();
 
 // In-memory data initialized from persistent store or defaults
 let dbDeletedFirms: any[] = savedData?.dbDeletedFirms || [];
-let dbFirms: any[] = (savedData?.dbFirms || []).filter((f: any) => 
-  !dbDeletedFirms.some((d: any) => d.id === f.id || d.firmCode === f.firmCode || d.firmName === f.firmName)
-);
+let dbFirms: any[] = savedData?.dbFirms || [];
 
 let dbUsers: any[] = savedData?.dbUsers || [
   {
@@ -514,15 +512,31 @@ app.post("/api/deleted-firms", (req, res) => {
   savePersistedState();
   res.status(201).json({ success: true, record });
 });
+app.delete("/api/deleted-firms/:id", (req, res) => {
+  const { id } = req.params;
+  const cleanId = (id || '').trim().toLowerCase();
+  dbDeletedFirms = dbDeletedFirms.filter(d => {
+    const dId = (d.id || '').trim().toLowerCase();
+    const dCode = (d.firmCode || '').trim().toLowerCase();
+    return dId !== cleanId && dCode !== cleanId;
+  });
+  savePersistedState();
+  res.json({ success: true, unmaskedId: id });
+});
 
 app.get("/api/firms", (req, res) => res.json(dbFirms));
 app.post("/api/firms", (req, res) => {
   const newFirm = { id: req.body.id || `firm-${Date.now()}`, ...req.body };
-  // Ensure not resurrecting a deleted firm
-  const isDeleted = dbDeletedFirms.some(d => d.id === newFirm.id || d.firmCode === newFirm.firmCode || d.firmName === newFirm.firmName);
-  if (isDeleted) {
-    return res.status(400).json({ error: "Cannot add a firm that is currently in the deleted firms registry." });
-  }
+  const firmIdClean = (newFirm.id || '').trim().toLowerCase();
+  const firmCodeClean = (newFirm.firmCode || '').trim().toLowerCase();
+
+  // Unmark from deleted firms tombstone list when saving an active firm
+  dbDeletedFirms = dbDeletedFirms.filter(d => {
+    const dId = (d.id || '').trim().toLowerCase();
+    const dCode = (d.firmCode || '').trim().toLowerCase();
+    return (dId !== firmIdClean && dCode !== firmIdClean && dId !== firmCodeClean && dCode !== firmCodeClean);
+  });
+
   const idx = dbFirms.findIndex(f => f.id === newFirm.id || (f.firmCode && f.firmCode === newFirm.firmCode));
   if (idx >= 0) {
     dbFirms[idx] = { ...dbFirms[idx], ...newFirm };

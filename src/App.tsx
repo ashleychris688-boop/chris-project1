@@ -52,7 +52,7 @@ import {
   getStoredActiveTab, saveStoredActiveTab,
   getStoredViewState, saveStoredViewState,
   resetToDefaults, clearAllDataForProduction,
-  getStoredDeletedFirms, saveDeletedFirmRecord, isFirmDeleted
+  getStoredDeletedFirms, saveDeletedFirmRecord, removeDeletedFirmRecord, isFirmDeleted
 } from './data/store';
 import { INITIAL_SETTINGS } from './data/initialData';
 
@@ -68,6 +68,7 @@ import {
   fetchFirmsFromFirebase,
   fetchDeletedFirmsFromFirebase,
   recordDeletedFirmToFirebase,
+  removeDeletedFirmFromFirebase,
   subscribeToUsers,
   subscribeToFirms
 } from './lib/firebase';
@@ -309,11 +310,15 @@ export default function App() {
 
   // SaaS Firm Registration Handler
   const handleRegisterFirmSuccess = (newFirm: LawFirmProfile, proprietorUser: User) => {
-    const updatedFirms = [newFirm, ...firms];
+    // 1. Immediately unmark any tombstone records
+    removeDeletedFirmRecord(newFirm.id, newFirm.firmCode, newFirm.firmName);
+    removeDeletedFirmFromFirebase(newFirm.id, newFirm.firmCode, newFirm.firmName);
+
+    const updatedFirms = [newFirm, ...firms.filter(f => f.id !== newFirm.id && f.firmCode !== newFirm.firmCode)];
     setFirmsState(updatedFirms);
     saveFirms(updatedFirms);
 
-    const updatedUsers = [proprietorUser, ...users];
+    const updatedUsers = [proprietorUser, ...users.filter(u => u.id !== proprietorUser.id && u.username !== proprietorUser.username)];
     setUsersState(updatedUsers);
     saveUsers(updatedUsers);
 
@@ -336,10 +341,12 @@ export default function App() {
     setIsAuthenticated(true);
     setAuth(true);
     setViewState('app');
+    saveStoredViewState('app');
+    setLastActiveTime(Date.now());
     setActiveTab('dashboard');
     setIsRegisterModalOpen(false);
 
-    // Persist to Firebase Firestore
+    // Persist immediately to Firebase Firestore
     saveFirmToFirebase(newFirm).catch(err => console.warn('Background Firebase firm sync:', err));
     saveUserToFirebase(proprietorUser).catch(err => console.warn('Background Firebase user sync:', err));
 
@@ -1075,16 +1082,29 @@ export default function App() {
 
       // 13. Sync registered Law Firms from both 'firms' and 'law_firms' collections in Firestore
       const localFirms = getStoredFirms();
+      // Ensure any locally active firms have their tombstones cleared
+      localFirms.forEach(f => {
+        if (f && (f.id || f.firmCode)) {
+          removeDeletedFirmRecord(f.id, f.firmCode, f.firmName);
+        }
+      });
+
       Promise.all([
         syncCollectionToFirebase('firms', localFirms),
         syncCollectionToFirebase('law_firms', []),
         fetchDeletedFirmsFromFirebase().catch(() => [])
       ]).then(([remoteFirms, remoteLawFirms, remoteDeletedFirms]) => {
-        // Save any remote deleted firms to local registry
+        // Save any remote deleted firms to local registry if they are not in local active firms
         if (Array.isArray(remoteDeletedFirms)) {
           remoteDeletedFirms.forEach(d => {
             if (d && (d.id || d.firmCode)) {
-              saveDeletedFirmRecord(d.id, d.firmCode, d.firmName);
+              const isLocallyActive = localFirms.some(lf => 
+                (d.id && (lf.id === d.id || lf.firmCode === d.id)) ||
+                (d.firmCode && (lf.firmCode === d.firmCode || lf.id === d.firmCode))
+              );
+              if (!isLocallyActive) {
+                saveDeletedFirmRecord(d.id, d.firmCode, d.firmName);
+              }
             }
           });
         }
@@ -1092,12 +1112,12 @@ export default function App() {
         const combinedFirms = [...(remoteFirms || []), ...(remoteLawFirms || [])];
         const firmMap = new Map<string, LawFirmProfile>();
         localFirms.forEach(f => {
-          if (f && (f.id || f.firmCode) && !isFirmDeleted(f.id, f.firmCode, f.firmName)) {
+          if (f && (f.id || f.firmCode) && !isFirmDeleted(f.id, f.firmCode)) {
             firmMap.set(f.id || f.firmCode, f);
           }
         });
         combinedFirms.forEach(f => {
-          if (f && (f.id || f.firmCode) && !isFirmDeleted(f.id, f.firmCode, f.firmName)) {
+          if (f && (f.id || f.firmCode) && !isFirmDeleted(f.id, f.firmCode)) {
             firmMap.set(f.id || f.firmCode, f);
           }
         });
@@ -1107,14 +1127,20 @@ export default function App() {
 
         // Check if current active user belongs to a deleted firm
         const activeUser = getCurrentUser();
-        if (activeUser && activeUser.role !== 'Super Admin' && isFirmDeleted(activeUser.firmId, activeUser.firmCode, activeUser.firmName)) {
-          setCurrentUser(null);
-          setIsAuthenticated(false);
-          setUser(null);
-          setAuth(false);
-          setViewState('landing');
-          saveStoredViewState('landing');
-          showToast('error', 'Workspace Removed', 'This law firm workspace was deleted by the platform administrator.');
+        if (activeUser && activeUser.role !== 'Super Admin') {
+          const isFirmActive = mergedFirms.some(f => 
+            (activeUser.firmId && (f.id === activeUser.firmId || f.firmCode === activeUser.firmId)) ||
+            (activeUser.firmCode && (f.firmCode === activeUser.firmCode || f.id === activeUser.firmCode))
+          );
+          if (!isFirmActive && isFirmDeleted(activeUser.firmId, activeUser.firmCode)) {
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+            setUser(null);
+            setAuth(false);
+            setViewState('landing');
+            saveStoredViewState('landing');
+            showToast('error', 'Workspace Removed', 'This law firm workspace was deleted by the platform administrator.');
+          }
         }
       }).catch(err => console.warn('Law firms sync error:', err));
 
@@ -1124,12 +1150,12 @@ export default function App() {
         if (remoteUsers && remoteUsers.length > 0) {
           const userMap = new Map<string, User>();
           localUsers.forEach(u => {
-            if (u && (u.id || u.username) && (u.role === 'Super Admin' || !isFirmDeleted(u.firmId, u.firmCode, u.firmName))) {
+            if (u && (u.id || u.username) && (u.role === 'Super Admin' || !isFirmDeleted(u.firmId, u.firmCode))) {
               userMap.set(u.id || u.username, u);
             }
           });
           remoteUsers.forEach(u => {
-            if (u && (u.id || u.username) && (u.role === 'Super Admin' || !isFirmDeleted(u.firmId, u.firmCode, u.firmName))) {
+            if (u && (u.id || u.username) && (u.role === 'Super Admin' || !isFirmDeleted(u.firmId, u.firmCode))) {
               userMap.set(u.id || u.username, u);
             }
           });
@@ -1145,7 +1171,18 @@ export default function App() {
     const deletionInterval = setInterval(() => {
       const activeUser = getCurrentUser();
       if (activeUser && activeUser.role !== 'Super Admin') {
-        if (isFirmDeleted(activeUser.firmId, activeUser.firmCode, activeUser.firmName)) {
+        const storedFirmsList = getStoredFirms();
+        const firmIsActive = storedFirmsList.some(f => 
+          (activeUser.firmId && (f.id === activeUser.firmId || f.firmCode === activeUser.firmId)) ||
+          (activeUser.firmCode && (f.firmCode === activeUser.firmCode || f.id === activeUser.firmCode))
+        );
+
+        if (firmIsActive) {
+          removeDeletedFirmRecord(activeUser.firmId, activeUser.firmCode, activeUser.firmName);
+          return;
+        }
+
+        if (isFirmDeleted(activeUser.firmId, activeUser.firmCode)) {
           setCurrentUser(null);
           setIsAuthenticated(false);
           setUser(null);
