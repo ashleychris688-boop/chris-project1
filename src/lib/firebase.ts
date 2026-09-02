@@ -515,6 +515,23 @@ export async function deleteFileFromFirebase(fileId: string) {
   await deleteDocumentFromFirebase('files', fileId);
 }
 
+export async function purgeFilesFromFirebase(filesToPurge: any[]) {
+  if (!Array.isArray(filesToPurge) || filesToPurge.length === 0) return;
+  for (const f of filesToPurge) {
+    try {
+      if (f.id) {
+        await deleteDocumentFromFirebase('files', f.id);
+      }
+      if (f.internalFileNumber) {
+        const sanitizedKey = sanitizeDocId(f.internalFileNumber);
+        await deleteDocumentFromFirebase('files', sanitizedKey);
+      }
+    } catch (e) {
+      console.warn('Error purging file from Firebase:', e);
+    }
+  }
+}
+
 // Data Redundancy: Periodically triggers a full snapshot of Local Storage and syncs to Firebase
 export async function triggerLocalStorageFirebaseSnapshot(firmCode = 'GLOBAL') {
   if (isQuotaExceeded) {
@@ -752,13 +769,29 @@ export async function fetchFilesFromFirebase(): Promise<any[]> {
     });
   };
 
+  let deletedFiles: string[] = [];
+  try {
+    const rawF = localStorage.getItem('lfr_deleted_files_v2');
+    if (rawF) deletedFiles = JSON.parse(rawF);
+  } catch (e) {}
+
+  const isFileDeleted = (f: any) => {
+    if (!f || !Array.isArray(deletedFiles) || deletedFiles.length === 0) return false;
+    const fId = (f.id || '').toString().toLowerCase().trim();
+    const fNum = (f.internalFileNumber || '').toString().toLowerCase().trim();
+    return deletedFiles.some((d: string) => {
+      const cd = (d || '').toString().toLowerCase().trim();
+      return (fId && cd === fId) || (fNum && cd === fNum);
+    });
+  };
+
   // 1. Fetch from Firestore
   try {
     const colRef = collection(db, 'files');
     const snap = await getDocs(colRef);
     snap.forEach(docSnap => {
       const data = docSnap.data();
-      if (data && !isFirmDeleted(data)) {
+      if (data && !isFirmDeleted(data) && !isFileDeleted({ id: docSnap.id, ...data })) {
         const id = docSnap.id || data.id || data.internalFileNumber;
         filesMap.set(id, { id: docSnap.id, ...data });
       }
@@ -774,7 +807,7 @@ export async function fetchFilesFromFirebase(): Promise<any[]> {
       const apiFiles = await res.json();
       if (Array.isArray(apiFiles)) {
         apiFiles.forEach((f: any) => {
-          if (f && !isFirmDeleted(f)) {
+          if (f && !isFirmDeleted(f) && !isFileDeleted(f)) {
             const key = f.id || f.internalFileNumber;
             if (key) {
               if (filesMap.has(key)) {
@@ -1090,6 +1123,12 @@ export function subscribeToFiles(onUpdate: (files: any[]) => void): () => void {
         if (raw) deletedFirms = JSON.parse(raw);
       } catch (e) {}
 
+      let deletedFiles: string[] = [];
+      try {
+        const rawF = localStorage.getItem('lfr_deleted_files_v2');
+        if (rawF) deletedFiles = JSON.parse(rawF);
+      } catch (e) {}
+
       const isFirmDeleted = (f: any) => {
         if (!f || !Array.isArray(deletedFirms) || deletedFirms.length === 0) return false;
         const fId = (f.firmId || '').toString().toLowerCase().trim();
@@ -1102,10 +1141,20 @@ export function subscribeToFiles(onUpdate: (files: any[]) => void): () => void {
         });
       };
 
+      const isFileDeleted = (f: any) => {
+        if (!f || !Array.isArray(deletedFiles) || deletedFiles.length === 0) return false;
+        const fId = (f.id || '').toString().toLowerCase().trim();
+        const fNum = (f.internalFileNumber || '').toString().toLowerCase().trim();
+        return deletedFiles.some((d: string) => {
+          const cd = (d || '').toString().toLowerCase().trim();
+          return (fId && cd === fId) || (fNum && cd === fNum);
+        });
+      };
+
       const files: any[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        if (data && !isFirmDeleted(data)) {
+        if (data && !isFirmDeleted(data) && !isFileDeleted({ id: docSnap.id, ...data })) {
           files.push({ id: docSnap.id, ...data });
         }
       });

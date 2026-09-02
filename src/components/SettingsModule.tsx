@@ -25,7 +25,9 @@ import {
   X,
   Palette,
   Sun,
-  Moon
+  Moon,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { validatePassword } from '../utils/passwordValidator';
 import { PasswordRequirementsChecklist } from './PasswordRequirementsChecklist';
@@ -50,6 +52,8 @@ interface SettingsModuleProps {
   onResetData: () => void;
   onClearDataForProduction?: () => void;
   onUpdatePassword?: (userId: string, newPassword: string) => void;
+  onCleanUpDemoFiles?: () => Promise<void> | void;
+  demoFilesCount?: number;
 }
 
 const SAMPLE_CASE_CATEGORIES = [
@@ -76,8 +80,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onUpdateFirm,
   onResetData: _onResetData,
   onClearDataForProduction: _onClearDataForProduction,
-  onUpdatePassword
+  onUpdatePassword,
+  onCleanUpDemoFiles,
+  demoFilesCount = 0
 }) => {
+  const [isCleaningDemo, setIsCleaningDemo] = useState(false);
+  const [showConfirmClean, setShowConfirmClean] = useState(false);
   const [formData, setFormData] = useState<SystemSettings>({
     ...settings,
     firmInitials: settings.firmInitials || currentFirm?.firmInitials || settings.fileNumberPrefix || currentFirm?.fileNumberPrefix || 'NTA',
@@ -856,6 +864,96 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Database Maintenance & Demo Cleanup */}
+        {onCleanUpDemoFiles && (
+          <div className="bg-[#081729] rounded-2xl border border-rose-500/40 p-5 shadow-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-rose-950/80 border border-rose-500/50 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Demo Data Cleanup & Registry Maintenance</h3>
+                  <p className="text-xs text-slate-400">Permanently purge pre-seeded demonstration client files from your system</p>
+                </div>
+              </div>
+              {demoFilesCount > 0 ? (
+                <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-rose-950 text-rose-300 border border-rose-500/60">
+                  {demoFilesCount} demo records detected
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/60 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Registry Clean
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              If your registry contains pre-seeded demo files (e.g. Apex Hauliers Kenya Ltd, Dr. Beatrice Wanjiru, Bahari Logistics, etc.), this one-time cleanup will permanently purge them from your local browser storage, backend server, and cloud database, leaving exclusively your firm's genuine client files.
+            </p>
+
+            {showConfirmClean ? (
+              <div className="p-4 bg-rose-950/50 border border-rose-500/60 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-rose-200">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Are you sure you want to permanently delete all {demoFilesCount > 0 ? demoFilesCount : ''} demonstration files?</span>
+                </div>
+                <p className="text-[11px] text-rose-300/80">
+                  This action cannot be undone. Authentic files registered for your firm will be preserved.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isCleaningDemo}
+                    onClick={async () => {
+                      setIsCleaningDemo(true);
+                      try {
+                        await onCleanUpDemoFiles();
+                        setShowConfirmClean(false);
+                      } finally {
+                        setIsCleaningDemo(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isCleaningDemo ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Purging Demo Records...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Yes, Permanently Delete Demo Files</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isCleaningDemo}
+                    onClick={() => setShowConfirmClean(false)}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmClean(true)}
+                  className="px-4 py-2 bg-rose-950/70 hover:bg-rose-900/80 text-rose-300 hover:text-white border border-rose-600/50 font-bold text-xs rounded-xl transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Clean Up All Demo Files {demoFilesCount > 0 ? `(${demoFilesCount})` : ''}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Security & Save */}
         <div className="bg-[#081729] rounded-2xl border border-[#C9A227]/30 p-5 shadow-xl flex items-center justify-between">

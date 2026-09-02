@@ -624,6 +624,72 @@ app.post("/api/files", (req, res) => {
   res.status(201).json(newFile);
 });
 
+app.delete("/api/files/:id", (req, res) => {
+  const targetId = String(req.params.id || '').trim();
+  const initCount = dbFiles.length;
+  dbFiles = dbFiles.filter(f => f.id !== targetId && f.internalFileNumber !== targetId);
+  dbCourtSessions = dbCourtSessions.filter(s => s.fileId !== targetId && s.fileNumber !== targetId);
+  dbClaims = dbClaims.filter(c => c.fileId !== targetId && c.fileNumber !== targetId);
+  savePersistedState();
+  res.json({ success: true, removed: initCount - dbFiles.length, remaining: dbFiles.length });
+});
+
+app.post("/api/files/clean-demo", (req, res) => {
+  const isDemo = (f: any) => {
+    if (!f) return false;
+    if (f.isDemo) return true;
+    const id = String(f.id || '').trim();
+    const num = String(f.internalFileNumber || '').trim().toUpperCase();
+    const client = String(f.clientName || '').trim().toLowerCase();
+    if (/^f-1[0-6]\d$/.test(id)) return true;
+    if (id === 'f-1785344239668' || num === 'LFR/2026/0449') return true;
+    if (/^LFR\/2026\/0(142|119|204|088|310|045|449)$/.test(num)) return true;
+    if (/^NGA\/1[0-6]\d\/2026$/.test(num)) return true;
+    const demoClients = [
+      'apex hauliers kenya ltd', 'dr. beatrice wanjiru', 'bahari logistics ltd',
+      'john kiprono', 'eldo farmers co-op union', 'rift valley flour mills ltd',
+      'hezron kamau', 'safaricom plc', 'kenya commercial bank ltd', 'crown paints kenya ltd',
+      'east african breweries plc', 'equity bank kenya ltd', 'bamburi cement plc',
+      'naivas supermarkets ltd', 'kakuzi plc', 'unga group ltd', 'kenolkobil kenya ltd',
+      'nation media group plc', 'centum investment co.', 'sameer africa plc',
+      'kcb group ltd', 'kenya airways plc', 'car & general kenya ltd', 'express kenya ltd',
+      'tps eastern africa ltd', 'totalenergies marketing kenya', 'mumias sugar company ltd',
+      'eveready east africa plc', 'williamson tea kenya plc', 'kapchorua tea plc',
+      'standard group plc', 'james mwangi maina', 'grace wanjiru njoroge',
+      'estate of david ochieng odhiambo', 'faith chebet korir', 'samuel kamau ndegwa',
+      'kenya power & lighting co. (kplc)', 'cooperative bank of kenya ltd',
+      'kenya revenue authority (kra)', 'kengen plc', 'ncba bank kenya plc',
+      'stanbic bank kenya ltd', 'kakamega county government', 'nakuru tea estates ltd',
+      'hassan abdi mohammed', 'meru farmers co-operative union', 'patrick muturi kimani',
+      'coast bus company ltd', 'beatrice achieng otieno', 'kericho tea packers ltd',
+      'mount kenya bottlers ltd', 'machakos water & sanitation co.', 'diamond trust bank kenya',
+      'family bank kenya ltd', 'josephat kiprop cheruiyot', 'agnes wambui kinyanjui',
+      'estate of samuel omwamba nyamweya', 'garissa livestock farmers sacco',
+      'trans nzoia produce board', 'emmanuel wafula simiyu', 'lucy nyambura mwangi'
+    ];
+    if (demoClients.includes(client)) return true;
+    return false;
+  };
+
+  const beforeCount = dbFiles.length;
+  const demoFiles = dbFiles.filter(isDemo);
+  const demoIds = new Set(demoFiles.map(f => f.id));
+  const demoNums = new Set(demoFiles.map(f => f.internalFileNumber));
+
+  dbFiles = dbFiles.filter(f => !isDemo(f));
+  dbCourtSessions = dbCourtSessions.filter(s => !demoIds.has(s.fileId) && !demoNums.has(s.fileNumber));
+  dbClaims = dbClaims.filter(c => !demoIds.has(c.fileId) && !demoNums.has(c.fileNumber));
+  dbCheques = dbCheques.filter(ch => !demoNums.has(ch.fileNumber));
+  dbCommissions = dbCommissions.filter(co => !demoNums.has(co.fileNumber));
+
+  savePersistedState();
+  res.json({
+    success: true,
+    deletedCount: beforeCount - dbFiles.length,
+    remainingCount: dbFiles.length
+  });
+});
+
 app.post("/api/files/bulk", (req, res) => {
   const incoming = req.body.files;
   if (Array.isArray(incoming)) {

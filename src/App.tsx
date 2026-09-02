@@ -53,7 +53,8 @@ import {
   getStoredActiveTab, saveStoredActiveTab,
   getStoredViewState, saveStoredViewState,
   resetToDefaults, clearAllDataForProduction,
-  getStoredDeletedFirms, saveDeletedFirmRecord, removeDeletedFirmRecord, isFirmDeleted
+  getStoredDeletedFirms, saveDeletedFirmRecord, removeDeletedFirmRecord, isFirmDeleted,
+  isDemoFile, cleanUpDemoRecords, saveDeletedFileId, saveDeletedFileIds
 } from './data/store';
 import { INITIAL_SETTINGS } from './data/initialData';
 
@@ -81,7 +82,8 @@ import {
   subscribeToUnprocessedRecords,
   performFullCloudSync,
   saveFileToFirebase,
-  deleteFileFromFirebase
+  deleteFileFromFirebase,
+  purgeFilesFromFirebase
 } from './lib/firebase';
 import { ShieldAlert } from 'lucide-react';
 
@@ -171,7 +173,7 @@ export default function App() {
   // Interactive Toast Notification System
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
-  const showToast = (
+  const showToast = useCallback((
     type: ToastType, 
     title: string, 
     message?: string, 
@@ -188,11 +190,11 @@ export default function App() {
       action
     };
     setToasts(prev => [newToast, ...prev.slice(0, 4)]);
-  };
+  }, []);
 
-  const handleDismissToast = (id: string) => {
+  const handleDismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
+  }, []);
 
   // Application Data States
   const [firms, setFirmsState] = useState<LawFirmProfile[]>(getStoredFirms());
@@ -1833,6 +1835,107 @@ export default function App() {
     }
   };
 
+  const handleCleanUpDemoFiles = async () => {
+    const demoFiles = files.filter(isDemoFile);
+    if (demoFiles.length === 0) {
+      showToast('info', 'No Demo Files', 'No pre-loaded demonstration files were found in the registry.');
+      return;
+    }
+
+    try {
+      // 1. Call server endpoint to clean persisted backend JSON
+      await fetch('/api/files/clean-demo', { method: 'POST' }).catch(err => {
+        console.warn('Backend clean-demo notice:', err);
+      });
+
+      // 2. Physical purge from Firestore
+      await purgeFilesFromFirebase(demoFiles).catch(err => {
+        console.warn('Firebase purge demo notice:', err);
+      });
+
+      // 3. Local storage cleanup and tombstone recording
+      const { deletedCount, remainingFiles } = cleanUpDemoRecords();
+
+      // 4. Update React state
+      setFilesState(remainingFiles);
+      setCourtSessionsState(getStoredCourtSessions());
+      setClaimsState(getStoredInsuranceClaims());
+      setChequesState(getStoredPendingCheques());
+      setCommissionsState(getStoredCommissions());
+
+      // 5. Add audit log
+      if (currentUser) {
+        addAuditLog(
+          currentUser.fullName,
+          currentUser.role,
+          'Purged Demo Files',
+          'Registry',
+          `Permanently cleaned up ${deletedCount} pre-seeded demo file records. Retained ${remainingFiles.length} authentic firm files.`
+        );
+        setAuditLogsState(getStoredAuditLogs());
+      }
+
+      showToast(
+        'success',
+        'Demo Cleanup Complete',
+        `Successfully deleted ${deletedCount} pre-seeded demonstration files. Your ${remainingFiles.length} authentic firm files are safe and preserved.`
+      );
+    } catch (e: any) {
+      console.error('Failed to clean demo files:', e);
+      showToast('error', 'Cleanup Failed', e?.message || 'Could not complete demo files cleanup.');
+    }
+  };
+
+  const handleDeleteFile = async (fileToDelete: RegistryFile) => {
+    if (!fileToDelete) return;
+
+    try {
+      // 1. Delete from backend server
+      if (fileToDelete.id) {
+        await fetch(`/api/files/${encodeURIComponent(fileToDelete.id)}`, { method: 'DELETE' }).catch(() => {});
+      }
+      if (fileToDelete.internalFileNumber) {
+        await fetch(`/api/files/${encodeURIComponent(fileToDelete.internalFileNumber)}`, { method: 'DELETE' }).catch(() => {});
+      }
+
+      // 2. Delete from Firebase
+      await purgeFilesFromFirebase([fileToDelete]).catch(() => {});
+
+      // 3. Store tombstone so it won't be resurrected by cloud sync
+      if (fileToDelete.id) saveDeletedFileId(fileToDelete.id);
+      if (fileToDelete.internalFileNumber) saveDeletedFileId(fileToDelete.internalFileNumber);
+
+      // 4. Filter out from local store and state
+      const updatedFiles = files.filter(f => 
+        f.id !== fileToDelete.id && 
+        f.internalFileNumber !== fileToDelete.internalFileNumber
+      );
+      setFilesState(updatedFiles);
+      saveFiles(updatedFiles);
+
+      // 5. Add audit log
+      if (currentUser) {
+        addAuditLog(
+          currentUser.fullName,
+          currentUser.role,
+          'Deleted File Record',
+          'Registry',
+          `Permanently removed physical file ${fileToDelete.internalFileNumber} (${fileToDelete.clientName}).`
+        );
+        setAuditLogsState(getStoredAuditLogs());
+      }
+
+      showToast(
+        'success',
+        'File Record Deleted',
+        `Physical file ${fileToDelete.internalFileNumber} (${fileToDelete.clientName}) has been deleted.`
+      );
+    } catch (e: any) {
+      console.error('Delete file error:', e);
+      showToast('error', 'Delete Error', e?.message || 'Failed to delete file.');
+    }
+  };
+
   const handleRecordMovement = (
     newMovement: FileMovement, 
     updatedLocation: { room: string; cabinet: string; shelf: string; detail?: string },
@@ -2780,6 +2883,8 @@ export default function App() {
               onAddCourtOutcome={handleAddCourtOutcome}
               onAddFile={handleAddFile}
               onUpdateFile={handleUpdateFile}
+              onCleanUpDemoFiles={handleCleanUpDemoFiles}
+              onDeleteFile={handleDeleteFile}
               onOpenMoveModal={file => {
                 setSelectedFileToMove(file);
                 setActiveTab('file-tracker');
@@ -2964,6 +3069,8 @@ export default function App() {
               onResetData={handleResetData}
               onClearDataForProduction={handleClearDataForProduction}
               onUpdatePassword={handleUpdatePassword}
+              onCleanUpDemoFiles={handleCleanUpDemoFiles}
+              demoFilesCount={activeFirmFiles.filter(isDemoFile).length}
             />
           )}
 

@@ -75,10 +75,122 @@ const STORAGE_KEYS = {
   URGENT_ALERTS: 'lfr_urgent_alerts_v2',
   FILE_DOCUMENTS: 'lfr_file_documents_v2',
   DELETED_FIRMS: 'lfr_deleted_firms_v2',
+  DELETED_FILES: 'lfr_deleted_files_v2',
+  DEMO_FILES_PURGED: 'lfr_demo_files_purged_v1',
   LAST_ACTIVE_TIME: 'lfr_last_active_time_v2',
   CURRENT_TAB: 'lfr_current_tab_v2',
   VIEW_STATE: 'lfr_view_state_v2'
 };
+
+export const DEMO_CLIENT_NAMES = new Set([
+  'apex hauliers kenya ltd',
+  'dr. beatrice wanjiru',
+  'bahari logistics ltd',
+  'john kiprono',
+  'eldo farmers co-op union',
+  'rift valley flour mills ltd',
+  'hezron kamau',
+  'safaricom plc',
+  'kenya commercial bank ltd',
+  'crown paints kenya ltd',
+  'east african breweries plc',
+  'equity bank kenya ltd',
+  'bamburi cement plc',
+  'naivas supermarkets ltd',
+  'kakuzi plc',
+  'unga group ltd',
+  'kenolkobil kenya ltd',
+  'nation media group plc',
+  'centum investment co.',
+  'sameer africa plc',
+  'kcb group ltd',
+  'kenya airways plc',
+  'car & general kenya ltd',
+  'express kenya ltd',
+  'tps eastern africa ltd',
+  'totalenergies marketing kenya',
+  'mumias sugar company ltd',
+  'eveready east africa plc',
+  'williamson tea kenya plc',
+  'kapchorua tea plc',
+  'standard group plc',
+  'james mwangi maina',
+  'grace wanjiru njoroge',
+  'estate of david ochieng odhiambo',
+  'faith chebet korir',
+  'samuel kamau ndegwa',
+  'kenya power & lighting co. (kplc)',
+  'cooperative bank of kenya ltd',
+  'kenya revenue authority (kra)',
+  'kengen plc',
+  'ncba bank kenya plc',
+  'stanbic bank kenya ltd',
+  'kakamega county government',
+  'nakuru tea estates ltd',
+  'hassan abdi mohammed',
+  'meru farmers co-operative union',
+  'patrick muturi kimani',
+  'coast bus company ltd',
+  'beatrice achieng otieno',
+  'kericho tea packers ltd',
+  'mount kenya bottlers ltd',
+  'machakos water & sanitation co.',
+  'diamond trust bank kenya',
+  'family bank kenya ltd',
+  'josephat kiprop cheruiyot',
+  'agnes wambui kinyanjui',
+  'estate of samuel omwamba nyamweya',
+  'garissa livestock farmers sacco',
+  'trans nzoia produce board',
+  'emmanuel wafula simiyu',
+  'lucy nyambura mwangi'
+]);
+
+export function isDemoFile(file: Partial<RegistryFile>): boolean {
+  if (!file) return false;
+  if ((file as any).isDemo) return true;
+  const id = String(file.id || '').trim();
+  const num = String(file.internalFileNumber || '').trim().toUpperCase();
+  const client = String(file.clientName || '').trim().toLowerCase();
+
+  if (/^f-1[0-6]\d$/.test(id)) return true;
+  if (id === 'f-1785344239668' || num === 'LFR/2026/0449') return true;
+  if (/^LFR\/2026\/0(142|119|204|088|310|045|449)$/.test(num)) return true;
+  if (/^NGA\/1[0-6]\d\/2026$/.test(num)) return true;
+  if (DEMO_CLIENT_NAMES.has(client)) return true;
+  return false;
+}
+
+export function getStoredDeletedFiles(): string[] {
+  return loadItem<string[]>(STORAGE_KEYS.DELETED_FILES, []);
+}
+
+export function saveDeletedFileId(fileIdOrNumber: string): void {
+  const clean = String(fileIdOrNumber || '').trim().toLowerCase();
+  if (!clean) return;
+  const current = getStoredDeletedFiles();
+  if (!current.includes(clean)) {
+    saveItem(STORAGE_KEYS.DELETED_FILES, [...current, clean]);
+  }
+}
+
+export function saveDeletedFileIds(ids: string[]): void {
+  const current = new Set(getStoredDeletedFiles());
+  ids.forEach(id => {
+    const c = String(id || '').trim().toLowerCase();
+    if (c) current.add(c);
+  });
+  saveItem(STORAGE_KEYS.DELETED_FILES, Array.from(current));
+}
+
+export function isFileDeleted(fileId?: string, fileNumber?: string): boolean {
+  if (!fileId && !fileNumber) return false;
+  const deleted = getStoredDeletedFiles();
+  if (!Array.isArray(deleted) || deleted.length === 0) return false;
+  const id = String(fileId || '').trim().toLowerCase();
+  const num = String(fileNumber || '').trim().toLowerCase();
+  return deleted.some(d => (id && d === id) || (num && d === num));
+}
 
 export interface DeletedFirmRecord {
   id: string;
@@ -290,7 +402,8 @@ export function getStoredFiles(): RegistryFile[] {
     const active = stored.filter(f => 
       f && 
       !isFirmDeleted(f.firmId) && 
-      !isFirmDeleted(f.firmCode)
+      !isFirmDeleted(f.firmCode) &&
+      !isFileDeleted(f.id, f.internalFileNumber)
     );
     if (active.length !== stored.length) {
       saveFiles(active);
@@ -302,7 +415,8 @@ export function getStoredFiles(): RegistryFile[] {
     const active = legacy.filter(f => 
       f && 
       !isFirmDeleted(f.firmId) && 
-      !isFirmDeleted(f.firmCode)
+      !isFirmDeleted(f.firmCode) &&
+      !isFileDeleted(f.id, f.internalFileNumber)
     );
     saveFiles(active);
     return active;
@@ -312,6 +426,67 @@ export function getStoredFiles(): RegistryFile[] {
 
 export function saveFiles(files: RegistryFile[]): void {
   saveItem(STORAGE_KEYS.FILES, files);
+}
+
+export function cleanUpDemoRecords(): { deletedCount: number; remainingFiles: RegistryFile[] } {
+  const storedFiles = loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, []);
+  const demoFiles = storedFiles.filter(isDemoFile);
+  const demoIds: string[] = [];
+
+  demoFiles.forEach(f => {
+    if (f.id) demoIds.push(f.id);
+    if (f.internalFileNumber) demoIds.push(f.internalFileNumber);
+  });
+
+  saveDeletedFileIds(demoIds);
+  try {
+    localStorage.setItem(STORAGE_KEYS.DEMO_FILES_PURGED, 'true');
+  } catch (e) {}
+
+  const remainingFiles = storedFiles.filter(f => !isDemoFile(f) && !isFileDeleted(f.id, f.internalFileNumber));
+  saveFiles(remainingFiles);
+
+  // Clean court sessions associated with demo files
+  const storedSessions = loadItem<CourtSession[]>(STORAGE_KEYS.COURT_SESSIONS, []);
+  const remainingSessions = storedSessions.filter(s => {
+    const fId = String(s.fileId || '').toLowerCase().trim();
+    const fNum = String(s.fileNumber || '').toLowerCase().trim();
+    return !demoIds.some(d => {
+      const cd = d.toLowerCase().trim();
+      return cd === fId || cd === fNum;
+    });
+  });
+  saveCourtSessions(remainingSessions);
+
+  // Clean insurance claims
+  const storedClaims = loadItem<InsuranceClaim[]>(STORAGE_KEYS.INSURANCE_CLAIMS, []);
+  const remainingClaims = storedClaims.filter(c => {
+    const fId = String(c.fileId || '').toLowerCase().trim();
+    const fNum = String(c.fileNumber || '').toLowerCase().trim();
+    return !demoIds.some(d => {
+      const cd = d.toLowerCase().trim();
+      return cd === fId || cd === fNum;
+    });
+  });
+  saveInsuranceClaims(remainingClaims);
+
+  // Clean cheques
+  const storedCheques = loadItem<PendingCheque[]>(STORAGE_KEYS.CHEQUES, []);
+  const remainingCheques = storedCheques.filter(ch => {
+    const fNum = String(ch.fileNumber || '').toLowerCase().trim();
+    return !demoIds.some(d => d.toLowerCase().trim() === fNum);
+  });
+  savePendingCheques(remainingCheques);
+
+  // Clean commissions
+  const storedCommissions = loadItem<CommissionRecord[]>(STORAGE_KEYS.COMMISSIONS, []);
+  const remainingCommissions = storedCommissions.filter(co => {
+    const fNum = String(co.fileNumber || '').toLowerCase().trim();
+    return !demoIds.some(d => d.toLowerCase().trim() === fNum);
+  });
+  saveCommissions(remainingCommissions);
+
+  return { deletedCount: demoFiles.length, remainingFiles };
 }
 
 export function getStoredMovements(): FileMovement[] {

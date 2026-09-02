@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   RegistryFile, 
   FileStatus, 
@@ -14,6 +14,7 @@ import {
   CourtOutcome,
   FileDocumentAttachment
 } from '../types';
+import { isDemoFile } from '../data/store';
 import { DEFAULT_CASE_CATEGORIES, CaseCategoryConfig } from '../data/caseCategories';
 import { 
   getCaseTypeAbbreviation,
@@ -70,7 +71,8 @@ import {
   Trash2,
   Paperclip,
   FileSpreadsheet,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
 
 export const CLIENT_TYPES: ClientType[] = [
@@ -145,6 +147,8 @@ interface RegistryModuleProps {
   onOpenDocumentManager?: (file: RegistryFile) => void;
   onOpenBulkImport?: () => void;
   onViewDocument?: (doc: FileDocumentAttachment) => void;
+  onCleanUpDemoFiles?: () => Promise<void> | void;
+  onDeleteFile?: (file: RegistryFile) => Promise<void> | void;
 }
 
 export type RegistryCategoryTab = 'ACTIVE' | 'CLOSED' | 'INCOMPLETE' | 'ALL';
@@ -173,7 +177,9 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   documents = [],
   onOpenDocumentManager,
   onOpenBulkImport,
-  onViewDocument
+  onViewDocument,
+  onCleanUpDemoFiles,
+  onDeleteFile
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourtStation, setSelectedCourtStation] = useState<string>('ALL');
@@ -183,6 +189,16 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   const [selectedFile, setSelectedFile] = useState<RegistryFile | null>(null);
   const [showAddModal, setShowAddModal] = useState(openNewModalInitially);
   const [showUnprocessedBucketModal, setShowUnprocessedBucketModal] = useState(false);
+
+  // Demo files cleanup state & single file deletion state
+  const [showCleanDemoModal, setShowCleanDemoModal] = useState(false);
+  const [isCleaningDemo, setIsCleaningDemo] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<RegistryFile | null>(null);
+  const [isDeletingFile, setIsDeletingFile] = useState(false);
+  const [demoSearchTerm, setDemoSearchTerm] = useState('');
+
+  const demoFiles = useMemo(() => files.filter(isDemoFile), [files]);
+  const realFiles = useMemo(() => files.filter(f => !isDemoFile(f)), [files]);
 
   // Record / Edit CORUM modal state
   const [showRecordCorumModal, setShowRecordCorumModal] = useState(false);
@@ -1154,6 +1170,17 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {onCleanUpDemoFiles && demoFiles.length > 0 && (
+            <button
+              onClick={() => setShowCleanDemoModal(true)}
+              className="px-4 py-2.5 bg-gradient-to-r from-rose-950 via-rose-900 to-red-900 hover:from-rose-900 hover:to-red-800 text-rose-200 hover:text-white border border-rose-500/70 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer shrink-0 animate-pulse hover:animate-none"
+              title="One-time purge of all pre-seeded demo/sample files"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              <span>Clean Up Demo Files ({demoFiles.length})</span>
+            </button>
+          )}
+
           {onOpenBulkImport && (
             <button
               onClick={onOpenBulkImport}
@@ -1174,6 +1201,37 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
           </button>
         </div>
       </div>
+
+      {/* DEMO FILES NOTICE CALLOUT BANNER */}
+      {demoFiles.length > 0 && (
+        <div className="p-4 bg-gradient-to-r from-amber-950/50 via-[#0B1F3A] to-rose-950/50 border border-amber-500/50 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-white text-sm flex items-center gap-2">
+                <span>Pre-Loaded Demo Records Present</span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black bg-rose-900/90 text-rose-200 border border-rose-500/60">
+                  {demoFiles.length} demo files
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                Found {demoFiles.length} pre-seeded demonstration records (e.g. Apex Hauliers, Safaricom PLC, Dr. Beatrice Wanjiru, etc.) alongside your {realFiles.length} firm files. Click below to permanently purge them.
+              </p>
+            </div>
+          </div>
+          {onCleanUpDemoFiles && (
+            <button
+              onClick={() => setShowCleanDemoModal(true)}
+              className="px-4 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clean Up Demo Files Now
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ------------------------------------------------------------- */}
       {/* CATEGORY & COURT STATION DIRECTORY LIST                       */}
@@ -1843,6 +1901,17 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Re-open File
+                  </button>
+                )}
+
+                {onDeleteFile && (
+                  <button
+                    onClick={() => setFileToDelete(selectedFile)}
+                    className="px-3.5 py-2 bg-rose-950/70 hover:bg-rose-900 text-rose-300 hover:text-rose-100 border border-rose-600/50 text-xs font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow"
+                    title="Permanently delete this physical file record"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-400" />
+                    <span>Delete File</span>
                   </button>
                 )}
               </div>
@@ -4170,6 +4239,226 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ONE-TIME CLEAN UP DEMO FILES MODAL */}
+      {showCleanDemoModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#081729] rounded-2xl max-w-2xl w-full p-6 space-y-5 border border-rose-500/50 shadow-2xl overflow-y-auto max-h-[92vh] text-slate-100">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-950/80 border border-rose-500/60 flex items-center justify-center text-rose-400 shrink-0">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-extrabold text-xl text-white">Clean Up Demo & Sample Files</h3>
+                  <p className="text-xs text-slate-400">One-time permanent deletion of pre-seeded demonstration data</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => !isCleaningDemo && setShowCleanDemoModal(false)}
+                disabled={isCleaningDemo}
+                className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Comparison Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 space-y-1">
+                <div className="text-[10px] font-mono font-black text-rose-300 uppercase">To Be Deleted</div>
+                <div className="text-2xl font-black font-mono text-rose-400">{demoFiles.length} Files</div>
+                <p className="text-[11px] text-rose-200/80">Pre-seeded demonstration files & sample records</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 space-y-1">
+                <div className="text-[10px] font-mono font-black text-emerald-300 uppercase">Safely Preserved</div>
+                <div className="text-2xl font-black font-mono text-emerald-400">{realFiles.length} Files</div>
+                <p className="text-[11px] text-emerald-200/80">Your authentic law firm registry files</p>
+              </div>
+            </div>
+
+            {/* Detailed Explanation */}
+            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2.5 leading-relaxed">
+              <p>
+                The registry currently contains <strong>{demoFiles.length} demo files</strong> (such as <em>Apex Hauliers</em>, <em>Safaricom PLC</em>, <em>Dr. Beatrice Wanjiru</em>, etc.) that were bundled into the sample dataset.
+              </p>
+              <p>
+                Clicking <strong>Confirm Permanent Cleanup</strong> below will permanently remove these sample files and any sample court diary sessions or claims from your local registry, backend server, and cloud database.
+              </p>
+              {realFiles.length > 0 && (
+                <div className="pt-2 border-t border-slate-800">
+                  <div className="text-[11px] font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Protected genuine firm files ({realFiles.length}):
+                  </div>
+                  <ul className="text-[11px] text-slate-300 font-mono space-y-0.5 list-disc list-inside">
+                    {realFiles.map(rf => (
+                      <li key={rf.id} className="truncate">
+                        <span className="text-white font-bold">{rf.internalFileNumber}</span>: {rf.clientName}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Search / Filter Demo Files to Preview */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-semibold text-slate-200">Demo Files to be deleted ({demoFiles.length}):</span>
+                <span className="text-[11px] font-mono">Scroll to inspect</span>
+              </div>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Filter demo files preview..."
+                  value={demoSearchTerm}
+                  onChange={e => setDemoSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-200 focus:border-rose-500 outline-none"
+                />
+              </div>
+
+              <div className="max-h-48 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800/80 bg-slate-950/60">
+                {demoFiles
+                  .filter(f => {
+                    if (!demoSearchTerm) return true;
+                    const q = demoSearchTerm.toLowerCase();
+                    return (
+                      (f.internalFileNumber || '').toLowerCase().includes(q) ||
+                      (f.clientName || '').toLowerCase().includes(q) ||
+                      (f.courtCaseNumber || '').toLowerCase().includes(q)
+                    );
+                  })
+                  .map(df => (
+                    <div key={df.id} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-900/50">
+                      <div className="min-w-0 pr-3">
+                        <div className="font-mono font-bold text-rose-300 truncate">{df.internalFileNumber}</div>
+                        <div className="text-slate-300 truncate text-[11px]">{df.clientName}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] font-mono text-slate-400">{df.caseCategory || 'Civil'}</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowCleanDemoModal(false)}
+                disabled={isCleaningDemo}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isCleaningDemo}
+                onClick={async () => {
+                  if (!onCleanUpDemoFiles) return;
+                  setIsCleaningDemo(true);
+                  try {
+                    await onCleanUpDemoFiles();
+                    setShowCleanDemoModal(false);
+                  } finally {
+                    setIsCleaningDemo(false);
+                  }
+                }}
+                className="px-6 py-2.5 bg-gradient-to-r from-rose-600 via-rose-700 to-red-700 hover:from-rose-500 hover:to-red-600 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-xl transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isCleaningDemo ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Purging Demo Files...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Permanently Delete All {demoFiles.length} Demo Files</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM DELETE SINGLE FILE MODAL */}
+      {fileToDelete && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#081729] rounded-2xl max-w-md w-full p-6 space-y-4 border border-rose-500/50 shadow-2xl text-slate-100">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-950/80 border border-rose-500/60 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-lg text-white">Delete File Record</h3>
+                <p className="text-xs text-slate-400">Permanently remove physical file from registry</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 text-xs space-y-1">
+              <div className="font-mono font-bold text-amber-300 text-sm">{fileToDelete.internalFileNumber}</div>
+              <div className="text-white font-semibold">{fileToDelete.clientName}</div>
+              <div className="text-slate-400 text-[11px]">{fileToDelete.courtCaseNumber} • {fileToDelete.courtStation}</div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Are you sure you want to permanently delete this file record? All associated registry tracking records will be removed from your system. This action cannot be undone.
+            </p>
+
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                disabled={isDeletingFile}
+                onClick={() => setFileToDelete(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeletingFile}
+                onClick={async () => {
+                  if (!fileToDelete || !onDeleteFile) return;
+                  setIsDeletingFile(true);
+                  try {
+                    await onDeleteFile(fileToDelete);
+                    if (selectedFile?.id === fileToDelete.id) {
+                      setSelectedFile(null);
+                    }
+                    setFileToDelete(null);
+                  } finally {
+                    setIsDeletingFile(false);
+                  }
+                }}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer"
+              >
+                {isDeletingFile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Confirm Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

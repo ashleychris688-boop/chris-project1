@@ -32,18 +32,20 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
     const timer = setInterval(() => {
       if (!isPaused) {
         setProgress(prev => {
-          if (prev <= 0) {
-            clearInterval(timer);
-            onDismiss(toast.id);
-            return 0;
-          }
-          return prev - step;
+          const next = prev - step;
+          return next > 0 ? next : 0;
         });
       }
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [duration, isPaused, toast.id, onDismiss]);
+  }, [duration, isPaused]);
+
+  useEffect(() => {
+    if (duration > 0 && progress <= 0) {
+      onDismiss(toast.id);
+    }
+  }, [progress, duration, toast.id, onDismiss]);
 
   const getIcon = () => {
     // If title or message hints at specific domain operations
