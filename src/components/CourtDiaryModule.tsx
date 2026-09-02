@@ -51,6 +51,7 @@ interface CourtDiaryModuleProps {
   users?: User[];
   onOpenDocumentManager?: (file: RegistryFile) => void;
   onViewDocument?: (doc: FileDocumentAttachment) => void;
+  onCleanUpDiary?: () => Promise<void> | void;
 }
 
 export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
@@ -63,7 +64,8 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
   courtStations,
   users = [],
   onOpenDocumentManager,
-  onViewDocument
+  onViewDocument,
+  onCleanUpDiary
 }) => {
   const [viewMode, setViewMode] = useState<'today' | 'weekly' | 'monthly'>('today');
   const [searchTerm, setSearchTerm] = useState('');
@@ -448,11 +450,31 @@ export const CourtDiaryModule: React.FC<CourtDiaryModuleProps> = ({
           </div>
         ))}
 
-        {filteredSessions.length === 0 && (
+        {files.length === 0 ? (
+          <div className="col-span-full p-10 bg-[#081729] rounded-2xl border border-slate-800 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-[#C9A227] mx-auto">
+              <Scale className="w-6 h-6" />
+            </div>
+            <div className="space-y-1 max-w-md mx-auto">
+              <h3 className="font-bold text-white text-sm">Registry Has Zero Files</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Your physical file registry currently has no case files. Court diary hearings and mentions will automatically populate here once case files are registered and scheduled.
+              </p>
+            </div>
+            {sessions.length > 0 && onCleanUpDiary && (
+              <button
+                onClick={onCleanUpDiary}
+                className="mt-2 px-4 py-2 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Clean Up Diary ({sessions.length} stray entries)
+              </button>
+            )}
+          </div>
+        ) : filteredSessions.length === 0 ? (
           <div className="col-span-full p-12 bg-[#081729] rounded-2xl border border-[#C9A227]/30 text-center text-slate-400 text-xs">
             No court sessions found matching the criteria.
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Add Court Hearing Modal */}

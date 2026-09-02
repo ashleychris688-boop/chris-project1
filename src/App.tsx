@@ -54,7 +54,8 @@ import {
   getStoredViewState, saveStoredViewState,
   resetToDefaults, clearAllDataForProduction,
   getStoredDeletedFirms, saveDeletedFirmRecord, removeDeletedFirmRecord, isFirmDeleted,
-  isDemoFile, cleanUpDemoRecords, saveDeletedFileId, saveDeletedFileIds
+  isDemoFile, cleanUpDemoRecords, saveDeletedFileId, saveDeletedFileIds,
+  cleanUpDiaryAndTasks
 } from './data/store';
 import { INITIAL_SETTINGS } from './data/initialData';
 
@@ -83,7 +84,10 @@ import {
   performFullCloudSync,
   saveFileToFirebase,
   deleteFileFromFirebase,
-  purgeFilesFromFirebase
+  purgeFilesFromFirebase,
+  purgeCourtSessionsFromFirebase,
+  purgeTasksFromFirebase,
+  purgeAllDiaryAndTasksFromFirebase
 } from './lib/firebase';
 import { ShieldAlert } from 'lucide-react';
 
@@ -263,54 +267,114 @@ export default function App() {
   }, [files, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCourtSessions = useMemo(() => {
-    if (isSuperAdminView) return courtSessions;
-    return courtSessions.filter(s => matchesFirm(s.firmCode, undefined, s.fileNumber));
-  }, [courtSessions, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? courtSessions : courtSessions.filter(s => matchesFirm(s.firmCode, undefined, s.fileNumber));
+    return base.filter(s =>
+      activeFirmFiles.some(f =>
+        (s.fileId && f.id === s.fileId) ||
+        (s.fileNumber && f.internalFileNumber?.toLowerCase().trim() === s.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [courtSessions, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCourtOutcomes = useMemo(() => {
-    if (isSuperAdminView) return courtOutcomes;
-    return courtOutcomes.filter(o => matchesFirm(o.firmCode, undefined, o.fileNumber));
-  }, [courtOutcomes, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? courtOutcomes : courtOutcomes.filter(o => matchesFirm(o.firmCode, undefined, o.fileNumber));
+    return base.filter(o =>
+      activeFirmFiles.some(f =>
+        (o.fileNumber && f.internalFileNumber?.toLowerCase().trim() === o.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [courtOutcomes, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCorumEntries = useMemo(() => {
-    if (isSuperAdminView) return corumEntries;
-    return corumEntries.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
-  }, [corumEntries, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? corumEntries : corumEntries.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+    return base.filter(c =>
+      activeFirmFiles.some(f =>
+        (c.fileNumber && f.internalFileNumber?.toLowerCase().trim() === c.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [corumEntries, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmFileDocuments = useMemo(() => {
-    if (isSuperAdminView) return fileDocuments;
-    return fileDocuments.filter(d => matchesFirm(d.firmCode, undefined, d.fileId));
-  }, [fileDocuments, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? fileDocuments : fileDocuments.filter(d => matchesFirm(d.firmCode, undefined, d.fileId));
+    return base.filter(d =>
+      activeFirmFiles.some(f =>
+        (d.fileId && (f.id === d.fileId || f.internalFileNumber === d.fileId))
+      )
+    );
+  }, [fileDocuments, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmMovements = useMemo(() => {
-    if (isSuperAdminView) return movements;
-    return movements.filter(m => matchesFirm(m.firmCode, undefined, m.fileNumber));
-  }, [movements, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? movements : movements.filter(m => matchesFirm(m.firmCode, undefined, m.fileNumber));
+    return base.filter(m =>
+      activeFirmFiles.some(f =>
+        (m.fileId && f.id === m.fileId) ||
+        (m.fileNumber && f.internalFileNumber?.toLowerCase().trim() === m.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [movements, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmClaims = useMemo(() => {
-    if (isSuperAdminView) return claims;
-    return claims.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
-  }, [claims, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? claims : claims.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+    return base.filter(c =>
+      activeFirmFiles.some(f =>
+        (c.fileId && f.id === c.fileId) ||
+        (c.fileNumber && f.internalFileNumber?.toLowerCase().trim() === c.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [claims, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCheques = useMemo(() => {
-    if (isSuperAdminView) return cheques;
-    return cheques.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
-  }, [cheques, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? cheques : cheques.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+    return base.filter(c =>
+      activeFirmFiles.some(f =>
+        (c.fileId && f.id === c.fileId) ||
+        (c.fileNumber && f.internalFileNumber?.toLowerCase().trim() === c.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [cheques, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmCommissions = useMemo(() => {
-    if (isSuperAdminView) return commissions;
-    return commissions.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
-  }, [commissions, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? commissions : commissions.filter(c => matchesFirm(c.firmCode, undefined, c.fileNumber));
+    return base.filter(c =>
+      activeFirmFiles.some(f =>
+        (c.fileId && f.id === c.fileId) ||
+        (c.fileNumber && f.internalFileNumber?.toLowerCase().trim() === c.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [commissions, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmBringUpItems = useMemo(() => {
-    if (isSuperAdminView) return bringUpItems;
-    return bringUpItems.filter(b => matchesFirm(b.firmCode, undefined, b.fileNumber));
-  }, [bringUpItems, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? bringUpItems : bringUpItems.filter(b => matchesFirm(b.firmCode, undefined, b.fileNumber));
+    return base.filter(b =>
+      activeFirmFiles.some(f =>
+        (b.fileId && f.id === b.fileId) ||
+        (b.fileNumber && f.internalFileNumber?.toLowerCase().trim() === b.fileNumber?.toLowerCase().trim())
+      )
+    );
+  }, [bringUpItems, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmTasks = useMemo(() => {
-    if (isSuperAdminView) return tasks;
-    return tasks.filter(t => matchesFirm(t.firmCode, undefined, t.fileNumber));
-  }, [tasks, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
+    if (activeFirmFiles.length === 0) return [];
+    const base = isSuperAdminView ? tasks : tasks.filter(t => matchesFirm(t.firmCode, undefined, t.fileNumber));
+    return base.filter(t => {
+      if (t.fileNumber || t.fileId) {
+        return activeFirmFiles.some(f =>
+          (t.fileId && f.id === t.fileId) ||
+          (t.fileNumber && f.internalFileNumber?.toLowerCase().trim() === t.fileNumber?.toLowerCase().trim())
+        );
+      }
+      return false;
+    });
+  }, [tasks, activeFirmFiles, currentFirmCodeUpper, currentFirmId, isSuperAdminView, settings.fileNumberPrefix, firms.length]);
 
   const activeFirmUnprocessedRecords = useMemo(() => {
     if (isSuperAdminView) return unprocessedRecords;
@@ -460,6 +524,24 @@ export default function App() {
     );
     setAuditLogsState(getStoredAuditLogs());
   };
+
+  // Enforce zero-state consistency: when registry files are zero, clean up any lingering operational records
+  useEffect(() => {
+    if (files.length === 0) {
+      if (courtSessions.length > 0) {
+        setCourtSessionsState([]);
+        saveCourtSessions([]);
+      }
+      if (tasks.length > 0) {
+        setTasksState([]);
+        saveTasks([]);
+      }
+      if (bringUpItems.length > 0) {
+        setBringUpItemsState([]);
+        saveBringUpItems([]);
+      }
+    }
+  }, [files.length, courtSessions.length, tasks.length, bringUpItems.length]);
 
   // Handlers for Case Chasers Module & Unprocessed Bucket
   const handleAddUnprocessedRecord = (newRecord: UnprocessedClientRecord) => {
@@ -1859,6 +1941,8 @@ export default function App() {
       // 4. Update React state
       setFilesState(remainingFiles);
       setCourtSessionsState(getStoredCourtSessions());
+      setTasksState(getStoredTasks());
+      setBringUpItemsState(getStoredBringUpItems());
       setClaimsState(getStoredInsuranceClaims());
       setChequesState(getStoredPendingCheques());
       setCommissionsState(getStoredCommissions());
@@ -1883,6 +1967,77 @@ export default function App() {
     } catch (e: any) {
       console.error('Failed to clean demo files:', e);
       showToast('error', 'Cleanup Failed', e?.message || 'Could not complete demo files cleanup.');
+    }
+  };
+
+  const handleCleanUpDiaryAndTasks = async () => {
+    try {
+      // 1. Call server endpoint to clean court sessions & tasks
+      await fetch('/api/diary-tasks/clean-all', { method: 'POST' }).catch(err => {
+        console.warn('Backend clean diary-tasks notice:', err);
+      });
+
+      // 2. Physical purge from Firestore
+      await purgeAllDiaryAndTasksFromFirebase().catch(err => {
+        console.warn('Firebase purge diary-tasks notice:', err);
+      });
+
+      // 3. Local storage cleanup
+      const { removedSessions, removedTasks } = cleanUpDiaryAndTasks();
+
+      // 4. Update React state
+      setCourtSessionsState([]);
+      setTasksState([]);
+      setBringUpItemsState([]);
+      setCourtOutcomesState([]);
+      setCorumEntriesState([]);
+
+      // 5. Add audit log
+      if (currentUser) {
+        addAuditLog(
+          currentUser.fullName,
+          currentUser.role,
+          'Reset Diary & Tasks to Zero',
+          'Court',
+          `Cleaned up court diary and task management (${removedSessions} sessions, ${removedTasks} tasks purged) to match empty registry state.`
+        );
+        setAuditLogsState(getStoredAuditLogs());
+      }
+
+      showToast(
+        'success',
+        'Zero-State Enforced',
+        'Court diary and task management have been cleanly reset to 0 files and 0 records.'
+      );
+    } catch (e: any) {
+      console.error('Failed to clean diary and tasks:', e);
+      showToast('error', 'Cleanup Failed', e?.message || 'Could not reset diary and tasks.');
+    }
+  };
+
+  const handleCleanUpDiary = async () => {
+    try {
+      await fetch('/api/court-sessions/clean-all', { method: 'POST' }).catch(err => console.warn(err));
+      await purgeCourtSessionsFromFirebase().catch(err => console.warn(err));
+      saveCourtSessions([]);
+      setCourtSessionsState([]);
+      setCourtOutcomesState([]);
+      setCorumEntriesState([]);
+      showToast('success', 'Diary Cleaned', 'Court diary cleared to 0 hearings.');
+    } catch (e: any) {
+      showToast('error', 'Error', e?.message || 'Failed to clean diary');
+    }
+  };
+
+  const handleCleanUpTasks = async () => {
+    try {
+      await fetch('/api/tasks/clean-all', { method: 'POST' }).catch(err => console.warn(err));
+      await purgeTasksFromFirebase().catch(err => console.warn(err));
+      saveTasks([]);
+      setTasksState([]);
+      showToast('success', 'Tasks Cleaned', 'Task management cleared to 0 tasks.');
+    } catch (e: any) {
+      showToast('error', 'Error', e?.message || 'Failed to clean tasks');
     }
   };
 
@@ -2825,6 +2980,7 @@ export default function App() {
               onNavigateToFile={fileNum => {
                 setActiveTab('registry');
               }}
+              onCleanUpTasks={handleCleanUpTasks}
             />
           )}
 
@@ -2931,6 +3087,7 @@ export default function App() {
               onViewDocument={doc => setActiveDocumentForViewer(doc)}
               courtStations={settings.courtStations}
               users={activeFirmUsers}
+              onCleanUpDiary={handleCleanUpDiary}
             />
           )}
 
@@ -3071,6 +3228,8 @@ export default function App() {
               onUpdatePassword={handleUpdatePassword}
               onCleanUpDemoFiles={handleCleanUpDemoFiles}
               demoFilesCount={activeFirmFiles.filter(isDemoFile).length}
+              onCleanUpDiaryAndTasks={handleCleanUpDiaryAndTasks}
+              diaryTasksCount={{ sessions: activeFirmCourtSessions.length, tasks: activeFirmTasks.length }}
             />
           )}
 

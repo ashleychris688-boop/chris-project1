@@ -486,7 +486,34 @@ export function cleanUpDemoRecords(): { deletedCount: number; remainingFiles: Re
   });
   saveCommissions(remainingCommissions);
 
+  // Clean tasks associated with demo files
+  const storedTasks = loadItem<ChaserTask[]>(STORAGE_KEYS.TASKS, []);
+  const remainingTasks = storedTasks.filter(t => {
+    const fId = String(t.fileId || '').toLowerCase().trim();
+    const fNum = String(t.fileNumber || '').toLowerCase().trim();
+    return !demoIds.some(d => {
+      const cd = d.toLowerCase().trim();
+      return cd === fId || cd === fNum;
+    });
+  });
+  saveTasks(remainingTasks);
+
   return { deletedCount: demoFiles.length, remainingFiles };
+}
+
+export function cleanUpDiaryAndTasks(): { removedSessions: number; removedTasks: number } {
+  const storedSessions = loadItem<CourtSession[]>(STORAGE_KEYS.COURT_SESSIONS, []);
+  const storedTasks = loadItem<ChaserTask[]>(STORAGE_KEYS.TASKS, []);
+  const removedSessions = storedSessions.length;
+  const removedTasks = storedTasks.length;
+
+  saveCourtSessions([]);
+  saveTasks([]);
+  saveBringUpItems([]);
+  saveCourtOutcomes([]);
+  saveCorumEntries([]);
+
+  return { removedSessions, removedTasks };
 }
 
 export function getStoredMovements(): FileMovement[] {
@@ -498,7 +525,29 @@ export function saveMovements(movements: FileMovement[]): void {
 }
 
 export function getStoredCourtSessions(): CourtSession[] {
-  return loadItem(STORAGE_KEYS.COURT_SESSIONS, INITIAL_COURT_SESSIONS);
+  const sessions = loadItem<CourtSession[]>(STORAGE_KEYS.COURT_SESSIONS, INITIAL_COURT_SESSIONS);
+  const storedFiles = loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, []);
+  // If the physical file registry has zero files, court diary must have zero files/sessions
+  if (!storedFiles || storedFiles.length === 0) {
+    if (sessions.length > 0) {
+      saveCourtSessions([]);
+    }
+    return [];
+  }
+  // Filter out any sessions referencing non-existent files
+  const validSessions = sessions.filter(s => {
+    if (!s) return false;
+    const fId = String(s.fileId || '').toLowerCase().trim();
+    const fNum = String(s.fileNumber || '').toLowerCase().trim();
+    return storedFiles.some(f => 
+      (f.id && String(f.id).toLowerCase().trim() === fId) ||
+      (f.internalFileNumber && String(f.internalFileNumber).toLowerCase().trim() === fNum)
+    );
+  });
+  if (validSessions.length !== sessions.length) {
+    saveCourtSessions(validSessions);
+  }
+  return validSessions;
 }
 
 export function saveCourtSessions(sessions: CourtSession[]): void {
@@ -609,7 +658,32 @@ export function saveResponsibilities(items: ChaserFileResponsibility[]): void {
 }
 
 export function getStoredTasks(): ChaserTask[] {
-  return loadItem(STORAGE_KEYS.TASKS, INITIAL_TASKS);
+  const tasks = loadItem<ChaserTask[]>(STORAGE_KEYS.TASKS, INITIAL_TASKS);
+  const storedFiles = loadItem<RegistryFile[]>(STORAGE_KEYS.FILES, []);
+  // If the physical file registry has zero files, task management must have zero files/tasks
+  if (!storedFiles || storedFiles.length === 0) {
+    if (tasks.length > 0) {
+      saveTasks([]);
+    }
+    return [];
+  }
+  // Filter out any tasks referencing non-existent files
+  const validTasks = tasks.filter(t => {
+    if (!t) return false;
+    if (t.fileNumber || t.fileId) {
+      const fNum = String(t.fileNumber || '').toLowerCase().trim();
+      const fId = String(t.fileId || '').toLowerCase().trim();
+      return storedFiles.some(f =>
+        (f.id && String(f.id).toLowerCase().trim() === fId) ||
+        (f.internalFileNumber && String(f.internalFileNumber).toLowerCase().trim() === fNum)
+      );
+    }
+    return true;
+  });
+  if (validTasks.length !== tasks.length) {
+    saveTasks(validTasks);
+  }
+  return validTasks;
 }
 
 export function saveTasks(tasks: ChaserTask[]): void {

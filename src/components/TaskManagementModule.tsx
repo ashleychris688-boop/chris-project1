@@ -55,6 +55,7 @@ interface TaskManagementModuleProps {
   onUpdateTask: (task: TaskItem) => void;
   onDeleteTask?: (taskId: string) => void;
   onNavigateToFile?: (fileNumber: string) => void;
+  onCleanUpTasks?: () => Promise<void> | void;
 }
 
 // Preset Task Suggestions grouped by Assigner / Assignee Role & Domain
@@ -135,7 +136,8 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
   onAddTask,
   onUpdateTask,
   onDeleteTask,
-  onNavigateToFile
+  onNavigateToFile,
+  onCleanUpTasks
 }) => {
   const currentRole = currentUser?.role || 'Proprietor';
   const isProprietor = currentRole === 'Proprietor' || currentRole === 'Admin' || currentRole === 'Super Admin';
@@ -1004,6 +1006,29 @@ export const TaskManagementModule: React.FC<TaskManagementModuleProps> = ({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ZERO-REGISTRY FILES EMPTY STATE BANNER */}
+      {files.length === 0 && (
+        <div className="p-6 bg-[#081729] rounded-2xl border border-slate-800 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-[#C9A227] mx-auto">
+            <CheckSquare className="w-6 h-6" />
+          </div>
+          <div className="space-y-1 max-w-md mx-auto">
+            <h3 className="font-bold text-white text-sm">Registry Has Zero Files</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Your physical file registry currently has no case files. Case tasks, investigations, and chaser actions will appear here once files are created in the registry.
+            </p>
+          </div>
+          {tasks.length > 0 && onCleanUpTasks && (
+            <button
+              onClick={onCleanUpTasks}
+              className="mt-2 px-4 py-2 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold text-xs rounded-xl transition cursor-pointer"
+            >
+              Clean Up Tasks ({tasks.length} stray entries)
+            </button>
+          )}
         </div>
       )}
 

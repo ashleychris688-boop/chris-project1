@@ -532,6 +532,51 @@ export async function purgeFilesFromFirebase(filesToPurge: any[]) {
   }
 }
 
+export async function purgeCourtSessionsFromFirebase(sessionsToPurge?: any[]) {
+  if (Array.isArray(sessionsToPurge) && sessionsToPurge.length > 0) {
+    for (const s of sessionsToPurge) {
+      try {
+        if (s.id) await deleteDocumentFromFirebase('court_sessions', s.id);
+      } catch (e) {}
+    }
+  } else {
+    try {
+      const snap = await getDocs(collection(db, 'court_sessions'));
+      for (const d of snap.docs) {
+        await deleteDoc(doc(db, 'court_sessions', d.id));
+      }
+    } catch (e) {
+      console.warn('Error purging court_sessions collection:', e);
+    }
+  }
+}
+
+export async function purgeTasksFromFirebase(tasksToPurge?: any[]) {
+  if (Array.isArray(tasksToPurge) && tasksToPurge.length > 0) {
+    for (const t of tasksToPurge) {
+      try {
+        if (t.id) await deleteDocumentFromFirebase('tasks', t.id);
+      } catch (e) {}
+    }
+  } else {
+    try {
+      const snap = await getDocs(collection(db, 'tasks'));
+      for (const d of snap.docs) {
+        await deleteDoc(doc(db, 'tasks', d.id));
+      }
+    } catch (e) {
+      console.warn('Error purging tasks collection:', e);
+    }
+  }
+}
+
+export async function purgeAllDiaryAndTasksFromFirebase() {
+  await Promise.allSettled([
+    purgeCourtSessionsFromFirebase(),
+    purgeTasksFromFirebase()
+  ]);
+}
+
 // Data Redundancy: Periodically triggers a full snapshot of Local Storage and syncs to Firebase
 export async function triggerLocalStorageFirebaseSnapshot(firmCode = 'GLOBAL') {
   if (isQuotaExceeded) {

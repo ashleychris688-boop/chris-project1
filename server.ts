@@ -42,6 +42,7 @@ function savePersistedState() {
       dbDeletedFirms,
       dbFiles,
       dbCourtSessions,
+      dbTasks,
       dbClaims,
       dbCheques,
       dbCommissions
@@ -76,292 +77,21 @@ let dbUsers: any[] = savedData?.dbUsers || [
   }
 ];
 
-let dbFiles: any[] = savedData?.dbFiles || [
-  {
-    id: "f-101",
-    firmCode: "LFR-001",
-    internalFileNumber: "LFR/2026/0142",
-    courtCaseNumber: "Milimani HCCC No. 428 of 2025",
-    clientName: "Apex Hauliers Kenya Ltd",
-    opposingParty: "Heritage Insurance Co. Ltd",
-    courtStation: "Milimani Law Courts - Commercial Division",
-    courtNumber: "Court 4",
-    magistrate: "Hon. Justice J. K. Mwangi",
-    advocateName: "Adv. James Kamau",
-    clerkName: "Peter Mutua",
-    secretaryName: "Mary Wafula",
-    caseChaserName: "David Kinuthia",
-    insuranceCompanyName: "Heritage Insurance Co.",
-    currentStatus: "Out in Court",
-    physicalLocation: { room: "Court 4", cabinet: "Transit Bag #3", shelf: "Court Desk" },
-    nextCourtDate: new Date().toISOString().split('T')[0],
-    dateOpened: "2025-02-10",
-    caseType: "Commercial Dispute"
-  },
-  {
-    id: "f-102",
-    firmCode: "LFR-001",
-    internalFileNumber: "LFR/2026/0119",
-    courtCaseNumber: "Milimani CMCC No. 1042 of 2024",
-    clientName: "Dr. Beatrice Wanjiru",
-    opposingParty: "Resolution Insurance Company",
-    courtStation: "Milimani Law Courts - Civil Division",
-    courtNumber: "Court 12",
-    magistrate: "Hon. Principal Mag. E. Nderitu",
-    advocateName: "Adv. Sarah Otieno",
-    clerkName: "Peter Mutua",
-    secretaryName: "Mary Wafula",
-    caseChaserName: "David Kinuthia",
-    insuranceCompanyName: "Resolution Insurance",
-    currentStatus: "Out with Advocate",
-    physicalLocation: { room: "Advocate Office", cabinet: "Adv. Otieno Desk", shelf: "Action Tray" },
-    nextCourtDate: new Date().toISOString().split('T')[0],
-    dateOpened: "2024-08-15",
-    caseType: "Insurance Claim"
-  },
-  {
-    id: "f-103",
-    firmCode: "LFR-001",
-    internalFileNumber: "LFR/2026/0204",
-    courtCaseNumber: "Mombasa HCCC No. 89 of 2025",
-    clientName: "Bahari Logistics Ltd",
-    opposingParty: "Kenya Revenue Authority",
-    courtStation: "Mombasa Law Courts",
-    courtNumber: "Court 2",
-    magistrate: "Hon. Lady Justice C. Omondi",
-    advocateName: "Adv. James Kamau",
-    clerkName: "Peter Mutua",
-    secretaryName: "Mary Wafula",
-    caseChaserName: "David Kinuthia",
-    insuranceCompanyName: "None",
-    currentStatus: "Active",
-    physicalLocation: { room: "Central Registry", cabinet: "Cabinet A - High Court Commercial", shelf: "Shelf 3" },
-    nextCourtDate: "2026-08-04",
-    dateOpened: "2025-05-18",
-    caseType: "Civil Litigation"
-  },
-  {
-    id: "f-104",
-    firmCode: "LFR-001",
-    internalFileNumber: "LFR/2026/0088",
-    courtCaseNumber: "Milimani CMCC No. 512 of 2024",
-    clientName: "John Kiprono",
-    opposingParty: "Directline Assurance Co.",
-    courtStation: "Milimani Law Courts - Civil Division",
-    courtNumber: "Court 8",
-    magistrate: "Hon. Senior Mag. B. Cheruiyot",
-    advocateName: "Adv. Sarah Otieno",
-    clerkName: "Peter Mutua",
-    secretaryName: "Mary Wafula",
-    caseChaserName: "David Kinuthia",
-    insuranceCompanyName: "Directline Assurance",
-    currentStatus: "Out with Insurance",
-    physicalLocation: { room: "Insurance Office", cabinet: "Directline Claims Dept", shelf: "Dispatched File" },
-    nextCourtDate: "2026-08-12",
-    dateOpened: "2024-04-22",
-    caseType: "Insurance Claim"
-  },
-  {
-    id: "f-105",
-    internalFileNumber: "LFR/2026/0310",
-    courtCaseNumber: "Eldoret ELC No. 44 of 2025",
-    clientName: "Eldo Farmers Co-op Union",
-    opposingParty: "County Government of Uasin Gishu",
-    courtStation: "Eldoret Law Courts",
-    courtNumber: "Court 1",
-    magistrate: "Hon. Justice M. Kipkorir",
-    advocateName: "Adv. James Kamau",
-    clerkName: "Peter Mutua",
-    secretaryName: "Mary Wafula",
-    caseChaserName: "None",
-    insuranceCompanyName: "N/A",
-    currentStatus: "Incomplete",
-    physicalLocation: { room: "Central Registry", cabinet: "Cabinet D - Land & Conveyancing", shelf: "Shelf 1" },
-    missingRequirements: ["Certified Copy of Title Deed", "Valuation Report", "Registry Index Map"],
-    dateOpened: "2025-11-03",
-    caseType: "Land & Environment"
-  },
-  {
-    id: "f-106",
-    internalFileNumber: "LFR/2026/0045",
-    courtCaseNumber: "Nakuru HCCC No. 201 of 2023",
-    clientName: "Rift Valley Flour Mills Ltd",
-    opposingParty: "APA Insurance Ltd",
-    courtStation: "Nakuru Law Courts",
-    courtNumber: "Court 3",
-    magistrate: "Hon. Justice T. Rotich",
-    advocateName: "Adv. Sarah Otieno",
-    clerkName: "Peter Mutua",
-    secretaryName: "Mary Wafula",
-    caseChaserName: "David Kinuthia",
-    insuranceCompanyName: "APA Insurance",
-    currentStatus: "Closed",
-    physicalLocation: { room: "Archive Vault", cabinet: "Cabinet E - Archive Vault", shelf: "Box 2025-C" },
-    dateOpened: "2023-01-15",
-    dateClosed: "2025-12-20",
-    caseType: "Insurance Claim"
-  }
-];
+let dbFiles: any[] = savedData?.dbFiles ?? [];
+let dbCourtSessions: any[] = savedData?.dbCourtSessions ?? [];
+let dbTasks: any[] = savedData?.dbTasks ?? [];
+let dbClaims: any[] = savedData?.dbClaims ?? [];
+let dbCheques: any[] = savedData?.dbCheques ?? [];
+let dbCommissions: any[] = savedData?.dbCommissions ?? [];
 
-let dbCourtSessions: any[] = savedData?.dbCourtSessions || [
-  {
-    id: "cs-101",
-    fileId: "f-101",
-    fileNumber: "LFR/2026/0142",
-    clientName: "Apex Hauliers Kenya Ltd",
-    opposingParty: "Heritage Insurance Co. Ltd",
-    courtStation: "Milimani Law Courts - Commercial Division",
-    courtNumber: "Court 4",
-    magistrate: "Hon. Justice J. K. Mwangi",
-    hearingDate: new Date().toISOString().split('T')[0],
-    hearingTime: "09:00 AM",
-    advocateName: "Adv. James Kamau",
-    purpose: "Ruling",
-    status: "Upcoming"
-  },
-  {
-    id: "cs-102",
-    fileId: "f-102",
-    fileNumber: "LFR/2026/0119",
-    clientName: "Dr. Beatrice Wanjiru",
-    opposingParty: "Resolution Insurance Company",
-    courtStation: "Milimani Law Courts - Civil Division",
-    courtNumber: "Court 12",
-    magistrate: "Hon. Principal Mag. E. Nderitu",
-    hearingDate: new Date().toISOString().split('T')[0],
-    hearingTime: "09:30 AM",
-    advocateName: "Adv. Sarah Otieno",
-    purpose: "Mention",
-    status: "Upcoming"
-  },
-  {
-    id: "cs-103",
-    fileId: "f-103",
-    fileNumber: "LFR/2026/0204",
-    clientName: "Bahari Logistics Ltd",
-    opposingParty: "Kenya Revenue Authority",
-    courtStation: "Mombasa Law Courts",
-    courtNumber: "Court 2",
-    magistrate: "Hon. Lady Justice C. Omondi",
-    hearingDate: "2026-08-04",
-    hearingTime: "10:00 AM",
-    advocateName: "Adv. James Kamau",
-    purpose: "Hearing",
-    status: "Upcoming"
-  }
-];
-
-let dbClaims: any[] = savedData?.dbClaims || [
-  {
-    id: "ic-101",
-    fileId: "f-101",
-    fileNumber: "LFR/2026/0142",
-    clientName: "Apex Hauliers Kenya Ltd",
-    insuranceCompany: "Heritage Insurance Co.",
-    claimRef: "HER/2025/CLAIM-8812",
-    offerStatus: "Under Negotiation",
-    negotiationStatus: "Counter Offer",
-    consentSigned: false,
-    chequeProcessingStatus: "In Process",
-    paymentReceived: false,
-    settlementAmount: 8500000
-  },
-  {
-    id: "ic-102",
-    fileId: "f-102",
-    fileNumber: "LFR/2026/0119",
-    clientName: "Dr. Beatrice Wanjiru",
-    insuranceCompany: "Resolution Insurance",
-    claimRef: "RES/MED/2024/091",
-    offerStatus: "Offer Received",
-    negotiationStatus: "Initial Demand",
-    consentSigned: true,
-    paymentRequestedDate: "2026-07-20",
-    chequeProcessingStatus: "Cheque Issued",
-    paymentReceived: false,
-    settlementAmount: 3200000
-  },
-  {
-    id: "ic-104",
-    fileId: "f-104",
-    fileNumber: "LFR/2026/0088",
-    clientName: "John Kiprono",
-    insuranceCompany: "Directline Assurance",
-    claimRef: "DIR/MOTOR/5512",
-    offerStatus: "Pending Offer",
-    negotiationStatus: "Initial Demand",
-    consentSigned: false,
-    chequeProcessingStatus: "Not Started",
-    paymentReceived: false,
-    settlementAmount: 1800000
-  }
-];
-
-let dbCheques: any[] = savedData?.dbCheques || [
-  {
-    id: "chq-1",
-    fileId: "f-102",
-    fileNumber: "LFR/2026/0119",
-    clientName: "Dr. Beatrice Wanjiru",
-    drawerName: "Resolution Insurance Co. Ltd",
-    bankName: "KCB Bank Kenya - City Centre",
-    chequeNumber: "004812",
-    amount: 3200000,
-    expectedReleaseDate: "2026-07-30",
-    status: "Ready for Pickup",
-    remarks: "Advocate notified to collect from Insurance headquarters"
-  },
-  {
-    id: "chq-2",
-    fileId: "f-101",
-    fileNumber: "LFR/2026/0142",
-    clientName: "Apex Hauliers Kenya Ltd",
-    drawerName: "Heritage Insurance Co.",
-    bankName: "NCBA Bank Kenya",
-    chequeNumber: "891024",
-    amount: 8500000,
-    expectedReleaseDate: "2026-08-05",
-    status: "Processing",
-    remarks: "Under final signature approval by claims manager"
-  }
-];
-
-let dbCommissions: any[] = savedData?.dbCommissions || [
-  {
-    id: "com-1",
-    fileId: "f-101",
-    fileNumber: "LFR/2026/0142",
-    caseChaserName: "David Kinuthia",
-    settlementAmount: 8500000,
-    commissionRate: 10,
-    commissionDue: 850000,
-    amountPaid: 350000,
-    outstandingBalance: 500000,
-    lastPaymentDate: "2026-07-15"
-  },
-  {
-    id: "com-2",
-    fileId: "f-102",
-    fileNumber: "LFR/2026/0119",
-    caseChaserName: "David Kinuthia",
-    settlementAmount: 3200000,
-    commissionRate: 10,
-    commissionDue: 320000,
-    amountPaid: 0,
-    outstandingBalance: 320000
-  },
-  {
-    id: "com-3",
-    fileId: "f-104",
-    fileNumber: "LFR/2026/0088",
-    caseChaserName: "David Kinuthia",
-    settlementAmount: 1800000,
-    commissionRate: 10,
-    commissionDue: 180000,
-    amountPaid: 0,
-    outstandingBalance: 180000
-  }
-];
+// If there are zero registered files, enforce zero orphaned diary sessions, tasks, and claims
+if (dbFiles.length === 0) {
+  dbCourtSessions = [];
+  dbTasks = [];
+  dbClaims = [];
+  dbCheques = [];
+  dbCommissions = [];
+}
 
 // --- API ROUTES ---
 
@@ -754,6 +484,78 @@ app.post("/api/sync/all", (req, res) => {
 });
 
 app.get("/api/court-sessions", (req, res) => res.json(dbCourtSessions));
+
+app.post("/api/court-sessions", (req, res) => {
+  const session = req.body;
+  if (!session || !session.id) {
+    return res.status(400).json({ success: false, message: "Session object with id is required." });
+  }
+  const idx = dbCourtSessions.findIndex(s => s.id === session.id);
+  if (idx >= 0) {
+    dbCourtSessions[idx] = { ...dbCourtSessions[idx], ...session };
+  } else {
+    dbCourtSessions.unshift(session);
+  }
+  savePersistedState();
+  res.json({ success: true, count: dbCourtSessions.length, session });
+});
+
+app.delete("/api/court-sessions/:id", (req, res) => {
+  const targetId = req.params.id;
+  const initial = dbCourtSessions.length;
+  dbCourtSessions = dbCourtSessions.filter(s => s.id !== targetId);
+  savePersistedState();
+  res.json({ success: true, removed: initial - dbCourtSessions.length, count: dbCourtSessions.length });
+});
+
+app.post("/api/court-sessions/clean-all", (req, res) => {
+  const count = dbCourtSessions.length;
+  dbCourtSessions = [];
+  savePersistedState();
+  res.json({ success: true, removedCount: count, remainingCount: 0 });
+});
+
+app.get("/api/tasks", (req, res) => res.json(dbTasks));
+
+app.post("/api/tasks", (req, res) => {
+  const task = req.body;
+  if (!task || !task.id) {
+    return res.status(400).json({ success: false, message: "Task object with id is required." });
+  }
+  const idx = dbTasks.findIndex(t => t.id === task.id);
+  if (idx >= 0) {
+    dbTasks[idx] = { ...dbTasks[idx], ...task };
+  } else {
+    dbTasks.unshift(task);
+  }
+  savePersistedState();
+  res.json({ success: true, count: dbTasks.length, task });
+});
+
+app.delete("/api/tasks/:id", (req, res) => {
+  const targetId = req.params.id;
+  const initial = dbTasks.length;
+  dbTasks = dbTasks.filter(t => t.id !== targetId);
+  savePersistedState();
+  res.json({ success: true, removed: initial - dbTasks.length, count: dbTasks.length });
+});
+
+app.post("/api/tasks/clean-all", (req, res) => {
+  const count = dbTasks.length;
+  dbTasks = [];
+  savePersistedState();
+  res.json({ success: true, removedCount: count, remainingCount: 0 });
+});
+
+app.post("/api/diary-tasks/clean-all", (req, res) => {
+  const sessionCount = dbCourtSessions.length;
+  const taskCount = dbTasks.length;
+  dbCourtSessions = [];
+  dbTasks = [];
+  savePersistedState();
+  res.json({ success: true, removedSessions: sessionCount, removedTasks: taskCount, courtSessionsCount: 0, tasksCount: 0 });
+});
+
 app.get("/api/claims", (req, res) => res.json(dbClaims));
 app.get("/api/cheques", (req, res) => res.json(dbCheques));
 app.get("/api/commissions", (req, res) => res.json(dbCommissions));
