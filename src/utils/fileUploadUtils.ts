@@ -149,7 +149,7 @@ export function downloadSampleRegistryCsv() {
 export function mapSpreadsheetRowsToFiles(
   rows: Record<string, any>[],
   existingFiles: RegistryFile[],
-  firmCode: string = 'LFR-MAIN'
+  firmCode: string = 'LFR-001'
 ): { validFiles: RegistryFile[]; errors: string[]; duplicateCount: number } {
   const validFiles: RegistryFile[] = [];
   const errors: string[] = [];
@@ -172,22 +172,26 @@ export function mapSpreadsheetRowsToFiles(
       return '';
     };
 
-    const internalFileNumber = getVal('internal file number', 'file number', 'internal fileno', 'filenumber', 'file_no', 'file no');
-    const clientName = getVal('client name', 'client', 'plaintiff', 'applicant', 'claimant');
-    const courtCaseNumber = getVal('court case number', 'case number', 'court case no', 'suit number', 'case no');
-    const opposingParty = getVal('opposing party', 'defendant', 'respondent', 'other party');
-    const courtStation = getVal('court station', 'station', 'court');
-    const courtNumber = getVal('court number / division', 'court number', 'court no', 'division');
-    const magistrate = getVal('presiding magistrate / judge', 'magistrate', 'judge', 'coram');
-    const advocateName = getVal('assigned advocate', 'advocate', 'counsel', 'lawyer');
-    const clerkName = getVal('assigned clerk', 'clerk', 'registry clerk');
-    const cabinet = getVal('cabinet', 'cabinet name');
-    const shelf = getVal('shelf number', 'shelf', 'shelf no');
-    const section = getVal('section / compartment', 'section', 'compartment');
-    const status = getVal('current status', 'status', 'file status');
-    const caseCategory = getVal('case category', 'category');
-    const caseType = getVal('case nature / type', 'case type', 'nature of case');
-    const notes = getVal('notes / remarks', 'notes', 'remarks');
+    const internalFileNumber = getVal(
+      'internal file number', 'file number', 'internal fileno', 'filenumber', 
+      'file_no', 'file no', 'file no.', 'file-no', 'file ref', 'ref no', 'ref no.', 
+      'matter no', 'our ref', 'file id', 'internal ref', 'file #'
+    );
+    const clientName = getVal('client name', 'client', 'plaintiff', 'applicant', 'claimant', 'party name', 'name', 'client/plaintiff');
+    const courtCaseNumber = getVal('court case number', 'case number', 'court case no', 'suit number', 'case no', 'case no.', 'plaint no', 'cause no');
+    const opposingParty = getVal('opposing party', 'defendant', 'respondent', 'other party', 'accused', 'opposite party');
+    const courtStation = getVal('court station', 'station', 'court', 'court location', 'venue');
+    const courtNumber = getVal('court number / division', 'court number', 'court no', 'division', 'court room');
+    const magistrate = getVal('presiding magistrate / judge', 'magistrate', 'judge', 'coram', 'judge / magistrate');
+    const advocateName = getVal('assigned advocate', 'advocate', 'counsel', 'lawyer', 'assigned counsel');
+    const clerkName = getVal('assigned clerk', 'clerk', 'registry clerk', 'court clerk');
+    const cabinet = getVal('cabinet', 'cabinet name', 'cabinet no');
+    const shelf = getVal('shelf number', 'shelf', 'shelf no', 'shelf #');
+    const section = getVal('section / compartment', 'section', 'compartment', 'pigeon hole', 'drawer');
+    const rawStatus = getVal('current status', 'status', 'file status');
+    const caseCategory = getVal('case category', 'category', 'division');
+    const caseType = getVal('case nature / type', 'case type', 'nature of case', 'cause of action');
+    const notes = getVal('notes / remarks', 'notes', 'remarks', 'comment', 'comments');
 
     if (!internalFileNumber && !clientName) {
       // Empty row, skip silently
@@ -212,6 +216,25 @@ export function mapSpreadsheetRowsToFiles(
 
     const todayStr = new Date().toISOString().split('T')[0];
 
+    // Normalize status to supported RegistryFile status values
+    let normalizedStatus: RegistryFile['currentStatus'] = 'In Registry';
+    const sLower = rawStatus.toLowerCase();
+    if (sLower.includes('court') && !sLower.includes('closed')) {
+      normalizedStatus = 'In Court';
+    } else if (sLower.includes('advocate') || sLower.includes('counsel')) {
+      normalizedStatus = 'With Advocate';
+    } else if (sLower.includes('pending') || sLower.includes('judgment') || sLower.includes('ruling')) {
+      normalizedStatus = 'Pending Judgment';
+    } else if (sLower.includes('closed') || sLower.includes('concluded')) {
+      normalizedStatus = 'Closed';
+    } else if (sLower.includes('archived')) {
+      normalizedStatus = 'Archived';
+    } else if (sLower.includes('transit')) {
+      normalizedStatus = 'In Transit';
+    } else {
+      normalizedStatus = 'In Registry';
+    }
+
     const newFile: RegistryFile = {
       id: `file-import-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       firmCode: firmCode,
@@ -227,7 +250,7 @@ export function mapSpreadsheetRowsToFiles(
       secretaryName: 'Office Admin',
       caseChaserName: 'Field Officer',
       insuranceCompanyName: 'N/A',
-      currentStatus: (status as any) || 'In Registry',
+      currentStatus: normalizedStatus,
       physicalLocation: {
         room: 'Main Registry Room',
         cabinet: cabinet || 'Cabinet A',

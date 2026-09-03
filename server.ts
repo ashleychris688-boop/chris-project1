@@ -33,6 +33,41 @@ function loadPersistedState() {
   return null;
 }
 
+function isDemoFile(f: any): boolean {
+  if (!f) return false;
+  if (f.isDemo) return true;
+  const id = String(f.id || '').trim();
+  const num = String(f.internalFileNumber || '').trim().toUpperCase();
+  const client = String(f.clientName || '').trim().toLowerCase();
+  if (/^f-1[0-6]\d$/.test(id)) return true;
+  if (id === 'f-1785344239668' || num === 'LFR/2026/0449') return true;
+  if (/^LFR\/2026\/0(142|119|204|088|310|045|449)$/.test(num)) return true;
+  if (/^NGA\/1[0-6]\d\/2026$/.test(num)) return true;
+  const demoClients = [
+    'apex hauliers kenya ltd', 'dr. beatrice wanjiru', 'bahari logistics ltd',
+    'john kiprono', 'eldo farmers co-op union', 'rift valley flour mills ltd',
+    'hezron kamau', 'safaricom plc', 'kenya commercial bank ltd', 'crown paints kenya ltd',
+    'east african breweries plc', 'equity bank kenya ltd', 'bamburi cement plc',
+    'naivas supermarkets ltd', 'kakuzi plc', 'unga group ltd', 'kenolkobil kenya ltd',
+    'nation media group plc', 'centum investment co.', 'sameer africa plc',
+    'kcb group ltd', 'kenya airways plc', 'car & general kenya ltd', 'express kenya ltd',
+    'tps eastern africa ltd', 'totalenergies marketing kenya', 'mumias sugar company ltd',
+    'eveready east africa plc', 'williamson tea kenya plc', 'kapchorua tea plc',
+    'standard group plc', 'james mwangi maina', 'grace wanjiru njoroge',
+    'estate of david ochieng odhiambo', 'faith chebet korir', 'samuel kamau ndegwa',
+    'kenya power & lighting co. (kplc)', 'cooperative bank of kenya ltd',
+    'kenya revenue authority (kra)', 'kengen plc', 'ncba bank kenya plc',
+    'stanbic bank kenya ltd', 'kakamega county government', 'nakuru tea estates ltd',
+    'hassan abdi mohammed', 'meru farmers co-operative union', 'patrick muturi kimani',
+    'coast bus company ltd', 'beatrice achieng otieno', 'kericho tea packers ltd',
+    'mount kenya bottlers ltd', 'machakos water & sanitation co.', 'diamond trust bank kenya',
+    'family bank kenya ltd', 'josephat kiprop cheruiyot', 'agnes wambui kinyanjui',
+    'estate of samuel omwamba nyamweya', 'garissa livestock farmers sacco',
+    'trans nzoia produce board', 'emmanuel wafula simiyu', 'lucy nyambura mwangi'
+  ];
+  return demoClients.includes(client);
+}
+
 function savePersistedState() {
   ensureDataDir();
   try {
@@ -40,12 +75,18 @@ function savePersistedState() {
       dbFirms,
       dbUsers,
       dbDeletedFirms,
+      dbDeletedFiles,
       dbFiles,
       dbCourtSessions,
       dbTasks,
       dbClaims,
       dbCheques,
-      dbCommissions
+      dbCommissions,
+      dbFileDocuments,
+      dbMovements,
+      dbCourtOutcomes,
+      dbCorumEntries,
+      dbBringUpItems
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
   } catch (e) {
@@ -57,6 +98,7 @@ const savedData = loadPersistedState();
 
 // In-memory data initialized from persistent store or defaults
 let dbDeletedFirms: any[] = savedData?.dbDeletedFirms || [];
+let dbDeletedFiles: any[] = savedData?.dbDeletedFiles || [];
 let dbFirms: any[] = savedData?.dbFirms || [];
 
 let dbUsers: any[] = savedData?.dbUsers || [
@@ -77,12 +119,30 @@ let dbUsers: any[] = savedData?.dbUsers || [
   }
 ];
 
-let dbFiles: any[] = savedData?.dbFiles ?? [];
+let dbFiles: any[] = (savedData?.dbFiles ?? []).filter((f: any) => !isDemoFile(f));
 let dbCourtSessions: any[] = savedData?.dbCourtSessions ?? [];
 let dbTasks: any[] = savedData?.dbTasks ?? [];
 let dbClaims: any[] = savedData?.dbClaims ?? [];
 let dbCheques: any[] = savedData?.dbCheques ?? [];
 let dbCommissions: any[] = savedData?.dbCommissions ?? [];
+let dbFileDocuments: any[] = savedData?.dbFileDocuments ?? [];
+let dbMovements: any[] = savedData?.dbMovements ?? [];
+let dbCourtOutcomes: any[] = savedData?.dbCourtOutcomes ?? [];
+let dbCorumEntries: any[] = savedData?.dbCorumEntries ?? [];
+let dbBringUpItems: any[] = savedData?.dbBringUpItems ?? [];
+
+// Purge orphaned sessions/tasks that belong to demo files or non-existent files
+const validFileIds = new Set(dbFiles.map(f => f.id));
+const validFileNums = new Set(dbFiles.map(f => (f.internalFileNumber || '').toLowerCase().trim()));
+
+dbCourtSessions = dbCourtSessions.filter(s => 
+  (s.fileId && validFileIds.has(s.fileId)) ||
+  (s.fileNumber && validFileNums.has(s.fileNumber.toLowerCase().trim()))
+);
+dbTasks = dbTasks.filter(t => 
+  (!t.fileId || validFileIds.has(t.fileId)) &&
+  (!t.fileNumber || validFileNums.has(t.fileNumber.toLowerCase().trim()))
+);
 
 // If there are zero registered files, enforce zero orphaned diary sessions, tasks, and claims
 if (dbFiles.length === 0) {
@@ -357,9 +417,34 @@ app.post("/api/files", (req, res) => {
 app.delete("/api/files/:id", (req, res) => {
   const targetId = String(req.params.id || '').trim();
   const initCount = dbFiles.length;
-  dbFiles = dbFiles.filter(f => f.id !== targetId && f.internalFileNumber !== targetId);
-  dbCourtSessions = dbCourtSessions.filter(s => s.fileId !== targetId && s.fileNumber !== targetId);
-  dbClaims = dbClaims.filter(c => c.fileId !== targetId && c.fileNumber !== targetId);
+  const fileToDelete = dbFiles.find(f => f.id === targetId || f.internalFileNumber === targetId);
+  const targetNum = fileToDelete?.internalFileNumber || '';
+
+  dbFiles = dbFiles.filter(f => f.id !== targetId && f.internalFileNumber !== targetId && (!targetNum || f.internalFileNumber !== targetNum));
+  dbCourtSessions = dbCourtSessions.filter(s => s.fileId !== targetId && s.fileNumber !== targetId && (!targetNum || s.fileNumber !== targetNum));
+  dbTasks = dbTasks.filter(t => t.fileId !== targetId && t.fileNumber !== targetId && (!targetNum || t.fileNumber !== targetNum));
+  dbClaims = dbClaims.filter(c => c.fileId !== targetId && c.fileNumber !== targetId && (!targetNum || c.fileNumber !== targetNum));
+  dbFileDocuments = dbFileDocuments.filter(d => d.fileId !== targetId && d.fileNumber !== targetId && (!targetNum || d.fileNumber !== targetNum));
+  dbMovements = dbMovements.filter(m => m.fileId !== targetId && m.fileNumber !== targetId && (!targetNum || m.fileNumber !== targetNum));
+  dbCourtOutcomes = dbCourtOutcomes.filter(o => o.fileId !== targetId && o.fileNumber !== targetId && (!targetNum || o.fileNumber !== targetNum));
+  dbCorumEntries = dbCorumEntries.filter(c => c.fileId !== targetId && c.fileNumber !== targetId && (!targetNum || c.fileNumber !== targetNum));
+  dbBringUpItems = dbBringUpItems.filter(b => b.fileId !== targetId && b.fileNumber !== targetId && (!targetNum || b.fileNumber !== targetNum));
+
+  // Record deleted tombstone so all devices sync the deletion
+  if (targetId && !dbDeletedFiles.some(d => d.id === targetId || (targetNum && d.internalFileNumber === targetNum))) {
+    dbDeletedFiles.push({ id: targetId, internalFileNumber: targetNum, deletedAt: new Date().toISOString() });
+  }
+
+  // If there are zero registered files left, enforce zero orphaned diary sessions and tasks
+  if (dbFiles.length === 0) {
+    dbCourtSessions = [];
+    dbTasks = [];
+    dbClaims = [];
+    dbCheques = [];
+    dbCommissions = [];
+    dbFileDocuments = [];
+  }
+
   savePersistedState();
   res.json({ success: true, removed: initCount - dbFiles.length, remaining: dbFiles.length });
 });
@@ -559,6 +644,107 @@ app.post("/api/diary-tasks/clean-all", (req, res) => {
 app.get("/api/claims", (req, res) => res.json(dbClaims));
 app.get("/api/cheques", (req, res) => res.json(dbCheques));
 app.get("/api/commissions", (req, res) => res.json(dbCommissions));
+
+// Deleted Files tombstones for cross-device synchronization
+app.get("/api/deleted-files", (req, res) => res.json(dbDeletedFiles));
+app.post("/api/deleted-files", (req, res) => {
+  const { id, internalFileNumber } = req.body;
+  const targetId = String(id || '').trim();
+  const targetNum = String(internalFileNumber || '').trim();
+  if (targetId && !dbDeletedFiles.some(d => d.id === targetId || (targetNum && d.internalFileNumber === targetNum))) {
+    dbDeletedFiles.push({ id: targetId, internalFileNumber: targetNum, deletedAt: new Date().toISOString() });
+    savePersistedState();
+  }
+  res.json({ success: true, count: dbDeletedFiles.length });
+});
+app.delete("/api/deleted-files/:id", (req, res) => {
+  const targetId = String(req.params.id || '').trim();
+  dbDeletedFiles = dbDeletedFiles.filter(d => d.id !== targetId && d.internalFileNumber !== targetId);
+  savePersistedState();
+  res.json({ success: true, count: dbDeletedFiles.length });
+});
+
+// File Documents (attachments) persistence
+app.get("/api/file-documents", (req, res) => res.json(dbFileDocuments));
+app.post("/api/file-documents", (req, res) => {
+  const doc = req.body;
+  if (!doc || !doc.id) {
+    return res.status(400).json({ success: false, message: "Document with id is required." });
+  }
+  const idx = dbFileDocuments.findIndex(d => d.id === doc.id);
+  if (idx >= 0) {
+    dbFileDocuments[idx] = { ...dbFileDocuments[idx], ...doc };
+  } else {
+    dbFileDocuments.unshift(doc);
+  }
+  savePersistedState();
+  res.status(201).json({ success: true, count: dbFileDocuments.length, doc });
+});
+app.delete("/api/file-documents/:id", (req, res) => {
+  const targetId = req.params.id;
+  const initCount = dbFileDocuments.length;
+  dbFileDocuments = dbFileDocuments.filter(d => d.id !== targetId);
+  savePersistedState();
+  res.json({ success: true, removed: initCount - dbFileDocuments.length, count: dbFileDocuments.length });
+});
+
+// File Movements tracking
+app.get("/api/movements", (req, res) => res.json(dbMovements));
+app.post("/api/movements", (req, res) => {
+  const m = req.body;
+  if (m && m.id) {
+    const idx = dbMovements.findIndex(item => item.id === m.id);
+    if (idx >= 0) dbMovements[idx] = { ...dbMovements[idx], ...m };
+    else dbMovements.unshift(m);
+    savePersistedState();
+  }
+  res.json({ success: true, count: dbMovements.length });
+});
+
+// Court Outcomes
+app.get("/api/court-outcomes", (req, res) => res.json(dbCourtOutcomes));
+app.post("/api/court-outcomes", (req, res) => {
+  const outcome = req.body;
+  if (outcome && outcome.id) {
+    const idx = dbCourtOutcomes.findIndex(item => item.id === outcome.id);
+    if (idx >= 0) dbCourtOutcomes[idx] = { ...dbCourtOutcomes[idx], ...outcome };
+    else dbCourtOutcomes.unshift(outcome);
+    savePersistedState();
+  }
+  res.json({ success: true, count: dbCourtOutcomes.length });
+});
+
+// Corum Entries
+app.get("/api/corum-entries", (req, res) => res.json(dbCorumEntries));
+app.post("/api/corum-entries", (req, res) => {
+  const entry = req.body;
+  if (entry && entry.id) {
+    const idx = dbCorumEntries.findIndex(item => item.id === entry.id);
+    if (idx >= 0) dbCorumEntries[idx] = { ...dbCorumEntries[idx], ...entry };
+    else dbCorumEntries.unshift(entry);
+    savePersistedState();
+  }
+  res.json({ success: true, count: dbCorumEntries.length });
+});
+
+// Bring Up Items
+app.get("/api/bring-up-items", (req, res) => res.json(dbBringUpItems));
+app.post("/api/bring-up-items", (req, res) => {
+  const item = req.body;
+  if (item && item.id) {
+    const idx = dbBringUpItems.findIndex(i => i.id === item.id);
+    if (idx >= 0) dbBringUpItems[idx] = { ...dbBringUpItems[idx], ...item };
+    else dbBringUpItems.unshift(item);
+    savePersistedState();
+  }
+  res.json({ success: true, count: dbBringUpItems.length });
+});
+app.delete("/api/bring-up-items/:id", (req, res) => {
+  const targetId = req.params.id;
+  dbBringUpItems = dbBringUpItems.filter(i => i.id !== targetId);
+  savePersistedState();
+  res.json({ success: true, count: dbBringUpItems.length });
+});
 
 // --- VITE / STATIC SERVING ---
 async function startServer() {

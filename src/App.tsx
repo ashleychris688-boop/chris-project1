@@ -17,6 +17,7 @@ import {
   ChaserFollowUpLog,
   ChaserFileResponsibility,
   ChaserTask,
+  MatterTask,
   UnprocessedClientRecord,
   UrgentAlert,
   ToastNotification,
@@ -55,6 +56,7 @@ import {
   resetToDefaults, clearAllDataForProduction,
   getStoredDeletedFirms, saveDeletedFirmRecord, removeDeletedFirmRecord, isFirmDeleted,
   isDemoFile, cleanUpDemoRecords, saveDeletedFileId, saveDeletedFileIds,
+  removeDeletedFileId, isFileDeleted, getStoredDeletedFiles,
   cleanUpDiaryAndTasks
 } from './data/store';
 import { INITIAL_SETTINGS } from './data/initialData';
@@ -76,6 +78,9 @@ import {
   subscribeToUsers,
   subscribeToFirms,
   subscribeToFiles,
+  subscribeToDeletedFiles,
+  subscribeToFileDocuments,
+  subscribeToTasks,
   subscribeToMovements,
   subscribeToCourtSessions,
   subscribeToCorumEntries,
@@ -87,7 +92,9 @@ import {
   purgeFilesFromFirebase,
   purgeCourtSessionsFromFirebase,
   purgeTasksFromFirebase,
-  purgeAllDiaryAndTasksFromFirebase
+  purgeAllDiaryAndTasksFromFirebase,
+  saveDocumentAttachmentToFirebase,
+  deleteDocumentAttachmentFromFirebase
 } from './lib/firebase';
 import { ShieldAlert } from 'lucide-react';
 
@@ -857,25 +864,135 @@ export default function App() {
       }
     });
 
+    // Real-time snapshot listener for deleted file tombstones across devices
+    const unsubDeletedFiles = subscribeToDeletedFiles((deletedKeys) => {
+      if (!isMounted) return;
+      if (Array.isArray(deletedKeys) && deletedKeys.length > 0) {
+        saveDeletedFileIds(deletedKeys);
+        const delSet = new Set(deletedKeys.map(k => String(k).toLowerCase().trim()));
+
+        // Remove deleted files from state and storage immediately
+        setFilesState(prev => {
+          const filtered = prev.filter(f => {
+            const fid = String(f.id || '').toLowerCase().trim();
+            const fnum = String(f.internalFileNumber || '').toLowerCase().trim();
+            return !(fid && delSet.has(fid)) && !(fnum && delSet.has(fnum));
+          });
+          saveFiles(filtered);
+          return filtered;
+        });
+
+        // Cascade remove from court sessions
+        setCourtSessionsState(prev => {
+          const filtered = prev.filter(s => {
+            const sid = String(s.fileId || '').toLowerCase().trim();
+            const snum = String(s.fileNumber || '').toLowerCase().trim();
+            return !(sid && delSet.has(sid)) && !(snum && delSet.has(snum));
+          });
+          saveCourtSessions(filtered);
+          return filtered;
+        });
+
+        // Cascade remove from tasks
+        setTasksState(prev => {
+          const filtered = prev.filter(t => {
+            const tid = String(t.fileId || '').toLowerCase().trim();
+            const tnum = String(t.fileNumber || '').toLowerCase().trim();
+            return !(tid && delSet.has(tid)) && !(tnum && delSet.has(tnum));
+          });
+          saveTasks(filtered);
+          return filtered;
+        });
+
+        // Cascade remove from document attachments
+        setFileDocumentsState(prev => {
+          const filtered = prev.filter(d => {
+            const did = String(d.fileId || '').toLowerCase().trim();
+            const dnum = String(d.fileNumber || '').toLowerCase().trim();
+            return !(did && delSet.has(did)) && !(dnum && delSet.has(dnum));
+          });
+          saveFileDocuments(filtered);
+          return filtered;
+        });
+      }
+    });
+
     // Real-time snapshot listener for files across devices
     const unsubFiles = subscribeToFiles((liveFiles) => {
       if (!isMounted) return;
-      if (liveFiles && liveFiles.length > 0) {
+      if (Array.isArray(liveFiles)) {
+        const deleted = getStoredDeletedFiles();
+        const delSet = new Set(deleted.map(d => String(d).toLowerCase().trim()));
+        const isDel = (f: any) => {
+          const fid = String(f?.id || '').toLowerCase().trim();
+          const fnum = String(f?.internalFileNumber || '').toLowerCase().trim();
+          return (fid && delSet.has(fid)) || (fnum && delSet.has(fnum));
+        };
+
+        const liveMap = new Map<string, RegistryFile>();
+        liveFiles.forEach((f: any) => {
+          if (!isDel(f)) {
+            const k = f.id || f.internalFileNumber;
+            if (k) liveMap.set(k, f);
+          }
+        });
+
         setFilesState(prev => {
-          const map = new Map<string, RegistryFile>();
+          // If remote has files or is empty, liveMap reflects current Firestore state
+          // Also keep any local un-synced files provided they aren't marked deleted
           prev.forEach(f => {
-            const k = f.id || f.internalFileNumber;
-            if (k) map.set(k, f);
-          });
-          liveFiles.forEach((f: any) => {
-            const k = f.id || f.internalFileNumber;
-            if (k) {
-              const existing = map.get(k);
-              map.set(k, { ...existing, ...f });
+            if (!isDel(f)) {
+              const k = f.id || f.internalFileNumber;
+              if (k && !liveMap.has(k)) {
+                // Keep only if not deleted
+                liveMap.set(k, f);
+              }
             }
           });
-          const merged = Array.from(map.values());
+          const merged = Array.from(liveMap.values()).filter(f => !isDel(f));
           saveFiles(merged);
+          return merged;
+        });
+      }
+    });
+
+    // Real-time snapshot listener for document attachments across devices
+    const unsubDocuments = subscribeToFileDocuments((liveDocs) => {
+      if (!isMounted) return;
+      if (Array.isArray(liveDocs)) {
+        const deleted = getStoredDeletedFiles();
+        const delSet = new Set(deleted.map(d => String(d).toLowerCase().trim()));
+        setFileDocumentsState(prev => {
+          const map = new Map<string, FileDocumentAttachment>();
+          prev.forEach(d => map.set(d.id, d));
+          liveDocs.forEach((d: any) => map.set(d.id, d));
+          const merged = Array.from(map.values()).filter(d => {
+            const did = String(d.fileId || '').toLowerCase().trim();
+            const dnum = String(d.fileNumber || '').toLowerCase().trim();
+            return !(did && delSet.has(did)) && !(dnum && delSet.has(dnum));
+          });
+          saveFileDocuments(merged);
+          return merged;
+        });
+      }
+    });
+
+    // Real-time snapshot listener for tasks across devices
+    const unsubTasks = subscribeToTasks((liveTasks) => {
+      if (!isMounted) return;
+      if (Array.isArray(liveTasks)) {
+        const deleted = getStoredDeletedFiles();
+        const delSet = new Set(deleted.map(d => String(d).toLowerCase().trim()));
+        setTasksState(prev => {
+          const map = new Map<string, MatterTask>();
+          prev.forEach(t => map.set(t.id, t));
+          liveTasks.forEach((t: any) => map.set(t.id, t));
+          const merged = Array.from(map.values()).filter(t => {
+            const tid = String(t.fileId || '').toLowerCase().trim();
+            const tnum = String(t.fileNumber || '').toLowerCase().trim();
+            return !(tid && delSet.has(tid)) && !(tnum && delSet.has(tnum));
+          });
+          saveTasks(merged);
           return merged;
         });
       }
@@ -991,6 +1108,9 @@ export default function App() {
       unsubUsers();
       unsubFirms();
       unsubFiles();
+      unsubDeletedFiles();
+      unsubDocuments();
+      unsubTasks();
       unsubMovements();
       unsubCorum();
       unsubOutcomes();
@@ -2045,30 +2165,59 @@ export default function App() {
     if (!fileToDelete) return;
 
     try {
-      // 1. Delete from backend server
-      if (fileToDelete.id) {
-        await fetch(`/api/files/${encodeURIComponent(fileToDelete.id)}`, { method: 'DELETE' }).catch(() => {});
-      }
-      if (fileToDelete.internalFileNumber) {
-        await fetch(`/api/files/${encodeURIComponent(fileToDelete.internalFileNumber)}`, { method: 'DELETE' }).catch(() => {});
-      }
+      const cleanId = fileToDelete.id;
+      const cleanNum = fileToDelete.internalFileNumber;
 
-      // 2. Delete from Firebase
-      await purgeFilesFromFirebase([fileToDelete]).catch(() => {});
+      // 1. Delete across Firebase Firestore, backend API, and record tombstone
+      await deleteFileFromFirebase(cleanId, cleanNum).catch(err => console.warn('deleteFileFromFirebase error:', err));
 
-      // 3. Store tombstone so it won't be resurrected by cloud sync
-      if (fileToDelete.id) saveDeletedFileId(fileToDelete.id);
-      if (fileToDelete.internalFileNumber) saveDeletedFileId(fileToDelete.internalFileNumber);
+      // 2. Store tombstone locally
+      if (cleanId) saveDeletedFileId(cleanId);
+      if (cleanNum) saveDeletedFileId(cleanNum);
 
-      // 4. Filter out from local store and state
+      // 3. Filter out from local store and state
       const updatedFiles = files.filter(f => 
-        f.id !== fileToDelete.id && 
-        f.internalFileNumber !== fileToDelete.internalFileNumber
+        f.id !== cleanId && 
+        f.internalFileNumber !== cleanId &&
+        (!cleanNum || (f.id !== cleanNum && f.internalFileNumber !== cleanNum))
       );
       setFilesState(updatedFiles);
       saveFiles(updatedFiles);
 
-      // 5. Add audit log
+      // 4. Cascade filter court sessions, tasks, and document attachments locally
+      setCourtSessionsState(prev => {
+        const filtered = prev.filter(s => 
+          s.fileId !== cleanId && s.fileNumber !== cleanId &&
+          (!cleanNum || (s.fileId !== cleanNum && s.fileNumber !== cleanNum))
+        );
+        saveCourtSessions(filtered);
+        return filtered;
+      });
+
+      setTasksState(prev => {
+        const filtered = prev.filter(t => 
+          t.fileId !== cleanId && t.fileNumber !== cleanId &&
+          (!cleanNum || (t.fileId !== cleanNum && t.fileNumber !== cleanNum))
+        );
+        saveTasks(filtered);
+        return filtered;
+      });
+
+      setFileDocumentsState(prev => {
+        const filtered = prev.filter(d => 
+          d.fileId !== cleanId && d.fileNumber !== cleanId &&
+          (!cleanNum || (d.fileId !== cleanNum && d.fileNumber !== cleanNum))
+        );
+        saveFileDocuments(filtered);
+        return filtered;
+      });
+
+      // 5. If 0 registered files remain, clean up any orphaned diary sessions and tasks
+      if (updatedFiles.length === 0) {
+        await handleCleanUpDiaryAndTasks();
+      }
+
+      // 6. Add audit log
       if (currentUser) {
         addAuditLog(
           currentUser.fullName,
@@ -2083,7 +2232,7 @@ export default function App() {
       showToast(
         'success',
         'File Record Deleted',
-        `Physical file ${fileToDelete.internalFileNumber} (${fileToDelete.clientName}) has been deleted.`
+        `Physical file ${fileToDelete.internalFileNumber} (${fileToDelete.clientName}) has been deleted across all devices.`
       );
     } catch (e: any) {
       console.error('Delete file error:', e);
@@ -2453,12 +2602,12 @@ export default function App() {
   const handleAddDocumentAttachment = (doc: FileDocumentAttachment) => {
     const docWithFirm: FileDocumentAttachment = {
       ...doc,
-      firmCode: doc.firmCode || currentUser?.firmCode || settings.firmCode
+      firmCode: doc.firmCode || currentFirmCode || currentUser?.firmCode || settings.firmCode || 'LFR-001'
     };
     const updated = [docWithFirm, ...fileDocuments];
     setFileDocumentsState(updated);
     saveFileDocuments(updated);
-    saveDocumentToFirebase('file_documents', docWithFirm);
+    saveDocumentAttachmentToFirebase(docWithFirm);
 
     showToast('success', 'Document Attached', `"${doc.title}" was saved to case file vault.`);
 
@@ -2479,7 +2628,7 @@ export default function App() {
     const updated = fileDocuments.filter(d => d.id !== docId);
     setFileDocumentsState(updated);
     saveFileDocuments(updated);
-    deleteDocumentFromFirebase('file_documents', docId);
+    deleteDocumentAttachmentFromFirebase(docId);
 
     showToast('info', 'Document Removed', `Document "${docToDelete?.title || 'Record'}" was deleted from vault.`);
 
@@ -2496,18 +2645,34 @@ export default function App() {
   };
 
   const handleBulkImportFiles = (newFiles: RegistryFile[]) => {
-    const filesWithFirm = newFiles.map(f => ({
-      ...f,
-      firmCode: f.firmCode || currentUser?.firmCode || settings.firmCode
-    }));
+    const effectiveFirm = currentFirmCode || currentUser?.firmCode || settings.firmCode || 'LFR-001';
+    const filesWithFirm = newFiles.map(f => {
+      // Clear any tombstone so re-imported or newly uploaded records appear immediately
+      if (f.id) removeDeletedFileId(f.id);
+      if (f.internalFileNumber) removeDeletedFileId(f.internalFileNumber);
+      return {
+        ...f,
+        firmCode: f.firmCode || effectiveFirm
+      };
+    });
 
     const updatedFiles = [...filesWithFirm, ...files];
     setFilesState(updatedFiles);
     saveFiles(updatedFiles);
 
+    // Save each to Firebase and untombstone in Firestore
     filesWithFirm.forEach(f => {
-      saveDocumentToFirebase('files', f);
+      saveFileToFirebase(f);
     });
+
+    // Also persist to backend API
+    try {
+      fetch('/api/files/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: filesWithFirm })
+      }).catch(() => {});
+    } catch (e) {}
 
     setIsBulkImportModalOpen(false);
 

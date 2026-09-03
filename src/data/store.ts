@@ -183,6 +183,14 @@ export function saveDeletedFileIds(ids: string[]): void {
   saveItem(STORAGE_KEYS.DELETED_FILES, Array.from(current));
 }
 
+export function removeDeletedFileId(fileIdOrNumber: string): void {
+  const clean = String(fileIdOrNumber || '').trim().toLowerCase();
+  if (!clean) return;
+  const current = getStoredDeletedFiles();
+  const filtered = current.filter(d => d.toLowerCase() !== clean);
+  saveItem(STORAGE_KEYS.DELETED_FILES, filtered);
+}
+
 export function isFileDeleted(fileId?: string, fileNumber?: string): boolean {
   if (!fileId && !fileNumber) return false;
   const deleted = getStoredDeletedFiles();

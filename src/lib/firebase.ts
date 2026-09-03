@@ -510,11 +510,6 @@ export async function deleteDocumentFromFirebase(collectionName: string, rawDocI
   }
 }
 
-export async function deleteFileFromFirebase(fileId: string) {
-  if (!fileId) return;
-  await deleteDocumentFromFirebase('files', fileId);
-}
-
 export async function purgeFilesFromFirebase(filesToPurge: any[]) {
   if (!Array.isArray(filesToPurge) || filesToPurge.length === 0) return;
   for (const f of filesToPurge) {
@@ -1156,6 +1151,123 @@ export function subscribeToFirms(onUpdate: (firms: any[]) => void): () => void {
 }
 
 /**
+ * Records a deleted physical file ID and number in Firestore and backend
+ * so all connected devices immediately know not to render or re-upload it.
+ */
+export async function recordDeletedFileToFirebase(fileId: string, internalFileNumber?: string) {
+  const cleanId = String(fileId || '').trim();
+  const cleanNum = String(internalFileNumber || '').trim();
+  if (!cleanId && !cleanNum) return;
+
+  const targetId = sanitizeDocId(cleanId || cleanNum);
+  const record = {
+    id: cleanId,
+    internalFileNumber: cleanNum,
+    deletedAt: new Date().toISOString()
+  };
+
+  // 1. Write to Firestore 'deleted_files' collection
+  try {
+    const docRef = doc(db, 'deleted_files', targetId);
+    await setDoc(docRef, record, { merge: true });
+  } catch (e) {
+    console.warn('Error recording deleted file in Firebase:', e);
+  }
+
+  // 2. Synchronize to backend API
+  try {
+    fetch('/api/deleted-files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record)
+    }).catch(() => {});
+  } catch (e) {}
+
+  // 3. Save to localStorage
+  try {
+    const raw = localStorage.getItem('lfr_deleted_files_v2');
+    const list = raw ? JSON.parse(raw) : [];
+    if (!list.includes(cleanId) && cleanId) list.unshift(cleanId);
+    if (!list.includes(cleanNum) && cleanNum) list.unshift(cleanNum);
+    localStorage.setItem('lfr_deleted_files_v2', JSON.stringify(list));
+  } catch (e) {}
+}
+
+/**
+ * Fetches all deleted file IDs and numbers from Firestore, backend, and localStorage.
+ */
+export async function fetchDeletedFilesFromFirebase(): Promise<string[]> {
+  const deletedSet = new Set<string>();
+
+  // 1. LocalStorage
+  try {
+    const raw = localStorage.getItem('lfr_deleted_files_v2');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        list.forEach((item: any) => {
+          if (typeof item === 'string' && item) deletedSet.add(item);
+          else if (item && item.id) deletedSet.add(item.id);
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 2. Backend API
+  try {
+    const res = await fetch('/api/deleted-files');
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list)) {
+        list.forEach((r: any) => {
+          if (r.id) deletedSet.add(r.id);
+          if (r.internalFileNumber) deletedSet.add(r.internalFileNumber);
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 3. Firestore
+  try {
+    const snap = await getDocs(collection(db, 'deleted_files')).catch(() => ({ forEach: () => {} } as any));
+    snap.forEach((docSnap: any) => {
+      const data = docSnap.data();
+      if (data) {
+        if (data.id) deletedSet.add(data.id);
+        if (data.internalFileNumber) deletedSet.add(data.internalFileNumber);
+      }
+    });
+  } catch (e) {}
+
+  return Array.from(deletedSet);
+}
+
+/**
+ * Real-time listener for deleted files tombstones across devices
+ */
+export function subscribeToDeletedFiles(onUpdate: (deletedKeys: string[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'deleted_files');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const deletedKeys: string[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          if (data.id) deletedKeys.push(data.id);
+          if (data.internalFileNumber) deletedKeys.push(data.internalFileNumber);
+        }
+      });
+      onUpdate(deletedKeys);
+    }, (err) => {
+      console.warn('[Firebase] Deleted files snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
  * Real-time listener for physical files collection across devices
  */
 export function subscribeToFiles(onUpdate: (files: any[]) => void): () => void {
@@ -1203,9 +1315,8 @@ export function subscribeToFiles(onUpdate: (files: any[]) => void): () => void {
           files.push({ id: docSnap.id, ...data });
         }
       });
-      if (files.length > 0) {
-        onUpdate(files);
-      }
+      // Always broadcast the updated list (even if empty) so deletions propagate immediately!
+      onUpdate(files);
     }, (err) => {
       console.warn('[Firebase] Files snapshot listener error:', err);
     });
@@ -1229,9 +1340,7 @@ export function subscribeToMovements(onUpdate: (movements: any[]) => void): () =
           movements.push({ id: docSnap.id, ...data });
         }
       });
-      if (movements.length > 0) {
-        onUpdate(movements);
-      }
+      onUpdate(movements);
     }, (err) => {
       console.warn('[Firebase] Movements snapshot listener error:', err);
     });
@@ -1255,9 +1364,7 @@ export function subscribeToCorumEntries(onUpdate: (entries: any[]) => void): () 
           entries.push({ id: docSnap.id, ...data });
         }
       });
-      if (entries.length > 0) {
-        onUpdate(entries);
-      }
+      onUpdate(entries);
     }, (err) => {
       console.warn('[Firebase] Corum entries snapshot listener error:', err);
     });
@@ -1281,9 +1388,7 @@ export function subscribeToCourtOutcomes(onUpdate: (outcomes: any[]) => void): (
           outcomes.push({ id: docSnap.id, ...data });
         }
       });
-      if (outcomes.length > 0) {
-        onUpdate(outcomes);
-      }
+      onUpdate(outcomes);
     }, (err) => {
       console.warn('[Firebase] Court outcomes snapshot listener error:', err);
     });
@@ -1307,9 +1412,7 @@ export function subscribeToUnprocessedRecords(onUpdate: (records: any[]) => void
           records.push({ id: docSnap.id, ...data });
         }
       });
-      if (records.length > 0) {
-        onUpdate(records);
-      }
+      onUpdate(records);
     }, (err) => {
       console.warn('[Firebase] Unprocessed records snapshot listener error:', err);
     });
@@ -1333,9 +1436,7 @@ export function subscribeToCourtSessions(onUpdate: (sessions: any[]) => void): (
           sessions.push({ id: docSnap.id, ...data });
         }
       });
-      if (sessions.length > 0) {
-        onUpdate(sessions);
-      }
+      onUpdate(sessions);
     }, (err) => {
       console.warn('[Firebase] Court sessions snapshot listener error:', err);
     });
@@ -1343,6 +1444,83 @@ export function subscribeToCourtSessions(onUpdate: (sessions: any[]) => void): (
   } catch (e) {
     return () => {};
   }
+}
+
+/**
+ * Real-time listener for task management collection across devices
+ */
+export function subscribeToTasks(onUpdate: (tasks: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'tasks');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const tasks: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          tasks.push({ id: docSnap.id, ...data });
+        }
+      });
+      onUpdate(tasks);
+    }, (err) => {
+      console.warn('[Firebase] Tasks snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for uploaded document attachments across devices
+ */
+export function subscribeToFileDocuments(onUpdate: (docs: any[]) => void): () => void {
+  try {
+    const colRef = collection(db, 'file_documents');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const docs: any[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data) {
+          docs.push({ id: docSnap.id, ...data });
+        }
+      });
+      onUpdate(docs);
+    }, (err) => {
+      console.warn('[Firebase] File documents snapshot listener error:', err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    return () => {};
+  }
+}
+
+/**
+ * Removes a tombstone when a physical file is newly registered or re-imported
+ */
+export async function unrecordDeletedFileFromFirebase(fileId: string, internalFileNumber?: string) {
+  const cleanId = String(fileId || '').trim();
+  const cleanNum = String(internalFileNumber || '').trim();
+  try {
+    if (cleanId) await deleteDoc(doc(db, 'deleted_files', sanitizeDocId(cleanId))).catch(() => {});
+    if (cleanNum && cleanNum !== cleanId) await deleteDoc(doc(db, 'deleted_files', sanitizeDocId(cleanNum))).catch(() => {});
+  } catch (e) {}
+  try {
+    if (cleanId) fetch(`/api/deleted-files/${encodeURIComponent(cleanId)}`, { method: 'DELETE' }).catch(() => {});
+    if (cleanNum && cleanNum !== cleanId) fetch(`/api/deleted-files/${encodeURIComponent(cleanNum)}`, { method: 'DELETE' }).catch(() => {});
+  } catch (e) {}
+  try {
+    const raw = localStorage.getItem('lfr_deleted_files_v2');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        const filtered = list.filter((item: string) => {
+          const ci = String(item || '').toLowerCase().trim();
+          return ci !== cleanId.toLowerCase() && (!cleanNum || ci !== cleanNum.toLowerCase());
+        });
+        localStorage.setItem('lfr_deleted_files_v2', JSON.stringify(filtered));
+      }
+    }
+  } catch (e) {}
 }
 
 /**
@@ -1372,6 +1550,263 @@ export async function saveFileToFirebase(file: any) {
       body: JSON.stringify(sanitizedFile)
     }).catch(() => {});
   } catch (e) {}
+
+  // Remove any tombstone so re-registered or imported file is immediately visible across all devices
+  await unrecordDeletedFileFromFirebase(rawId, file.internalFileNumber);
+}
+
+/**
+ * Permanently deletes a physical file across Firebase Firestore, backend API, and local caches.
+ * Also cascades to purge associated court sessions, tasks, and document attachments across all devices.
+ */
+export async function deleteFileFromFirebase(fileId: string, internalFileNumber?: string) {
+  const cleanId = String(fileId || '').trim();
+  const cleanNum = String(internalFileNumber || '').trim();
+  if (!cleanId && !cleanNum) return;
+
+  // 1. Record tombstone in Firestore, backend, and localStorage
+  await recordDeletedFileToFirebase(cleanId, cleanNum);
+
+  // 2. Delete file doc from Firestore 'files'
+  try {
+    if (cleanId) await deleteDoc(doc(db, 'files', sanitizeDocId(cleanId))).catch(() => {});
+    if (cleanNum && cleanNum !== cleanId) await deleteDoc(doc(db, 'files', sanitizeDocId(cleanNum))).catch(() => {});
+  } catch (e) {}
+
+  // 3. Delete from backend API
+  try {
+    const target = cleanId || cleanNum;
+    await fetch(`/api/files/${encodeURIComponent(target)}`, { method: 'DELETE' }).catch(() => {});
+  } catch (e) {}
+
+  // 4. Cascade purge related court sessions in Firestore
+  try {
+    const sessCol = collection(db, 'court_sessions');
+    const snap = await getDocs(sessCol).catch(() => ({ forEach: () => {} } as any));
+    snap.forEach(async (d: any) => {
+      const data = d.data();
+      if (!data) return;
+      const sId = String(data.fileId || '').trim();
+      const sNum = String(data.fileNumber || '').trim();
+      if (
+        (cleanId && (sId === cleanId || sNum === cleanId)) ||
+        (cleanNum && (sId === cleanNum || sNum === cleanNum))
+      ) {
+        await deleteDoc(doc(db, 'court_sessions', d.id)).catch(() => {});
+      }
+    });
+  } catch (e) {}
+
+  // 5. Cascade purge related tasks in Firestore
+  try {
+    const taskCol = collection(db, 'tasks');
+    const snap = await getDocs(taskCol).catch(() => ({ forEach: () => {} } as any));
+    snap.forEach(async (d: any) => {
+      const data = d.data();
+      if (!data) return;
+      const tId = String(data.fileId || '').trim();
+      const tNum = String(data.fileNumber || '').trim();
+      if (
+        (cleanId && (tId === cleanId || tNum === cleanId)) ||
+        (cleanNum && (tId === cleanNum || tNum === cleanNum))
+      ) {
+        await deleteDoc(doc(db, 'tasks', d.id)).catch(() => {});
+      }
+    });
+  } catch (e) {}
+
+  // 6. Cascade purge related document attachments in Firestore
+  try {
+    const docCol = collection(db, 'file_documents');
+    const snap = await getDocs(docCol).catch(() => ({ forEach: () => {} } as any));
+    snap.forEach(async (d: any) => {
+      const data = d.data();
+      if (!data) return;
+      const dId = String(data.fileId || '').trim();
+      const dNum = String(data.fileNumber || '').trim();
+      if (
+        (cleanId && (dId === cleanId || dNum === cleanId)) ||
+        (cleanNum && (dId === cleanNum || dNum === cleanNum))
+      ) {
+        await deleteDoc(doc(db, 'file_documents', d.id)).catch(() => {});
+      }
+    });
+  } catch (e) {}
+
+  // 7. Prune from localStorage files
+  try {
+    const raw = localStorage.getItem('lfr_files_v2');
+    if (raw) {
+      const currentFiles = JSON.parse(raw);
+      const filtered = currentFiles.filter((f: any) => 
+        f.id !== cleanId && 
+        f.internalFileNumber !== cleanId && 
+        (!cleanNum || (f.id !== cleanNum && f.internalFileNumber !== cleanNum))
+      );
+      localStorage.setItem('lfr_files_v2', JSON.stringify(filtered));
+    }
+  } catch (e) {}
+
+  // 8. Prune from localStorage court sessions
+  try {
+    const rawS = localStorage.getItem('lfr_court_sessions_v2');
+    if (rawS) {
+      const cur = JSON.parse(rawS);
+      const filtered = cur.filter((s: any) => 
+        s.fileId !== cleanId && s.fileNumber !== cleanId &&
+        (!cleanNum || (s.fileId !== cleanNum && s.fileNumber !== cleanNum))
+      );
+      localStorage.setItem('lfr_court_sessions_v2', JSON.stringify(filtered));
+    }
+  } catch (e) {}
+
+  // 9. Prune from localStorage tasks
+  try {
+    const rawT = localStorage.getItem('lfr_tasks_v2');
+    if (rawT) {
+      const cur = JSON.parse(rawT);
+      const filtered = cur.filter((t: any) => 
+        t.fileId !== cleanId && t.fileNumber !== cleanId &&
+        (!cleanNum || (t.fileId !== cleanNum && t.fileNumber !== cleanNum))
+      );
+      localStorage.setItem('lfr_tasks_v2', JSON.stringify(filtered));
+    }
+  } catch (e) {}
+
+  // 10. Prune from localStorage documents
+  try {
+    const rawD = localStorage.getItem('lfr_file_documents_v2');
+    if (rawD) {
+      const cur = JSON.parse(rawD);
+      const filtered = cur.filter((d: any) => 
+        d.fileId !== cleanId && d.fileNumber !== cleanId &&
+        (!cleanNum || (d.fileId !== cleanNum && d.fileNumber !== cleanNum))
+      );
+      localStorage.setItem('lfr_file_documents_v2', JSON.stringify(filtered));
+    }
+  } catch (e) {}
+}
+
+/**
+ * Saves a court session to Firestore and backend API
+ */
+export async function saveCourtSessionToFirebase(session: any) {
+  if (!session || !session.id) return;
+  const docId = sanitizeDocId(session.id);
+  await saveDocumentToFirebase('court_sessions', { ...session, id: docId });
+  try {
+    fetch('/api/court-sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...session, id: docId })
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Deletes a court session from Firestore and backend API
+ */
+export async function deleteCourtSessionFromFirebase(sessionId: string) {
+  if (!sessionId) return;
+  const docId = sanitizeDocId(sessionId);
+  try {
+    await deleteDoc(doc(db, 'court_sessions', docId)).catch(() => {});
+  } catch (e) {}
+  try {
+    await fetch(`/api/court-sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Saves a task to Firestore and backend API
+ */
+export async function saveTaskToFirebase(task: any) {
+  if (!task || !task.id) return;
+  const docId = sanitizeDocId(task.id);
+  await saveDocumentToFirebase('tasks', { ...task, id: docId });
+  try {
+    fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...task, id: docId })
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Deletes a task from Firestore and backend API
+ */
+export async function deleteTaskFromFirebase(taskId: string) {
+  if (!taskId) return;
+  const docId = sanitizeDocId(taskId);
+  try {
+    await deleteDoc(doc(db, 'tasks', docId)).catch(() => {});
+  } catch (e) {}
+  try {
+    await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, { method: 'DELETE' }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Saves an uploaded document attachment to Firestore and backend API
+ */
+export async function saveDocumentAttachmentToFirebase(docData: any) {
+  if (!docData || !docData.id) return;
+  const docId = sanitizeDocId(docData.id);
+  await saveDocumentToFirebase('file_documents', { ...docData, id: docId });
+  try {
+    fetch('/api/file-documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...docData, id: docId })
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Deletes a document attachment from Firestore and backend API
+ */
+export async function deleteDocumentAttachmentFromFirebase(docId: string) {
+  if (!docId) return;
+  const sanitizedId = sanitizeDocId(docId);
+  try {
+    await deleteDoc(doc(db, 'file_documents', sanitizedId)).catch(() => {});
+  } catch (e) {}
+  try {
+    await fetch(`/api/file-documents/${encodeURIComponent(docId)}`, { method: 'DELETE' }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
+ * Master clean-all for diary sessions and tasks across Firestore and backend API
+ */
+export async function cleanAllDiaryAndTasksFromFirebase() {
+  // 1. Backend clean-all
+  try {
+    await fetch('/api/diary-tasks/clean-all', { method: 'POST' });
+  } catch (e) {}
+
+  // 2. Clean Firestore court_sessions
+  try {
+    const snap = await getDocs(collection(db, 'court_sessions')).catch(() => ({ forEach: () => {} } as any));
+    const batchList: Promise<any>[] = [];
+    snap.forEach((d: any) => batchList.push(deleteDoc(doc(db, 'court_sessions', d.id))));
+    await Promise.allSettled(batchList);
+  } catch (e) {}
+
+  // 3. Clean Firestore tasks
+  try {
+    const snapT = await getDocs(collection(db, 'tasks')).catch(() => ({ forEach: () => {} } as any));
+    const batchListT: Promise<any>[] = [];
+    snapT.forEach((d: any) => batchListT.push(deleteDoc(doc(db, 'tasks', d.id))));
+    await Promise.allSettled(batchListT);
+  } catch (e) {}
+
+  // 4. Clean localStorage
+  try {
+    localStorage.removeItem('lfr_court_sessions_v2');
+    localStorage.removeItem('lfr_tasks_v2');
+  } catch (e) {}
 }
 
 /**
@@ -1385,6 +1820,8 @@ export async function performFullCloudSync(firmCode = 'LFR-001'): Promise<{
   users?: any[];
   firms?: any[];
   courtSessions?: any[];
+  tasks?: any[];
+  documents?: any[];
 }> {
   if (isQuotaExceeded) {
     return {
@@ -1402,19 +1839,37 @@ export async function performFullCloudSync(firmCode = 'LFR-001'): Promise<{
     }
   };
 
-  const localFiles = parse('lfr_files_v2');
+  // 0. Fetch tombstones so deleted items are NEVER resurrected or re-uploaded!
+  const deletedFiles = await fetchDeletedFilesFromFirebase();
+  const deletedSet = new Set(deletedFiles.map(d => String(d).toLowerCase().trim()));
+  const isDeleted = (f: any) => {
+    if (!f) return true;
+    const fId = String(f.id || '').toLowerCase().trim();
+    const fNum = String(f.internalFileNumber || '').toLowerCase().trim();
+    return (fId && deletedSet.has(fId)) || (fNum && deletedSet.has(fNum));
+  };
+
+  const rawLocalFiles = parse('lfr_files_v2');
+  // Purge any deleted files from local storage immediately
+  const localFiles = rawLocalFiles.filter((f: any) => !isDeleted(f));
+  if (localFiles.length !== rawLocalFiles.length) {
+    localStorage.setItem('lfr_files_v2', JSON.stringify(localFiles));
+  }
+
   const localUsers = parse('lfr_users_v2');
   const localFirms = parse('lfr_firms_v2');
   const localMovements = parse('lfr_movements_v2');
   const localSessions = parse('lfr_court_sessions_v2');
+  const localTasks = parse('lfr_tasks_v2');
+  const localDocuments = parse('lfr_file_documents_v2');
   const localOutcomes = parse('lfr_court_outcomes_v2');
   const localCorums = parse('lfr_corum_entries_v2');
   const localUnprocessed = parse('lfr_unprocessed_records_v2');
 
-  // 1. PUSH: upload all local files & records to Firestore
+  // 1. PUSH: upload all valid local files & records to Firestore
   const uploadPromises: Promise<any>[] = [];
   localFiles.forEach((f: any) => {
-    if (f) uploadPromises.push(saveFileToFirebase(f));
+    if (f && !isDeleted(f)) uploadPromises.push(saveFileToFirebase(f));
   });
   localFirms.forEach((fm: any) => {
     if (fm) uploadPromises.push(saveFirmToFirebase(fm));
@@ -1427,6 +1882,12 @@ export async function performFullCloudSync(firmCode = 'LFR-001'): Promise<{
   });
   localSessions.forEach((s: any) => {
     if (s) uploadPromises.push(saveDocumentToFirebase('court_sessions', s));
+  });
+  localTasks.forEach((t: any) => {
+    if (t) uploadPromises.push(saveDocumentToFirebase('tasks', t));
+  });
+  localDocuments.forEach((d: any) => {
+    if (d) uploadPromises.push(saveDocumentAttachmentToFirebase(d));
   });
   localOutcomes.forEach((o: any) => {
     if (o) uploadPromises.push(saveDocumentToFirebase('court_outcomes', o));
@@ -1452,7 +1913,8 @@ export async function performFullCloudSync(firmCode = 'LFR-001'): Promise<{
         files: localFiles,
         users: localUsers,
         firms: localFirms,
-        courtSessions: localSessions
+        courtSessions: localSessions,
+        tasks: localTasks
       })
     }).catch(() => {});
   } catch (e) {}
@@ -1464,10 +1926,13 @@ export async function performFullCloudSync(firmCode = 'LFR-001'): Promise<{
     fetchFirmsFromFirebase()
   ]);
 
+  // Clean remote files using tombstones
+  const sanitizedLiveFiles = liveFiles.filter((f: any) => !isDeleted(f));
+
   return {
     success: true,
-    message: `Synchronized ${liveFiles.length} files, ${liveUsers.length} users, and ${liveFirms.length} firms across all connected devices.`,
-    files: liveFiles,
+    message: `Synchronized ${sanitizedLiveFiles.length} files, ${liveUsers.length} users, and ${liveFirms.length} firms across all connected devices.`,
+    files: sanitizedLiveFiles,
     users: liveUsers,
     firms: liveFirms
   };

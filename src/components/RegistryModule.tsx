@@ -250,8 +250,8 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   // Station search state for large list of court stations
   const [stationSearchTerm, setStationSearchTerm] = useState('');
 
-  // Active Station drill-down view state (null = showing court stations list, string = viewing specific station files)
-  const [activeStationView, setActiveStationView] = useState<string | null>(null);
+  // Active Station drill-down view state (null = showing court stations list, string = viewing specific station files, 'ALL' = master register table)
+  const [activeStationView, setActiveStationView] = useState<string | null>('ALL');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 15;
 
@@ -915,11 +915,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
   // Step 1 Overall Category Totals
   const allActiveFiles = files.filter(f => 
-    f.currentStatus === 'Active' || 
-    f.currentStatus === 'Out in Court' || 
-    f.currentStatus === 'Out with Advocate' || 
-    f.currentStatus === 'Out with Insurance' || 
-    f.currentStatus === 'Pending Court'
+    f.currentStatus !== 'Closed' && f.currentStatus !== 'Archived'
   );
 
   const allClosedFiles = files.filter(f => 
@@ -930,11 +926,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
   // Step 2 Category Filtered Files (used to derive stations that have files in selected category)
   const categoryFilteredFiles = files.filter(f => {
     if (categoryTab === 'ACTIVE') {
-      return f.currentStatus === 'Active' || 
-             f.currentStatus === 'Out in Court' || 
-             f.currentStatus === 'Out with Advocate' || 
-             f.currentStatus === 'Out with Insurance' || 
-             f.currentStatus === 'Pending Court';
+      return f.currentStatus !== 'Closed' && f.currentStatus !== 'Archived';
     }
     if (categoryTab === 'CLOSED') {
       return f.currentStatus === 'Closed' || f.currentStatus === 'Archived';
@@ -958,6 +950,8 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
 
   const getStatusBadge = (status: FileStatus) => {
     switch (status) {
+      case 'In Registry':
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-950 text-blue-300 border border-blue-700">In Registry</span>;
       case 'Active':
         return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">Active</span>;
       case 'Out in Court':
@@ -1012,13 +1006,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
     if (!matchesSearch) return false;
 
     if (categoryTab === 'ACTIVE') {
-      const isActiveStatus = 
-        f.currentStatus === 'Active' || 
-        f.currentStatus === 'Out in Court' || 
-        f.currentStatus === 'Out with Advocate' || 
-        f.currentStatus === 'Out with Insurance' || 
-        f.currentStatus === 'Pending Court';
-      
+      const isActiveStatus = f.currentStatus !== 'Closed' && f.currentStatus !== 'Archived';
       if (!isActiveStatus) return false;
       if (subStatusFilter !== 'ALL' && f.currentStatus !== subStatusFilter) return false;
       return true;
@@ -1544,7 +1532,7 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               {(categoryTab === 'ACTIVE' || categoryTab === 'ALL') && (
                 <div className="flex items-center gap-1 overflow-x-auto">
                   <span className="text-[10px] text-slate-400 font-mono uppercase mr-1">Status:</span>
-                  {['ALL', 'Active', 'Out in Court', 'Out with Advocate', 'Out with Insurance'].map(st => (
+                  {['ALL', 'In Registry', 'Active', 'Out in Court', 'Out with Advocate', 'Out with Insurance', 'Pending Court'].map(st => (
                     <button
                       key={st}
                       onClick={() => {
@@ -2170,8 +2158,11 @@ export const RegistryModule: React.FC<RegistryModuleProps> = ({
               {/* Documents List */}
               {(() => {
                 const fileDocs = documents.filter(d => 
-                  d.fileId === selectedFile.id || 
-                  (d.fileNumber && d.fileNumber.trim().toLowerCase() === selectedFile.internalFileNumber.trim().toLowerCase())
+                  (d.fileId && (d.fileId === selectedFile.id || d.fileId === selectedFile.internalFileNumber)) || 
+                  (d.fileNumber && (
+                    d.fileNumber.trim().toLowerCase() === selectedFile.internalFileNumber.trim().toLowerCase() ||
+                    d.fileNumber.trim().toLowerCase() === selectedFile.id.trim().toLowerCase()
+                  ))
                 );
 
                 if (fileDocs.length === 0) {

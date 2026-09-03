@@ -21,10 +21,15 @@ export interface User {
 
 export type FileStatus = 
   | 'Active' 
+  | 'In Registry'
   | 'Pending Court' 
-  | 'Out with Advocate' 
+  | 'In Court'
   | 'Out in Court' 
+  | 'With Advocate'
+  | 'Out with Advocate' 
+  | 'Pending Judgment'
   | 'Out with Insurance' 
+  | 'In Transit'
   | 'Closed' 
   | 'Archived' 
   | 'Incomplete'
@@ -502,6 +507,7 @@ export interface TaskItem {
 }
 
 export type ChaserTask = TaskItem;
+export type MatterTask = TaskItem;
 
 export interface TaskTitlePreset {
   category: string;

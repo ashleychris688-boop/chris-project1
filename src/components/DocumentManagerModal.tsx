@@ -62,8 +62,11 @@ export const DocumentManagerModal: React.FC<DocumentManagerModalProps> = ({
 
   // Filter documents for this specific file
   const fileDocs = documents.filter(d => 
-    d.fileId === file.id || 
-    (d.fileNumber && d.fileNumber.trim().toLowerCase() === file.internalFileNumber.trim().toLowerCase())
+    (d.fileId && (d.fileId === file.id || d.fileId === file.internalFileNumber)) || 
+    (d.fileNumber && (
+      d.fileNumber.trim().toLowerCase() === file.internalFileNumber.trim().toLowerCase() ||
+      d.fileNumber.trim().toLowerCase() === file.id.trim().toLowerCase()
+    ))
   );
 
   const filteredDocs = fileDocs.filter(d => {
@@ -96,7 +99,7 @@ export const DocumentManagerModal: React.FC<DocumentManagerModalProps> = ({
 
         const newDoc: FileDocumentAttachment = {
           id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-          firmCode: file.firmCode || 'LFR-MAIN',
+          firmCode: file.firmCode || currentUser?.firmCode || 'LFR-001',
           fileId: file.id,
           fileNumber: file.internalFileNumber,
           corumId: corumId,

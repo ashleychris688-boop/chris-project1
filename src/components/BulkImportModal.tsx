@@ -31,7 +31,7 @@ interface BulkImportModalProps {
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   existingFiles,
   currentUser,
-  activeFirmCode = 'LFR-MAIN',
+  activeFirmCode,
   onClose,
   onImportComplete
 }) => {
@@ -45,6 +45,10 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   const [step, setStep] = useState<'upload' | 'preview'>('upload');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const effectiveFirmCode = (activeFirmCode && activeFirmCode !== 'LFR-MAIN')
+    ? activeFirmCode 
+    : (currentUser?.firmCode || 'LFR-001');
 
   const handleProcessFile = async (file: File) => {
     setSelectedFile(file);
@@ -61,7 +65,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       const { validFiles: mapped, errors, duplicateCount: dupes } = mapSpreadsheetRowsToFiles(
         rows, 
         existingFiles, 
-        activeFirmCode
+        effectiveFirmCode
       );
 
       setValidFiles(mapped);
